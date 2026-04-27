@@ -1,0 +1,336 @@
+# Existing Skills Reuse Strategy
+
+## Purpose
+
+This document defines how AI Product Builder reuses already installed Codex Skills without immediately creating custom APB Skills. Existing Skills may provide useful capability, but APB remains responsible for routing, workflow, templates, constraints, and output standards.
+
+This strategy is based on a read-only scan of candidate `SKILL.md` frontmatter fields: `name`, `description`, and `path`. If a future scan cannot read a Skill frontmatter, that Skill must be marked `unreadable` in notes and must not be promoted to `Primary Reuse`.
+
+## Core Principle
+
+- Existing Skills provide capability.
+- AI Product Builder provides workflow, templates, constraints, and output standards.
+- When a Skill conflicts with workspace rules, workspace rules win.
+- When a Skill conflicts with templates, templates win.
+- When a task is ambiguous, route through the correct workspace first.
+- Do not assume a Skill should be reused only because its name looks relevant.
+- Existing Skills are capability providers, not final output authorities.
+- APB workspace templates are the final output authority.
+
+## Skill Reuse Decision Criteria
+
+| Criterion | Question | Decision Impact |
+| --- | --- | --- |
+| Name match | Does the Skill name directly match the task intent? | Helps shortlist candidates but is never sufficient by itself. |
+| Description match | Does frontmatter `description` explicitly support the task? | Strong driver for reuse level. No clear description match means no default reuse. |
+| Workspace fit | Does the Skill fit one APB workspace without crossing boundaries? | Strong fit can become Primary Reuse or Secondary Support. |
+| Template compatibility | Can the Skill output obey APB templates and workflows? | If not, use APB workflow directly or reformat output. |
+| Safety risk | Does the Skill involve browser, Figma, Playwright, external writes, credentials, commands, or remote systems? | High-risk Skills are not default automatic reuse. |
+| Freshness need | Does the task require latest information or external context? | External context Skills may be used only when needed. |
+| Duplicate risk | Does the same Skill name exist at multiple paths? | Duplicates should be reviewed later and not preferred by default. |
+| Trigger ambiguity | Could the Skill be triggered too broadly or in the wrong workspace? | Ambiguous Skills are Secondary Support or lower. |
+| Output controllability | Can APB templates reliably constrain the Skill output? | Low controllability lowers reuse level. |
+
+Allowed reuse levels:
+
+- Primary Reuse
+- Secondary Support
+- Use When Task Requires External Context
+- Use Only When Explicitly Requested
+- Do Not Prefer
+- Duplicate / Review Later
+
+## Skill Reuse Decision Matrix
+
+### Frontmatter Inventory
+
+| Name | Status | Description | Path |
+| --- | --- | --- | --- |
+| `writing-prds` | `ok` | Help users write effective PRDs. Use when someone is documenting product requirements, preparing specs for engineering, writing feature briefs, or defining what to build for their team. | `/Users/yayauu/.agents/skills/writing-prds/SKILL.md` |
+| `writing-prds` | `ok` | Help users write effective PRDs. Use when someone is documenting product requirements, preparing specs for engineering, writing feature briefs, or defining what to build for their team. | `/Users/yayauu/.agents/skills/lenny-skills/skills/writing-prds/SKILL.md` |
+| `competitive-analysis` | `ok` | Help users understand and respond to competition. Use when someone is positioning against competitors, evaluating market threats, running competitive war games, or deciding how much to focus on competitors versus customers. | `/Users/yayauu/.agents/skills/competitive-analysis/SKILL.md` |
+| `competitive-analysis` | `ok` | Help users understand and respond to competition. Use when someone is positioning against competitors, evaluating market threats, running competitive war games, or deciding how much to focus on competitors versus customers. | `/Users/yayauu/.agents/skills/lenny-skills/skills/competitive-analysis/SKILL.md` |
+| `ai-product-strategy` | `ok` | Help users define AI product strategy. Use when someone is building an AI product, deciding where to apply AI in their product, planning an AI roadmap, evaluating build vs buy for AI capabilities, or figuring out how to integrate AI into existing products. | `/Users/yayauu/.agents/skills/ai-product-strategy/SKILL.md` |
+| `ai-product-strategy` | `ok` | Help users define AI product strategy. Use when someone is building an AI product, deciding where to apply AI in their product, planning an AI roadmap, evaluating build vs buy for AI capabilities, or figuring out how to integrate AI into existing products. | `/Users/yayauu/.agents/skills/lenny-skills/skills/ai-product-strategy/SKILL.md` |
+| `prioritizing-roadmap` | `ok` | Help users prioritize product roadmaps and backlogs. Use when someone is deciding what to build next, sequencing features, allocating resources across projects, handling stakeholder requests, or struggling with too many competing priorities. | `/Users/yayauu/.agents/skills/prioritizing-roadmap/SKILL.md` |
+| `prioritizing-roadmap` | `ok` | Help users prioritize product roadmaps and backlogs. Use when someone is deciding what to build next, sequencing features, allocating resources across projects, handling stakeholder requests, or struggling with too many competing priorities. | `/Users/yayauu/.agents/skills/lenny-skills/skills/prioritizing-roadmap/SKILL.md` |
+| `writing-specs-designs` | `ok` | Help users write effective specs and design documents. Use when someone is creating technical specs, feature specs, design docs, or trying to communicate product requirements to engineering and design teams. | `/Users/yayauu/.agents/skills/writing-specs-designs/SKILL.md` |
+| `writing-specs-designs` | `ok` | Help users write effective specs and design documents. Use when someone is creating technical specs, feature specs, design docs, or trying to communicate product requirements to engineering and design teams. | `/Users/yayauu/.agents/skills/lenny-skills/skills/writing-specs-designs/SKILL.md` |
+| `behavioral-product-design` | `ok` | Help users apply behavioral science to product design. Use when someone is designing for habit formation, reducing friction, applying psychology to UX, increasing retention through behavioral principles, or using nudges to influence user behavior. | `/Users/yayauu/.agents/skills/behavioral-product-design/SKILL.md` |
+| `behavioral-product-design` | `ok` | Help users apply behavioral science to product design. Use when someone is designing for habit formation, reducing friction, applying psychology to UX, increasing retention through behavioral principles, or using nudges to influence user behavior. | `/Users/yayauu/.agents/skills/lenny-skills/skills/behavioral-product-design/SKILL.md` |
+| `design-systems` | `ok` | Help users build and scale design systems. Use when someone is creating a component library, establishing design tokens, scaling brand consistency, or deciding when to invest in a design system. | `/Users/yayauu/.agents/skills/design-systems/SKILL.md` |
+| `design-systems` | `ok` | Help users build and scale design systems. Use when someone is creating a component library, establishing design tokens, scaling brand consistency, or deciding when to invest in a design system. | `/Users/yayauu/.agents/skills/lenny-skills/skills/design-systems/SKILL.md` |
+| `frontend-design` | `ok` | Create distinctive, production-grade frontend interfaces with high design quality. Use this skill when the user asks to build web components, pages, artifacts, posters, or applications (examples include websites, landing pages, dashboards, React components, HTML/CSS layouts, or when styling/beautifying any web UI). Generates creative, polished code and UI design that avoids generic AI aesthetics. | `/Users/yayauu/.agents/skills/frontend-design/SKILL.md` |
+| `running-design-reviews` | `ok` | Help users run effective design reviews and critiques. Use when someone is giving design feedback, establishing design review processes, struggling to evaluate designs, or wants to improve how their team discusses design work. | `/Users/yayauu/.agents/skills/running-design-reviews/SKILL.md` |
+| `running-design-reviews` | `ok` | Help users run effective design reviews and critiques. Use when someone is giving design feedback, establishing design review processes, struggling to evaluate designs, or wants to improve how their team discusses design work. | `/Users/yayauu/.agents/skills/lenny-skills/skills/running-design-reviews/SKILL.md` |
+| `ai-evals` | `ok` | Help users create and run AI evaluations. Use when someone is building evals for LLM products, measuring model quality, creating test cases, designing rubrics, or trying to systematically measure AI output quality. | `/Users/yayauu/.agents/skills/ai-evals/SKILL.md` |
+| `ai-evals` | `ok` | Help users create and run AI evaluations. Use when someone is building evals for LLM products, measuring model quality, creating test cases, designing rubrics, or trying to systematically measure AI output quality. | `/Users/yayauu/.agents/skills/lenny-skills/skills/ai-evals/SKILL.md` |
+| `building-with-llms` | `ok` | Help users build effective AI applications. Use when someone is building with LLMs, writing prompts, designing AI features, implementing RAG, creating agents, running evals, or trying to improve AI output quality. | `/Users/yayauu/.agents/skills/building-with-llms/SKILL.md` |
+| `building-with-llms` | `ok` | Help users build effective AI applications. Use when someone is building with LLMs, writing prompts, designing AI features, implementing RAG, creating agents, running evals, or trying to improve AI output quality. | `/Users/yayauu/.agents/skills/lenny-skills/skills/building-with-llms/SKILL.md` |
+| `browse` | `ok` | Fast headless browser for QA testing and site dogfooding. Navigate any URL, interact with elements, verify page state, diff before/after actions, take annotated screenshots, check responsive layouts, test forms and uploads, handle dialogs, and assert element states. ~100ms per command. Use when you need to test a feature, verify a deployment, dogfood a user flow, or file a bug with evidence. Use when asked to "open in browser", "test the site", "take a screenshot", or "dogfood this". (gstack) | `/Users/yayauu/.agents/skills/gstack/browse/SKILL.md` |
+| `browse` | `ok` | Fast headless browser for QA testing and site dogfooding. Navigate any URL, interact with elements, verify page state, diff before/after actions, take annotated screenshots, check responsive layouts, test forms and uploads, handle dialogs, and assert element states. ~100ms per command. Use when you need to test a feature, verify a deployment, dogfood a user flow, or file a bug with evidence. Use when asked to "open in browser", "test the site", "take a screenshot", or "dogfood this". (gstack) | `/Users/yayauu/.agents/skills/gstack/.agents/skills/gstack-browse/SKILL.md` |
+| `browse` | `ok` | Fast headless browser for QA testing and site dogfooding. Navigate any URL, interact with elements, verify page state, diff before/after actions, take annotated screenshots, check responsive layouts, test forms and uploads, handle dialogs, and assert element states. ~100ms per command. Use when you need to test a feature, verify a deployment, dogfood a user flow, or file a bug with evidence. Use when asked to "open in browser", "test the site", "take a screenshot", or "dogfood this". (gstack) | `/Users/yayauu/.agents/skills/gstack/.factory/skills/gstack-browse/SKILL.md` |
+| `browser` | `ok` | Use the Codex in-app browser to inspect, navigate, test, or automate local targets such as localhost, 127.0.0.1, ::1, file://, or the current in-app browser tab. | `/Users/yayauu/.codex/plugins/cache/openai-bundled/browser-use/0.1.0-alpha1/skills/browser/SKILL.md` |
+| `figma` | `ok` | Use the Figma MCP server to fetch design context, screenshots, variables, and assets from Figma, and to translate Figma nodes into production code. Trigger when a task involves Figma URLs, node IDs, design-to-code implementation, or Figma MCP setup and troubleshooting. | `/Users/yayauu/.codex/skills/figma/SKILL.md` |
+| `figma-code-connect-components` | `ok` | Connects Figma design components to code components using Code Connect mapping tools. Use when user says "code connect", "connect this component to code", "map this component", "link component to code", "create code connect mapping", or wants to establish mappings between Figma designs and code implementations. For canvas writes via `use_figma`, use `figma-use`. | `/Users/yayauu/.codex/skills/figma-code-connect-components/SKILL.md` |
+| `figma-create-design-system-rules` | `ok` | Generates custom design system rules for the user's codebase. Use when user says "create design system rules", "generate rules for my project", "set up design rules", "customize design system guidelines", or wants to establish project-specific conventions for Figma-to-code workflows. Requires Figma MCP server connection. | `/Users/yayauu/.codex/skills/figma-create-design-system-rules/SKILL.md` |
+| `figma-generate-design` | `ok` | Use this skill alongside figma-use when the task involves translating an application page, view, or multi-section layout into Figma. Triggers: 'write to Figma', 'create in Figma from code', 'push page to Figma', 'take this app/page and build it in Figma', 'create a screen', 'build a landing page in Figma', 'update the Figma screen to match code'. This is the preferred workflow skill whenever the user wants to build or update a full page, screen, or view in Figma from code or a description. Discovers design system components, variables, and styles via search_design_system, imports them, and assembles screens incrementally section-by-section using design system tokens instead of hardcoded values. | `/Users/yayauu/.codex/skills/figma-generate-design/SKILL.md` |
+| `figma-implement-design` | `ok` | Translate Figma nodes into production-ready code with 1:1 visual fidelity using the Figma MCP workflow (design context, screenshots, assets, and project-convention translation). Trigger when the user provides Figma URLs or node IDs, or asks to implement designs or components that must match Figma specs. Requires a working Figma MCP server connection. | `/Users/yayauu/.codex/skills/figma-implement-design/SKILL.md` |
+| `playwright` | `ok` | Use when the task requires automating a real browser from the terminal (navigation, form filling, snapshots, screenshots, data extraction, UI-flow debugging) via `playwright-cli` or the bundled wrapper script. | `/Users/yayauu/.codex/skills/playwright/SKILL.md` |
+| `playwright-interactive` | `ok` | Persistent browser and Electron interaction through `js_repl` for fast iterative UI debugging. | `/Users/yayauu/.codex/skills/playwright-interactive/SKILL.md` |
+
+### Decision Matrix
+
+| Existing Skill | Candidate Workspace | Reuse Level | Reason | APB Resources to Enforce | Risk | Notes |
+| --- | --- | --- | --- | --- | --- | --- |
+| `writing-prds` | pm-strategy | Primary Reuse | Top-level path frontmatter supports PRDs, product requirements, engineering specs, feature briefs, and defining what to build. | workspaces/pm-strategy/AGENTS.md; PRD_TEMPLATE.md; prd-generation workflow | Must obey APB PRD structure and Chinese output standards. | Primary candidate path: `/Users/yayauu/.agents/skills/writing-prds/SKILL.md`. |
+| `writing-prds duplicate path` | all | Duplicate / Review Later | Same frontmatter name and description as another installed path. Record only; do not delete, disable, or move. | None | Duplicate trigger noise. | Path: `/Users/yayauu/.agents/skills/lenny-skills/skills/writing-prds/SKILL.md`. |
+| `competitive-analysis` | pm-strategy | Primary Reuse | Top-level path frontmatter supports competition, positioning, market threats, war games, and competitor focus decisions. | workspaces/pm-strategy/AGENTS.md; COMPETITOR_ANALYSIS_TEMPLATE.md | Latest competitor facts still require verification. | Primary candidate path: `/Users/yayauu/.agents/skills/competitive-analysis/SKILL.md`. |
+| `competitive-analysis duplicate path` | all | Duplicate / Review Later | Same frontmatter name and description as another installed path. Record only; do not delete, disable, or move. | None | Duplicate trigger noise. | Path: `/Users/yayauu/.agents/skills/lenny-skills/skills/competitive-analysis/SKILL.md`. |
+| `ai-product-strategy` | pm-strategy | Primary Reuse | Top-level path frontmatter supports AI product strategy, AI application decisions, AI roadmap, build vs buy, and AI integration. | workspaces/pm-strategy/AGENTS.md; AI_FEATURE_EVALUATION_TEMPLATE.md | May over-index on strategy unless APB AI evaluation template constrains output. | Primary candidate path: `/Users/yayauu/.agents/skills/ai-product-strategy/SKILL.md`. |
+| `ai-product-strategy duplicate path` | all | Duplicate / Review Later | Same frontmatter name and description as another installed path. Record only; do not delete, disable, or move. | None | Duplicate trigger noise. | Path: `/Users/yayauu/.agents/skills/lenny-skills/skills/ai-product-strategy/SKILL.md`. |
+| `prioritizing-roadmap` | pm-strategy | Secondary Support | Top-level path frontmatter supports roadmap and backlog prioritization, sequencing, resources, and competing priorities. | workspaces/pm-strategy/AGENTS.md; prioritization and task breakdown templates | Roadmap framing may not match APB P0/P1/P2 or RICE outputs unless constrained. | Support candidate path: `/Users/yayauu/.agents/skills/prioritizing-roadmap/SKILL.md`. |
+| `prioritizing-roadmap duplicate path` | all | Duplicate / Review Later | Same frontmatter name and description as another installed path. Record only; do not delete, disable, or move. | None | Duplicate trigger noise. | Path: `/Users/yayauu/.agents/skills/lenny-skills/skills/prioritizing-roadmap/SKILL.md`. |
+| `writing-specs-designs` | pm-strategy / engineering-build | Secondary Support | Top-level path frontmatter supports technical specs, feature specs, design docs, and communication to engineering/design teams. | SRS_TEMPLATE.md; engineering-build API and MVP templates | Can blur PM/design/engineering boundaries; route through APB workspace first. | Support candidate path: `/Users/yayauu/.agents/skills/writing-specs-designs/SKILL.md`. |
+| `writing-specs-designs duplicate path` | all | Duplicate / Review Later | Same frontmatter name and description as another installed path. Record only; do not delete, disable, or move. | None | Duplicate trigger noise. | Path: `/Users/yayauu/.agents/skills/lenny-skills/skills/writing-specs-designs/SKILL.md`. |
+| `behavioral-product-design` | design-prototype | Secondary Support | Top-level path frontmatter supports habit formation, friction reduction, psychology, retention, and nudges. | workspaces/design-prototype/AGENTS.md; UI_AUDIT_TEMPLATE.md; DESIGN_BRIEF_TEMPLATE.md | Helpful for UX behavior, but not a final high-fidelity design authority. | Support candidate path: `/Users/yayauu/.agents/skills/behavioral-product-design/SKILL.md`. |
+| `behavioral-product-design duplicate path` | all | Duplicate / Review Later | Same frontmatter name and description as another installed path. Record only; do not delete, disable, or move. | None | Duplicate trigger noise. | Path: `/Users/yayauu/.agents/skills/lenny-skills/skills/behavioral-product-design/SKILL.md`. |
+| `design-systems` | design-prototype | Primary Reuse | Top-level path frontmatter supports component libraries, design tokens, brand consistency, and design system decisions. | workspaces/design-prototype/AGENTS.md; DESIGN_SYSTEM_TEMPLATE.md | APB design tokens and engineering handoff still win. | Primary candidate path: `/Users/yayauu/.agents/skills/design-systems/SKILL.md`. |
+| `design-systems duplicate path` | all | Duplicate / Review Later | Same frontmatter name and description as another installed path. Record only; do not delete, disable, or move. | None | Duplicate trigger noise. | Path: `/Users/yayauu/.agents/skills/lenny-skills/skills/design-systems/SKILL.md`. |
+| `running-design-reviews` | design-prototype | Primary Reuse | Top-level path frontmatter supports design reviews, critiques, feedback, design review process, and design evaluation. | workspaces/design-prototype/AGENTS.md; UI_AUDIT_TEMPLATE.md | APB severity and UI audit template still win. | Primary candidate path: `/Users/yayauu/.agents/skills/running-design-reviews/SKILL.md`. |
+| `running-design-reviews duplicate path` | all | Duplicate / Review Later | Same frontmatter name and description as another installed path. Record only; do not delete, disable, or move. | None | Duplicate trigger noise. | Path: `/Users/yayauu/.agents/skills/lenny-skills/skills/running-design-reviews/SKILL.md`. |
+| `frontend-design` | design-prototype / engineering-build | Use Only When Explicitly Requested | Frontmatter says it creates production-grade frontend interfaces and code, which can cross APB design-to-engineering boundaries. | design-prototype handoff templates; engineering-build implementation planning templates | May write code or overtake design scope; use only when user asks for frontend implementation. | Path: `/Users/yayauu/.agents/skills/frontend-design/SKILL.md`. |
+| `building-with-llms` | pm-strategy / engineering-build | Secondary Support | Top-level path frontmatter supports LLM apps, prompts, AI features, RAG, agents, evals, and AI output quality. | AI_FEATURE_EVALUATION_TEMPLATE.md; AI_INTEGRATION_TEMPLATE.md; TEST_CASE_TEMPLATE.md | Can become too technical for PM tasks unless workspace output is enforced. | Support candidate path: `/Users/yayauu/.agents/skills/building-with-llms/SKILL.md`. |
+| `building-with-llms duplicate path` | all | Duplicate / Review Later | Same frontmatter name and description as another installed path. Record only; do not delete, disable, or move. | None | Duplicate trigger noise. | Path: `/Users/yayauu/.agents/skills/lenny-skills/skills/building-with-llms/SKILL.md`. |
+| `ai-evals` | pm-strategy / engineering-build | Primary Reuse | Top-level path frontmatter supports LLM evals, model quality, test cases, rubrics, and AI output measurement. | AI_FEATURE_EVALUATION_TEMPLATE.md; AI_INTEGRATION_TEMPLATE.md; TEST_CASE_TEMPLATE.md | APB acceptance criteria and test templates still win. | Primary candidate path: `/Users/yayauu/.agents/skills/ai-evals/SKILL.md`. |
+| `ai-evals duplicate path` | all | Duplicate / Review Later | Same frontmatter name and description as another installed path. Record only; do not delete, disable, or move. | None | Duplicate trigger noise. | Path: `/Users/yayauu/.agents/skills/lenny-skills/skills/ai-evals/SKILL.md`. |
+| `browse` | ai-trend-radar / design-prototype / engineering-build | Use When Task Requires External Context | Top-level gstack path frontmatter supports headless browser QA, screenshots, responsive checks, site testing, and dogfooding. | ai-trend-radar source templates; design UI audit templates; engineering launch/test templates | External browsing and interaction risk; not for pure writing/template tasks. | External-context candidate path: `/Users/yayauu/.agents/skills/gstack/browse/SKILL.md`. |
+| `browse duplicate path` | all | Duplicate / Review Later | Same frontmatter name and description as another installed path. Record only; do not delete, disable, or move. | None | Duplicate trigger noise. | Path: `/Users/yayauu/.agents/skills/gstack/.agents/skills/gstack-browse/SKILL.md`. |
+| `browse duplicate path` | all | Duplicate / Review Later | Same frontmatter name and description as another installed path. Record only; do not delete, disable, or move. | None | Duplicate trigger noise. | Path: `/Users/yayauu/.agents/skills/gstack/.factory/skills/gstack-browse/SKILL.md`. |
+| `browser` | ai-trend-radar / engineering-build | Use When Task Requires External Context | Frontmatter supports Codex in-app browser inspection, navigation, testing, and automation for local targets or current tabs. | ai-trend-radar source templates; engineering test/launch templates | External context and browser automation risk; use when browser context is explicit. | Path: `/Users/yayauu/.codex/plugins/cache/openai-bundled/browser-use/0.1.0-alpha1/skills/browser/SKILL.md`. |
+| `figma` | design-prototype / engineering-build | Use When Task Requires External Context | Frontmatter supports Figma MCP design context, screenshots, variables, assets, and Figma node translation. | design-prototype Figma prompt/handoff templates; engineering-build implementation plan templates | Requires Figma context or MCP availability; never configure MCP automatically. | Path: `/Users/yayauu/.codex/skills/figma/SKILL.md`. |
+| `figma-code-connect-components` | engineering-build | Use Only When Explicitly Requested | Frontmatter supports Code Connect mapping between Figma design components and code components. | engineering-build design handoff and code review templates | External mapping/write workflow risk; explicit user request required. | Path: `/Users/yayauu/.codex/skills/figma-code-connect-components/SKILL.md`. |
+| `figma-create-design-system-rules` | design-prototype | Use Only When Explicitly Requested | Frontmatter supports generating custom design system rules and requires Figma MCP server connection. | DESIGN_SYSTEM_TEMPLATE.md; DESIGN_HANDOFF_TEMPLATE.md | May affect design system rules and depends on Figma MCP; explicit request required. | Path: `/Users/yayauu/.codex/skills/figma-create-design-system-rules/SKILL.md`. |
+| `figma-generate-design` | design-prototype | Use Only When Explicitly Requested | Frontmatter supports writing to Figma or creating/updating Figma screens from code or description. | FIGMA_PROMPT_TEMPLATE.md; HIGH_FIDELITY_PROTOTYPE_TEMPLATE.md | External write risk; explicit request and scope confirmation required. | Path: `/Users/yayauu/.codex/skills/figma-generate-design/SKILL.md`. |
+| `figma-implement-design` | engineering-build | Use Only When Explicitly Requested | Frontmatter supports translating Figma nodes into production-ready code and requires a working Figma MCP server connection. | engineering-build MVP/API/test/launch templates | Can trigger MCP setup or implementation work; APB must not auto-configure MCP. | Path: `/Users/yayauu/.codex/skills/figma-implement-design/SKILL.md`. |
+| `playwright` | engineering-build | Use When Task Requires External Context | Frontmatter supports real browser automation for navigation, forms, snapshots, screenshots, extraction, and UI-flow debugging. | engineering-build TEST_CASE_TEMPLATE.md; LAUNCH_CHECKLIST_TEMPLATE.md | Browser automation risk; use only for explicit UI/browser verification tasks. | Path: `/Users/yayauu/.codex/skills/playwright/SKILL.md`. |
+| `playwright-interactive` | engineering-build | Use Only When Explicitly Requested | Frontmatter supports persistent browser and Electron interaction through js_repl for iterative UI debugging. | engineering-build testing and launch workflows | Runtime and sandbox assumptions; explicit request required. | Path: `/Users/yayauu/.codex/skills/playwright-interactive/SKILL.md`. |
+
+## Workspace-to-Skill Recommendation
+
+### pm-strategy
+
+Primary Reuse Skills:
+
+- `writing-prds`
+- `competitive-analysis`
+- `ai-product-strategy`
+
+Secondary Support Skills:
+
+- `prioritizing-roadmap`
+- `writing-specs-designs`
+- `building-with-llms`
+- `ai-evals`
+
+Skills to Avoid Unless Explicitly Requested:
+
+- Browser, Figma, Playwright, and external-write Skills for pure PM writing tasks.
+
+Required APB Resources:
+
+- `workspaces/pm-strategy/AGENTS.md`
+- `workspaces/pm-strategy/templates/PRD_TEMPLATE.md`
+- `workspaces/pm-strategy/templates/COMPETITOR_ANALYSIS_TEMPLATE.md`
+- `workspaces/pm-strategy/templates/AI_FEATURE_EVALUATION_TEMPLATE.md`
+- `workspaces/pm-strategy/templates/DEVELOPMENT_TASK_BREAKDOWN_TEMPLATE.md`
+
+### design-prototype
+
+Primary Reuse Skills:
+
+- `design-systems`
+- `running-design-reviews`
+
+Secondary Support Skills:
+
+- `behavioral-product-design`
+- `writing-specs-designs`
+
+Skills to Use When Task Requires External Context:
+
+- `figma`
+- `browse`
+- `browser`
+
+Skills to Avoid Unless Explicitly Requested:
+
+- `figma-generate-design`
+- `figma-create-design-system-rules`
+- `frontend-design`
+
+Required APB Resources:
+
+- `workspaces/design-prototype/AGENTS.md`
+- `workspaces/design-prototype/templates/UI_AUDIT_TEMPLATE.md`
+- `workspaces/design-prototype/templates/FIGMA_PROMPT_TEMPLATE.md`
+- `workspaces/design-prototype/templates/DESIGN_SYSTEM_TEMPLATE.md`
+- `workspaces/design-prototype/templates/DESIGN_HANDOFF_TEMPLATE.md`
+
+### engineering-build
+
+Primary Reuse Skills:
+
+- `ai-evals` for AI quality and testing tasks.
+
+Secondary Support Skills:
+
+- `building-with-llms`
+- `writing-specs-designs`
+
+Skills to Use When Task Requires External Context:
+
+- `playwright`
+- `browse`
+- `browser`
+
+Skills to Avoid Unless Explicitly Requested:
+
+- `figma-implement-design`
+- `figma-code-connect-components`
+- `playwright-interactive`
+- `frontend-design` when the user did not ask for frontend implementation.
+
+Required APB Resources:
+
+- `workspaces/engineering-build/AGENTS.md`
+- `workspaces/engineering-build/templates/MVP_BUILD_PLAN_TEMPLATE.md`
+- `workspaces/engineering-build/templates/API_IMPLEMENTATION_PLAN_TEMPLATE.md`
+- `workspaces/engineering-build/templates/AI_INTEGRATION_TEMPLATE.md`
+- `workspaces/engineering-build/templates/TEST_CASE_TEMPLATE.md`
+- `workspaces/engineering-build/templates/LAUNCH_CHECKLIST_TEMPLATE.md`
+
+### ai-trend-radar
+
+Primary Reuse Skills:
+
+- None by default from the current inventory.
+
+Secondary Support Skills:
+
+- `building-with-llms`
+
+Skills to Use When Task Requires External Context:
+
+- `browse`
+- `browser`
+- `playwright`
+
+Skills to Avoid Unless Explicitly Requested:
+
+- Figma and frontend implementation Skills.
+
+Required APB Resources:
+
+- `workspaces/ai-trend-radar/AGENTS.md`
+- `workspaces/ai-trend-radar/templates/AI_DAILY_REPORT_TEMPLATE.md`
+- `workspaces/ai-trend-radar/templates/AI_WEEKLY_REPORT_TEMPLATE.md`
+- `workspaces/ai-trend-radar/templates/GITHUB_TRENDING_RESEARCH_TEMPLATE.md`
+- `workspaces/ai-trend-radar/templates/PAPER_TO_PRODUCT_INSIGHT_TEMPLATE.md`
+- `workspaces/ai-trend-radar/templates/AI_PRODUCT_OPPORTUNITY_TEMPLATE.md`
+- `workspaces/ai-trend-radar/templates/DEMO_IDEA_TEMPLATE.md`
+
+## APB Mode
+
+When the user says any of the following, default to APB mode:
+
+- APB 模式
+- AI Product Builder 模式
+- 按我的工作区规则
+- 按 APB 工作流
+- 用我的产品工作区
+- 按 ai-product-builder
+
+APB mode requires this sequence:
+
+1. Determine which workspace owns the task.
+2. Read root `AGENTS.md`.
+3. Read the matching workspace `AGENTS.md`.
+4. Decide whether an existing Skill should be reused based on frontmatter `name`, `description`, path, and APB fit.
+5. If an existing Skill is used, still output according to the matching workspace template and workflow.
+6. Put missing information under Open Questions instead of inventing details.
+7. Browse and cite sources when latest information is required.
+8. End with concrete next-step recommendations.
+
+## Conflict Resolution Rules
+
+- Workspace rules override generic Skill style.
+- Templates override generic Skill output format.
+- Safety rules override all Skill behavior.
+- Existing Skills are capability providers, not final output authorities.
+- APB workspace templates are the final output authority.
+- If multiple Skills could apply, choose the one with the narrowest fit.
+- If still ambiguous, use the APB workspace workflow instead of forcing a Skill.
+- If an existing Skill produces output inconsistent with APB templates, reformat it to APB templates.
+- Duplicated or unclear Skills should not be preferred by default.
+
+## External Tool Skill Rules
+
+- Pure reasoning, pure writing, and pure template generation tasks should not default to browser, Figma, Playwright, or external-tool Skills.
+- Use browser, Figma, Playwright, or external-tool Skills when the user explicitly requests external context, latest information, webpage inspection, Figma access, UI checks, Playwright automation, or external verification.
+- Before using an external-tool Skill, state the purpose and scope.
+- Ask for explicit confirmation before any write operation, configuration change, remote resource modification, credential use, login-state access, production-system action, or external side effect.
+- Browser, Figma, Playwright, and external-tool Skills are not disabled. They are available when the task genuinely requires external context.
+
+## When to Create Custom APB Skills
+
+Only create custom `apb-` Skills when at least one of these conditions is true:
+
+- Existing Skills repeatedly fail to follow APB templates.
+- Each use requires too much extra instruction to align with APB workflows.
+- Triggering is frequently wrong or noisy.
+- Output style does not match Chinese AI product manager workflow needs.
+- The workflow has been repeated more than five times.
+- The task has a stable APB-specific process that generic Skills cannot reliably follow.
+
+Future custom Skill names, if needed:
+
+- `apb-prd-writer`
+- `apb-competitor-analysis`
+- `apb-requirement-prioritizer`
+
+These are not immediate creation tasks. They are fallback options if existing Skills cannot reliably follow APB workflows.
+
+## Copyable Usage Examples
+
+- APB 模式：帮我把这个想法澄清成产品需求。
+- APB 模式：帮我写这个功能的 PRD，按 pm-strategy 的 PRD_TEMPLATE 输出。
+- APB 模式：帮我做竞品分析，输出必须符合 COMPETITOR_ANALYSIS_TEMPLATE。
+- APB 模式：把这些需求按 RICE 和 P0/P1/P2 排优先级。
+- APB 模式：基于这个 PRD 生成高保真原型方案和 Figma Prompt。
+- APB 模式：评审这张页面截图，按 UI_AUDIT_TEMPLATE 输出。
+- APB 模式：把这个 PRD 和设计交付转成 MVP_BUILD_PLAN。
+- APB 模式：设计这个 AI 功能的工程集成方案。
+- APB 模式：搜索最近一周 AI Agent 趋势，按 AI_WEEKLY_REPORT_TEMPLATE 输出。
+- APB 模式：从这个 GitHub 项目提炼产品机会和 Demo idea。
+
+## Safety Notes
+
+- Do not delete existing Skills.
+- Do not disable existing Skills.
+- Do not move existing Skills.
+- Do not modify `~/.codex/`.
+- Do not create or modify `~/.agents/skills/`.
+- Do not configure MCP from this planning document.
+- If an existing Skill interferes with APB routing, record the case first and decide in a separate task.
+- Disabling any Skill must be handled in a separate explicit task.
+- Browser, MCP, Figma, Playwright, external-write, credential, login-state, and remote-system capabilities require extra caution.
+
+## Lenny Skills Integration Note
+
+- Lenny skills are user-installed, high-value product management methodology resources.
+- `Duplicate / Review Later` does not mean a Lenny Skill is low quality, untrusted, or should be removed.
+- Duplicate status only means root-level Skill paths and `lenny-skills/skills/` expose the same or similar metadata.
+- APB does not delete, move, rename, disable, or reinstall any Lenny skill.
+- Detailed Lenny index: `skills-plan/LENNY_SKILLS_INDEX.md`.
+- APB workspace mapping: `skills-plan/LENNY_SKILLS_APB_MAPPING.md`.

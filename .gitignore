@@ -1,0 +1,11 @@
+.idea/
+*.iml
+
+# IntelliJ / JetBrains
+*.ipr
+*.iws
+out/
+
+# Python virtualenv (local)
+.venv/
+
