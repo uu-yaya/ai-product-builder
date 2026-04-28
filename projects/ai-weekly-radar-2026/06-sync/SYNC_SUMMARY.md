@@ -4,12 +4,12 @@
 >
 > 不要在这里粘贴所有消息原文；只摘录关键状态与链接。
 
-Last Updated: 2026-04-28
+Last Updated: 2026-04-28（当日四次更新：T-001 启动尝试 → Blocked，登记联网权限阻塞）
 
 ## 1. Current Project State
 
-- 项目阶段：**Discovery**（项目骨架已初始化，首期周报尚未启动）。
-- 一句话当前状态：**所有 7 条 Open Questions 已 Resolved，等待启动首期 Baseline + W18 周报**。
+- 项目阶段：**Discovery**（项目骨架已初始化，首期周报启动失败，等待联网权限或备选方案）。
+- 一句话当前状态：**T-001 已 Blocked（WebSearch / WebFetch permission denied）；Radar Thread 已主动停手并报告，等待 Main Thread / 用户决策恢复路径**。
 - 主线程持有人：Main Thread（用户）。
 - 实际启用线程：仅 Main Thread + AI Trend Radar Thread；本项目为研究项目，PM / Design / Engineering 三线程默认 N/A。
 
@@ -40,24 +40,35 @@ Last Updated: 2026-04-28
 
 | Task ID | Owner | Task | Status |
 |---|---|---|---|
-| T-001 | AI Trend Radar Thread | 首期 Baseline + W18 周报（窗口 2026-04-22 → 2026-04-28） | Backlog（等待启动） |
+| T-001 | AI Trend Radar Thread | 首期 Baseline + W18 周报（窗口 2026-04-22 → 2026-04-28） | **Blocked**（since 2026-04-28，详见 §5） |
 
 ## 5. Blockers
 
-无。
+| Severity | Blocker | 影响范围 | Source | Reported |
+|---|---|---|---|---|
+| **P1** | WebSearch / WebFetch permission denied — Radar Thread 无法访问任何一级 / 二级公开信源 | 阻塞 T-001（首期 W18 周报）；不阻塞其他线程 | [`06-sync/group/2026-04-28T_radar_blocked-w18-web-tools-denied.md`](group/2026-04-28T_radar_blocked-w18-web-tools-denied.md) | 2026-04-28 |
+
+P1 详情：
+- T-001 要求最新（2026-03-29 → 2026-04-28）信息且必须来源回溯，模型 cutoff = 2026-01 远早于窗口。
+- 在无联网验证下继续会同时违反 `PROJECT_RULES.md §7`、`RADAR_THREAD_START.md §7`、`LINKS.md §3`。
+- Radar Thread 已主动停手，未写任何研究产物，三个研究子线程均已被 kill。
 
 ## 6. Next Actions
 
-- **AI Trend Radar Thread**：执行 T-001，产出 `04-research/AI_WEEKLY_REPORT_2026-W18.md`。启动时机由用户决定。
-- **Main Thread**：T-001 完成后在本文件更新状态，并更新 `THREAD_REGISTRY.md` 中 Radar 线程的 Last Update。
+T-001 等待用户在以下 3 条恢复路径中决策（按 Radar Thread 推荐排序）：
+
+1. **解锁联网权限并重跑**（推荐）— 至少放行一级 / 二级 / 中文辅助源域名给 WebSearch / WebFetch；具体域名清单见 blocker 报告 §"Options 1"。解锁后由 Radar Thread 重新派发 3 个研究子线程，预计 1–2 小时完成首期周报。
+2. **用户提供 URLs / 源摘录** — 用户在外部完成检索，把 URL + 关键摘要贴回会话；Radar Thread 据此按模板 10 字段做结构化与 Confidence / Impact 判断。适合用户已有现成线索池的场景。
+3. **降级为方法论骨架** — 仅交付 `04-research/AI_WEEKLY_REPORT_2026-W18.md` 的字段填法骨架（Issue 标 `Baseline (Skeleton, Pending Web Verification)`），不含 W18 实际内容。**不推荐**：项目内已有 `AI_WEEKLY_REPORT_TEMPLATE.md`，重复交付价值低。
+
+- **Main Thread**：以上 3 条由用户回复后，再启动对应执行；Main Thread 暂不写其他文件。
+- **AI Trend Radar Thread**：保持 Idle，不在无授权情况下自行重试或降级。
 
 ## 7. Links to Important Messages
 
-无。首期未启动前 `06-sync/group/` 与 `06-sync/dm/` 不应有消息；如有，归档到此表。
-
 | Topic | File | Date |
 |---|---|---|
-| — | — | — |
+| T-001 Blocker — WebSearch / WebFetch permission denied | [`06-sync/group/2026-04-28T_radar_blocked-w18-web-tools-denied.md`](group/2026-04-28T_radar_blocked-w18-web-tools-denied.md) | 2026-04-28 |
 
 ## 维护规则
 

@@ -27,6 +27,7 @@
 | 2026-04-28 | Scope | 三级信源（YouTube / Reddit / X）不预设固定清单，按主题临时检索；连续 2–3 期持续有价值的源升级为固定池 | 预设清单容易陷入"看起来覆盖、实际无用"陷阱；连续命中规则把固定化的门槛提高，避免信源池膨胀 | `LINKS.md §2.4` 不列具体频道；升级时由 Radar Thread 提议并在本日志留痕；三级源永不作为事实依据 | Accepted |
 | 2026-04-28 | Scope | 中文媒体（机器之心、量子位、PaperWeekly）作为二级 / 三级辅助源；独家报道默认 Confidence 中 / 低 | 中文源对国内趋势 / 中文语境 / 行业讨论有帮助，但事实层不能替代英文一手；默认低 Confidence 强迫回查英文来源 | `LINKS.md §2.7` 收录三家中文源；周报模板 Confidence 评分细则补充中文源例外条款；不影响 §2.1 一级信源认定 | Accepted |
 | 2026-04-28 | AI | 首期周报（Issue = Baseline）采用"30 天背景 + 7 天增量"双段结构，合并为同一文档 | 基线 + 首期合并避免重复内容；30 天背景给后续周报锚定共同起点；增量段确认 7 天滚动窗口默认行为 | 仅 Issue = Baseline 期填写 Baseline 段；常规期删除该段；模板 `04-research/AI_WEEKLY_REPORT_TEMPLATE.md` 已落地双段结构 | Accepted |
+| 2026-04-28 | Risk | T-001（首期 W18 周报）暂停，等待可验证来源（联网权限解锁 / 用户提供 URLs / 降级为骨架）三选一决策 | Radar Thread 在启动时遭遇 WebSearch / WebFetch permission denied；模型 cutoff = 2026-01 早于周报窗口（2026-03-29 → 2026-04-28），无联网验证下继续会同时违反 `PROJECT_RULES.md §7`、`RADAR_THREAD_START.md §7`、`LINKS.md §3`；为坚守"事实必须来源回溯"硬规则，主动停手优于产出未经验证内容 | T-001 在 `06-sync/TASK_BOARD.md` 标 Blocked；`06-sync/SYNC_SUMMARY.md §5` 记 P1 Blocker；Radar Thread 保持 Idle 不自行重试；恢复路径见 `SYNC_SUMMARY.md §6`；blocker 报告见 `06-sync/group/2026-04-28T_radar_blocked-w18-web-tools-denied.md` | Accepted |
 
 ## 维护规则
 
