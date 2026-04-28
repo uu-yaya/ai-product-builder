@@ -10,7 +10,7 @@
 
 | Task ID | Owner Thread | Task | Inputs | Outputs | Status | Blockers |
 |---|---|---|---|---|---|---|
-| T-001 | <Thread> | <一句话任务描述> | <依赖文件 / 上下文> | <产出文件 / 路径> | Backlog | <如有> |
+| T-001 | AI Trend Radar Thread | 首期 Baseline + W18 周报：30 天背景 + 7 天增量（窗口 2026-04-22 → 2026-04-28） | `00-context/PROJECT_CONTEXT.md`、`00-context/LINKS.md`、`04-research/AI_WEEKLY_REPORT_TEMPLATE.md`、`decisions/DECISION_LOG.md` | `04-research/AI_WEEKLY_REPORT_2026-W18.md`（Issue 字段标 `Baseline`） | Backlog | 等待用户决定启动时机 |
 
 ## 维护规则
 

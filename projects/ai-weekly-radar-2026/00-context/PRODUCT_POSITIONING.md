@@ -1,57 +1,17 @@
 # Product Positioning
 
-## 1. Positioning Statement
+## Status: N/A — 本项目不适用
 
-一句话定位陈述（建议结构）：
+本项目为**研究项目**，不是产品项目。无外部目标用户、无销售 / 商业化定位、无竞品市场。
 
-> 对于 <目标用户>，<本产品> 是一个 <产品品类>，与 <主要替代方案> 相比，它的不同在于 <差异化关键>。
+替代信息位置：
 
-## 2. Target Market
+- 项目目标 / 非目标 / 目标用户 → [00-context/PROJECT_CONTEXT.md §5–§6](PROJECT_CONTEXT.md)
+- 范围决策（为什么不做产品形态）→ [decisions/DECISION_LOG.md](../decisions/DECISION_LOG.md)（2026-04-28 "明确研究项目而非产品项目"）
+- 周报作为内部决策输入的使用场景 → [00-context/PROJECT_CONTEXT.md §7](PROJECT_CONTEXT.md)
 
-- 主要市场（地区 / 行业 / 用户类型）
-- 次要市场
-- 暂不进入的市场
+## 何时需要重新启用本文件
 
-## 3. Core Value Proposition
+如未来项目范围变更（例如把周报转为对外 Newsletter / 工具产品 / 订阅服务），需先在 `decisions/DECISION_LOG.md` 记录范围扩张决策，然后由对应线程（PM Strategy）回填本文件。
 
-- 用户价值（一条一句）
-- 业务价值
-- 不可被现有方案替代的关键点
-
-## 4. Differentiation
-
-| 维度 | 本产品 | 主要替代方案 | 差异化关键 |
-|---|---|---|---|
-| 用户体验 |  |  |  |
-| AI 能力 |  |  |  |
-| 数据 / 内容 |  |  |  |
-| 集成 / 生态 |  |  |  |
-| 成本 / 价格 |  |  |  |
-| 合规 / 安全 |  |  |  |
-
-## 5. Competitors
-
-| Competitor | Type | Strengths | Weaknesses | Threat Level |
-|---|---|---|---|---|
-|  | Direct / Indirect / Adjacent |  |  | High / Medium / Low |
-
-详细竞品分析放进 `04-research/COMPETITOR_ANALYSIS_<competitor-slug>.md`。
-
-## 6. Messaging Keywords
-
-- 主关键词（3–5 个，可用于 PRD / 文案 / 设计 brief）
-- 不要使用的词（避免与不期望的形象绑定）
-
-## 7. Risks
-
-- 定位被竞品稀释
-- 用户认知偏差
-- 技术兑现失败
-- 合规 / 内容 / IP 风险
-- 成本 / ROI 风险
-
-## 8. Open Questions
-
-| # | Question | Owner | Status |
-|---|---|---|---|
-| 1 |  |  | Open |
+回填前请保留本"N/A"声明作为历史，新增内容追加在下方。
