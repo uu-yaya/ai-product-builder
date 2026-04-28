@@ -1,0 +1,36 @@
+# Project Decision Log
+
+记录本项目的关键架构、范围、AI 方案、设计、工程、上线、合规等决策。
+每条决策都要留下推理依据，便于后续线程或新协作者快速理解项目走到这一步的原因。
+
+## 字段说明
+
+- **Date**：决策落地日期，YYYY-MM-DD。
+- **Area**：Project Setup / Scope / AI / Design / Engineering / Launch / Risk / Compliance / Other。
+- **Decision**：一句话写明做了什么决定。
+- **Reason**：为什么这样决定（背景 + 比较过的备选）。
+- **Impact**：影响哪些线程 / 哪些产物 / 哪些指标。
+- **Status**：Proposed / Accepted / In Effect / Superseded / Rejected。
+
+## 决策表
+
+| Date | Area | Decision | Reason | Impact | Status |
+|---|---|---|---|---|---|
+| 2026-04-28 | Project Setup | 创建项目 `ai-weekly-radar-2026`，主题锁定 AI Agent / AI Coding / 游戏 AI 三大方向，复制 `_PROJECT_TEMPLATE` 作为骨架 | 用户希望以稳定节奏跟踪 2026 年三大 AI 方向；APB 项目级产物必须落在 `projects/<slug>/`，不混入 `workspaces/`；模板提供统一目录结构与读写边界，降低后续多线程协作成本 | 新建 `projects/ai-weekly-radar-2026/` 全套目录；后续周报落在 `04-research/` 而非 `workspaces/` | Accepted |
+| 2026-04-28 | Scope | 仅初始化项目骨架，不在本次执行任何研究 | 用户明确指示"只初始化项目，不执行研究"；先把上下文、阶段、范围、Open Questions 锁定，避免研究内容污染未对齐的边界 | AI Trend Radar Thread 暂不启动；首期周报启动时点见 `00-context/PROJECT_CONTEXT.md` Open Questions #1 | Accepted |
+| 2026-04-28 | Scope | 明确"研究项目"而非"产品项目"，不构建订阅站点 / Newsletter 系统 / APP | 项目目标是为决策与立项提供输入，不是面向外部读者分发；构建产品形态会扩散投入并稀释研究质量 | `02-design/` 与 `03-engineering/` 默认不启用；产物全部在 `04-research/` 以 Markdown 形式沉淀 | Accepted |
+| 2026-04-28 | Scope | 首期周报采用"以执行当天为结束日、向前回溯 7 天"的滚动窗口，并合并为基线周报 | 用户明确要求 7 天窗口（2026-04-22 → 2026-04-28），且要求做基线周报；将基线与首期合并避免内容重复，同时让首期立刻具备时间锚点 | 首期文件命名 `AI_WEEKLY_REPORT_2026-W18.md`，Issue 字段标 `Baseline`；第 2 期起对齐 ISO 周 | Accepted |
+| 2026-04-28 | Scope | 锁定 19 个一级 / 二级 / 三级信源，并按可信度分级使用 | 用户给出明确清单；分级处理可避免社区信号被当作事实写入；与 `00-context/PROJECT_CONTEXT.md` 第 13 节"内容安全"边界一致 | 一级（Lab/Vendor/学术/OECD）可直接引为事实；二级（媒体）需交叉验证；三级（YouTube/Reddit/X）仅作线索；详见 `00-context/LINKS.md` | Accepted |
+| 2026-04-28 | Scope | 周报采用 10 字段结构（Title / Summary / Source / Category / Why it matters / Product opportunity / Technique / Confidence / Impact / Suggested action） | 用户给出 9 字段需求，本项目在此之上补 Source 作为强制字段（保留可追溯性）；Confidence + Impact 双维度评分是把"信号"变"决策输入"的关键 | 模板落在 `04-research/AI_WEEKLY_REPORT_TEMPLATE.md`；Confidence / Impact 评分细则见模板第 6 节 | Accepted |
+| 2026-04-28 | Scope | Category 取值集合定为 AI Agent / AI Coding / Game AI / AIGC / Tooling / Other | 用户明确给出前 5 类并以"等"扩展；用 Other 兜底避免漏分类，但不要扩散为长尾分类 | 三大方向（AI Agent / AI Coding / Game AI）固定为周报章节；AIGC / Tooling / Other 进入"横向 / 风险信号"段；新增分类前必须先在本日志记录决策 | Accepted |
+| 2026-04-28 | Scope | 周报每周一上午收口；覆盖窗口为执行当天向前回溯 7 天；节假日 / 冲突可顺延 | 固定节奏让产物可预期；执行当天回溯 7 天的滚动窗口比 ISO 周对齐更宽容；顺延规则避免节假日造成内容断档 | 命名沿用 `AI_WEEKLY_REPORT_<YYYY-Wxx>.md`（按结束日所在 ISO 周）；顺延后在 Meta.Window 字段如实记录跨期 | Accepted |
+| 2026-04-28 | Scope | 三级信源（YouTube / Reddit / X）不预设固定清单，按主题临时检索；连续 2–3 期持续有价值的源升级为固定池 | 预设清单容易陷入"看起来覆盖、实际无用"陷阱；连续命中规则把固定化的门槛提高，避免信源池膨胀 | `LINKS.md §2.4` 不列具体频道；升级时由 Radar Thread 提议并在本日志留痕；三级源永不作为事实依据 | Accepted |
+| 2026-04-28 | Scope | 中文媒体（机器之心、量子位、PaperWeekly）作为二级 / 三级辅助源；独家报道默认 Confidence 中 / 低 | 中文源对国内趋势 / 中文语境 / 行业讨论有帮助，但事实层不能替代英文一手；默认低 Confidence 强迫回查英文来源 | `LINKS.md §2.7` 收录三家中文源；周报模板 Confidence 评分细则补充中文源例外条款；不影响 §2.1 一级信源认定 | Accepted |
+| 2026-04-28 | AI | 首期周报（Issue = Baseline）采用"30 天背景 + 7 天增量"双段结构，合并为同一文档 | 基线 + 首期合并避免重复内容；30 天背景给后续周报锚定共同起点；增量段确认 7 天滚动窗口默认行为 | 仅 Issue = Baseline 期填写 Baseline 段；常规期删除该段；模板 `04-research/AI_WEEKLY_REPORT_TEMPLATE.md` 已落地双段结构 | Accepted |
+
+## 维护规则
+
+- 决策提议者可以是任何线程，但 `Accepted` / `In Effect` 状态由 Main Thread 确认。
+- 决策被替代时不要删除原条目，新增一行 `Superseded`，并在 Reason 中链到新决策。
+- 涉及合规、隐私、内容安全的决策必须在 `Impact` 列注明影响范围。
+- 不在本文件写入凭据、真实玩家数据或未脱敏内部资料。
