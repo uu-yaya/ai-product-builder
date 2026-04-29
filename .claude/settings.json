@@ -1,0 +1,41 @@
+{
+  "permissions": {
+    "allow": [
+      "WebSearch",
+
+      "WebFetch(domain:openai.com)",
+      "WebFetch(domain:anthropic.com)",
+      "WebFetch(domain:deepmind.google)",
+      "WebFetch(domain:ai.meta.com)",
+      "WebFetch(domain:blogs.microsoft.com)",
+      "WebFetch(domain:blogs.nvidia.com)",
+      "WebFetch(domain:huggingface.co)",
+      "WebFetch(domain:github.com)",
+      "WebFetch(domain:github.blog)",
+      "WebFetch(domain:arxiv.org)",
+      "WebFetch(domain:paperswithcode.com)",
+      "WebFetch(domain:aiindex.stanford.edu)",
+      "WebFetch(domain:oecd.ai)",
+
+      "WebFetch(domain:the-decoder.com)",
+      "WebFetch(domain:technologyreview.com)",
+      "WebFetch(domain:venturebeat.com)",
+      "WebFetch(domain:techcrunch.com)",
+
+      "WebFetch(domain:jiqizhixin.com)",
+      "WebFetch(domain:qbitai.com)",
+      "WebFetch(domain:paperweekly.site)",
+
+      "WebFetch(domain:cursor.com)",
+      "WebFetch(domain:codeium.com)",
+      "WebFetch(domain:cline.bot)",
+      "WebFetch(domain:aider.chat)",
+      "WebFetch(domain:continue.dev)",
+
+      "WebFetch(domain:youtube.com)",
+      "WebFetch(domain:reddit.com)",
+      "WebFetch(domain:x.com)",
+      "WebFetch(domain:twitter.com)"
+    ]
+  }
+}

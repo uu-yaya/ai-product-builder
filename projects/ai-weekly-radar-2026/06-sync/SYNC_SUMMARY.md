@@ -4,12 +4,12 @@
 >
 > 不要在这里粘贴所有消息原文；只摘录关键状态与链接。
 
-Last Updated: 2026-04-28（当日五次更新：用户选定恢复路径 1，等待 `.claude/settings.json` 权限配置）
+Last Updated: 2026-04-28（当日六次更新：`.claude/settings.json` 权限已落盘，T-001 解锁回 Backlog）
 
 ## 1. Current Project State
 
-- 项目阶段：**Discovery**（项目骨架已初始化，首期周报因联网权限阻塞，恢复路径 1 已选定）。
-- 一句话当前状态：**T-001 仍 Blocked；用户已选恢复路径 1（解锁 WebSearch / WebFetch 并重跑）；等待 `.claude/settings.json` 权限配置完成后由 Radar Thread 重新派发**。
+- 项目阶段：**Discovery**（项目骨架已初始化，联网权限已配置，等待 Radar Thread 启动首期周报）。
+- 一句话当前状态：**T-001 已从 Blocked 解锁回 Backlog；`.claude/settings.json` 联网白名单已落盘；等待用户启动 Radar Thread**。
 - 主线程持有人：Main Thread（用户）。
 - 实际启用线程：仅 Main Thread + AI Trend Radar Thread；本项目为研究项目，PM / Design / Engineering 三线程默认 N/A。
 
@@ -40,35 +40,33 @@ Last Updated: 2026-04-28（当日五次更新：用户选定恢复路径 1，等
 
 | Task ID | Owner | Task | Status |
 |---|---|---|---|
-| T-001 | AI Trend Radar Thread | 首期 Baseline + W18 周报（窗口 2026-04-22 → 2026-04-28） | **Blocked**（since 2026-04-28，详见 §5） |
+| T-001 | AI Trend Radar Thread | 首期 Baseline + W18 周报（窗口 2026-04-22 → 2026-04-28） | **Backlog**（联网权限已解锁 2026-04-28；等待用户启动 Radar） |
 
 ## 5. Blockers
 
-| Severity | Blocker | 影响范围 | Source | Reported |
-|---|---|---|---|---|
-| **P1** | WebSearch / WebFetch permission denied — Radar Thread 无法访问任何一级 / 二级公开信源 | 阻塞 T-001（首期 W18 周报）；不阻塞其他线程 | [`06-sync/group/2026-04-28T_radar_blocked-w18-web-tools-denied.md`](group/2026-04-28T_radar_blocked-w18-web-tools-denied.md) | 2026-04-28 |
+无活跃 Blocker。
 
-P1 详情：
-- T-001 要求最新（2026-03-29 → 2026-04-28）信息且必须来源回溯，模型 cutoff = 2026-01 远早于窗口。
-- 在无联网验证下继续会同时违反 `PROJECT_RULES.md §7`、`RADAR_THREAD_START.md §7`、`LINKS.md §3`。
-- Radar Thread 已主动停手，未写任何研究产物，三个研究子线程均已被 kill。
+### 历史 Blocker（已解决）
+
+| Severity | Blocker | 解决方式 | Reported | Resolved |
+|---|---|---|---|---|
+| P1 | WebSearch / WebFetch permission denied — Radar Thread 无法访问任何一级 / 二级公开信源 | 在 `.claude/settings.json` 写入 1 个 WebSearch + 28 个 WebFetch 域名白名单（一级 13 + 二级 4 + 中文辅助 3 + Coding 工具 5 + 三级社区 4） | 2026-04-28 | 2026-04-28 |
+
+参考：
+- 原始 blocker 报告：[`06-sync/group/2026-04-28T_radar_blocked-w18-web-tools-denied.md`](group/2026-04-28T_radar_blocked-w18-web-tools-denied.md)
+- 权限文件：`/.claude/settings.json`（已入 git）
+- 决议见 DECISION_LOG #11。
 
 ## 6. Next Actions
 
-**用户决策**（2026-04-28）：选定恢复路径 1 — 解锁联网权限并重跑。备选 2 / 3 不再走。
+权限解锁已完成（路径 1 / 实施方式 a）。剩余动作：
 
-剩余动作按顺序：
+1. **用户**：在新会话或当前会话重新启动 AI Trend Radar Thread，让其重跑 T-001。
+   - 注意：当前会话可能需要重启才能让 Claude Code 重新加载 `.claude/settings.json` 的权限白名单；如 Radar 报告权限仍被拒，需重启 Claude Code 客户端。
+2. **AI Trend Radar Thread**：启动后重新派发 3 个研究子线程（AI Agent / AI Coding / Game AI），按 `04-research/AI_WEEKLY_REPORT_TEMPLATE.md` 字段产出 `04-research/AI_WEEKLY_REPORT_2026-W18.md`（Issue = `Baseline`）。预计 1–2 小时。
+3. **Main Thread**：Radar 启动后更新 TASK_BOARD T-001 → In Progress，并更新 `THREAD_REGISTRY.md` 的 Radar Status / Last Update。Radar 完成后再切到 In Review / Done。
 
-1. **用户**：决定权限解锁的实施方式（任选其一）：
-   - **a. Main Thread 提议 settings.json 补丁**：Main 起草 `.claude/settings.json` 的 `permissions.allow` 列表（基于 blocker 报告 §"Options 1" 的域名清单），用户审核后由 Main 落盘。
-   - **b. 用户自行编辑 settings.json**：用户在仓库外或自行编辑，完成后告知 Main。
-   - **c. 不写 settings.json，运行时交互授权**：下次 Radar Thread 调用 WebSearch / WebFetch 时由用户在权限弹窗逐条放行。
-
-2. **Main Thread**：权限落地后更新 TASK_BOARD T-001 → In Progress，更新本文件 §1 / §4 / §5，并视情况更新 `THREAD_REGISTRY.md` 的 Radar Last Update。
-
-3. **AI Trend Radar Thread**：权限到位后由用户再次启动；Radar 重新派发 3 个研究子线程（AI Agent / AI Coding / Game AI），预计 1–2 小时完成首期周报。
-
-- **现阶段约束**：在用户回复 1.a / 1.b / 1.c 之前，Main Thread 不擅自写 `.claude/settings.json`，Radar Thread 保持 Idle。
+- **现阶段约束**：Main Thread 不执行 Radar 研究；Radar 完成前不动 `04-research/` 任何文件。
 
 ## 7. Links to Important Messages
 

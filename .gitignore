@@ -9,3 +9,9 @@ out/
 # Python virtualenv (local)
 .venv/
 
+# Claude Code worktrees (internal git mechanism, never commit)
+.claude/worktrees/
+
+# Claude Code per-machine local overrides
+.claude/settings.local.json
+
