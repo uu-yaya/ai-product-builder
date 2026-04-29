@@ -28,6 +28,7 @@
 | 2026-04-28 | Scope | 中文媒体（机器之心、量子位、PaperWeekly）作为二级 / 三级辅助源；独家报道默认 Confidence 中 / 低 | 中文源对国内趋势 / 中文语境 / 行业讨论有帮助，但事实层不能替代英文一手；默认低 Confidence 强迫回查英文来源 | `LINKS.md §2.7` 收录三家中文源；周报模板 Confidence 评分细则补充中文源例外条款；不影响 §2.1 一级信源认定 | Accepted |
 | 2026-04-28 | AI | 首期周报（Issue = Baseline）采用"30 天背景 + 7 天增量"双段结构，合并为同一文档 | 基线 + 首期合并避免重复内容；30 天背景给后续周报锚定共同起点；增量段确认 7 天滚动窗口默认行为 | 仅 Issue = Baseline 期填写 Baseline 段；常规期删除该段；模板 `04-research/AI_WEEKLY_REPORT_TEMPLATE.md` 已落地双段结构 | Accepted |
 | 2026-04-28 | Risk | T-001（首期 W18 周报）暂停，等待可验证来源（联网权限解锁 / 用户提供 URLs / 降级为骨架）三选一决策 | Radar Thread 在启动时遭遇 WebSearch / WebFetch permission denied；模型 cutoff = 2026-01 早于周报窗口（2026-03-29 → 2026-04-28），无联网验证下继续会同时违反 `PROJECT_RULES.md §7`、`RADAR_THREAD_START.md §7`、`LINKS.md §3`；为坚守"事实必须来源回溯"硬规则，主动停手优于产出未经验证内容 | T-001 在 `06-sync/TASK_BOARD.md` 标 Blocked；`06-sync/SYNC_SUMMARY.md §5` 记 P1 Blocker；Radar Thread 保持 Idle 不自行重试；恢复路径见 `SYNC_SUMMARY.md §6`；blocker 报告见 `06-sync/group/2026-04-28T_radar_blocked-w18-web-tools-denied.md` | Accepted |
+| 2026-04-28 | Risk | T-001 恢复路径选定为路径 1：解锁 WebSearch / WebFetch 给 Radar Thread 并重跑首期周报 | 路径 2（用户自行检索）会把研究负担转给用户，违背 Radar Thread 的自动化职责；路径 3（降级骨架）与现有 `AI_WEEKLY_REPORT_TEMPLATE.md` 重复，价值低；路径 1 保留 T-001 真正产物形态，是用户与 Radar 的共识方案 | 待 `.claude/settings.json` 权限配置完成（实施方式见 `SYNC_SUMMARY.md §6` Step 1.a/b/c）；权限落地后 T-001 → In Progress，由用户再次启动 Radar Thread；放行域名清单详见 `06-sync/group/2026-04-28T_radar_blocked-w18-web-tools-denied.md` §"Options 1" | Accepted |
 
 ## 维护规则
 

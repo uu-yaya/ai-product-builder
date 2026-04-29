@@ -4,12 +4,12 @@
 >
 > 不要在这里粘贴所有消息原文；只摘录关键状态与链接。
 
-Last Updated: 2026-04-28（当日四次更新：T-001 启动尝试 → Blocked，登记联网权限阻塞）
+Last Updated: 2026-04-28（当日五次更新：用户选定恢复路径 1，等待 `.claude/settings.json` 权限配置）
 
 ## 1. Current Project State
 
-- 项目阶段：**Discovery**（项目骨架已初始化，首期周报启动失败，等待联网权限或备选方案）。
-- 一句话当前状态：**T-001 已 Blocked（WebSearch / WebFetch permission denied）；Radar Thread 已主动停手并报告，等待 Main Thread / 用户决策恢复路径**。
+- 项目阶段：**Discovery**（项目骨架已初始化，首期周报因联网权限阻塞，恢复路径 1 已选定）。
+- 一句话当前状态：**T-001 仍 Blocked；用户已选恢复路径 1（解锁 WebSearch / WebFetch 并重跑）；等待 `.claude/settings.json` 权限配置完成后由 Radar Thread 重新派发**。
 - 主线程持有人：Main Thread（用户）。
 - 实际启用线程：仅 Main Thread + AI Trend Radar Thread；本项目为研究项目，PM / Design / Engineering 三线程默认 N/A。
 
@@ -55,14 +55,20 @@ P1 详情：
 
 ## 6. Next Actions
 
-T-001 等待用户在以下 3 条恢复路径中决策（按 Radar Thread 推荐排序）：
+**用户决策**（2026-04-28）：选定恢复路径 1 — 解锁联网权限并重跑。备选 2 / 3 不再走。
 
-1. **解锁联网权限并重跑**（推荐）— 至少放行一级 / 二级 / 中文辅助源域名给 WebSearch / WebFetch；具体域名清单见 blocker 报告 §"Options 1"。解锁后由 Radar Thread 重新派发 3 个研究子线程，预计 1–2 小时完成首期周报。
-2. **用户提供 URLs / 源摘录** — 用户在外部完成检索，把 URL + 关键摘要贴回会话；Radar Thread 据此按模板 10 字段做结构化与 Confidence / Impact 判断。适合用户已有现成线索池的场景。
-3. **降级为方法论骨架** — 仅交付 `04-research/AI_WEEKLY_REPORT_2026-W18.md` 的字段填法骨架（Issue 标 `Baseline (Skeleton, Pending Web Verification)`），不含 W18 实际内容。**不推荐**：项目内已有 `AI_WEEKLY_REPORT_TEMPLATE.md`，重复交付价值低。
+剩余动作按顺序：
 
-- **Main Thread**：以上 3 条由用户回复后，再启动对应执行；Main Thread 暂不写其他文件。
-- **AI Trend Radar Thread**：保持 Idle，不在无授权情况下自行重试或降级。
+1. **用户**：决定权限解锁的实施方式（任选其一）：
+   - **a. Main Thread 提议 settings.json 补丁**：Main 起草 `.claude/settings.json` 的 `permissions.allow` 列表（基于 blocker 报告 §"Options 1" 的域名清单），用户审核后由 Main 落盘。
+   - **b. 用户自行编辑 settings.json**：用户在仓库外或自行编辑，完成后告知 Main。
+   - **c. 不写 settings.json，运行时交互授权**：下次 Radar Thread 调用 WebSearch / WebFetch 时由用户在权限弹窗逐条放行。
+
+2. **Main Thread**：权限落地后更新 TASK_BOARD T-001 → In Progress，更新本文件 §1 / §4 / §5，并视情况更新 `THREAD_REGISTRY.md` 的 Radar Last Update。
+
+3. **AI Trend Radar Thread**：权限到位后由用户再次启动；Radar 重新派发 3 个研究子线程（AI Agent / AI Coding / Game AI），预计 1–2 小时完成首期周报。
+
+- **现阶段约束**：在用户回复 1.a / 1.b / 1.c 之前，Main Thread 不擅自写 `.claude/settings.json`，Radar Thread 保持 Idle。
 
 ## 7. Links to Important Messages
 

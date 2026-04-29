@@ -10,7 +10,7 @@
 
 | Task ID | Owner Thread | Task | Inputs | Outputs | Status | Blockers |
 |---|---|---|---|---|---|---|
-| T-001 | AI Trend Radar Thread | 首期 Baseline + W18 周报：30 天背景 + 7 天增量（窗口 2026-04-22 → 2026-04-28） | `00-context/PROJECT_CONTEXT.md`、`00-context/LINKS.md`、`04-research/AI_WEEKLY_REPORT_TEMPLATE.md`、`decisions/DECISION_LOG.md` | `04-research/AI_WEEKLY_REPORT_2026-W18.md`（Issue 字段标 `Baseline`） | **Blocked**（since 2026-04-28） | WebSearch / WebFetch permission denied；详见 [`06-sync/group/2026-04-28T_radar_blocked-w18-web-tools-denied.md`](group/2026-04-28T_radar_blocked-w18-web-tools-denied.md)；3 条恢复路径见 `SYNC_SUMMARY.md §6` |
+| T-001 | AI Trend Radar Thread | 首期 Baseline + W18 周报：30 天背景 + 7 天增量（窗口 2026-04-22 → 2026-04-28） | `00-context/PROJECT_CONTEXT.md`、`00-context/LINKS.md`、`04-research/AI_WEEKLY_REPORT_TEMPLATE.md`、`decisions/DECISION_LOG.md` | `04-research/AI_WEEKLY_REPORT_2026-W18.md`（Issue 字段标 `Baseline`） | **Blocked**（since 2026-04-28；恢复路径 1 已选定，待权限落地） | WebSearch / WebFetch permission denied；用户已选恢复路径 1（解锁联网并重跑）；待 `.claude/settings.json` 权限配置完成后由 Radar Thread 重新派发；详见 `SYNC_SUMMARY.md §6` |
 
 ## 维护规则
 
