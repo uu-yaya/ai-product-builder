@@ -65,13 +65,14 @@ workspaces/engineering-build/
 
 ## Example Commands
 
-- 请进入 engineering-build 工作区，阅读当前代码仓库并从产品 + 工程视角解释。
-- 请根据 MVP_BUILD_PLAN_TEMPLATE.md 把这份 PRD 转成 MVP 落地计划。
-- 请根据 API_IMPLEMENTATION_PLAN_TEMPLATE.md 把这个 API 需求转成工程实现计划。
-- 请根据 AI_INTEGRATION_TEMPLATE.md 设计这个 AI 功能的工程集成方案。
-- 请根据 TEST_CASE_TEMPLATE.md 为这个功能生成测试用例。
-- 请根据 CODE_REVIEW_TEMPLATE.md 评审这个 PR。
-- 请根据 LAUNCH_CHECKLIST_TEMPLATE.md 做上线前检查。
+所有示例都以 `APB 模式：...` 起手，无需再指定工作区——APB 会自动路由到本工作区。
+
+- `APB 模式：阅读当前代码仓库并从产品 + 工程视角解释，按 CODEBASE_UNDERSTANDING_TEMPLATE 输出，不要修改文件。`
+- `APB 模式：基于这个 PRD 和设计交付，生成 MVP_BUILD_PLAN。`
+- `APB 模式：为这个功能设计 API_PLAN 和 TEST_CASES。`
+- `APB 模式：设计这个 AI 功能的工程集成方案，按 AI_INTEGRATION_TEMPLATE 输出，含 fallback / 评估 / 成本 / 延迟。`
+- `APB 模式：评审这个实现方案的技术风险和上线检查项，按 LAUNCH_CHECKLIST_TEMPLATE 输出 Go/No-go 与回滚方案。`
+- `APB 模式：评审这个 PR，按 CODE_REVIEW_TEMPLATE 输出，问题按 P0/P1/P2 标注。`
 
 ## Maintenance Rules
 

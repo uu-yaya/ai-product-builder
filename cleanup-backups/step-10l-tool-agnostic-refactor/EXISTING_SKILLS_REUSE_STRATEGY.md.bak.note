@@ -1,0 +1,18 @@
+# Backup Note (Step 10L)
+
+完整 EXISTING_SKILLS_REUSE_STRATEGY.md 备份在 `cleanup-backups/step-10k-blocker-reporting/`、`cleanup-backups/step-10i-slim-agents/` 与更早 step 的备份目录中。Step 10L 仅在文档顶部追加 Codex Note，不修改任何已有内容；如需回滚 Codex Note，删除文档顶部的 `> **Codex Note (added in Step 10L)**` 段及其后空行即可（共约 15 行）。
+
+回滚命令示例：
+
+```bash
+# 编辑器手动删除 Codex Note 段
+${EDITOR:-vim} skills-plan/EXISTING_SKILLS_REUSE_STRATEGY.md
+```
+
+或从更早 step 的备份恢复：
+
+```bash
+# 从 Step 10I 时期的快照恢复（如果存在）
+cp cleanup-backups/step-10i-slim-agents/EXISTING_SKILLS_REUSE_STRATEGY.md.bak \
+   skills-plan/EXISTING_SKILLS_REUSE_STRATEGY.md  # 注：实际备份位置以 ls 为准
+```

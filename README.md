@@ -1,74 +1,219 @@
-# AI Product Builder Workspace
+# AI Product Builder (APB)
 
-## What This Workspace Is
+## 1. What APB Is
 
-这是一个分层的 AI Product Builder 工作区，用于把产品策略、设计原型、工程落地和 AI 趋势研究组织到同一个长期可复用系统中。
+APB（AI Product Builder）是一个面向 AI 产品经理的多工作区、多 Agent / 多线程 AI 产品工作台。
 
-## Why Multi-Workspace
+它把产品策略、设计原型、工程落地和 AI 趋势研究组织到同一个长期可复用系统中，并通过统一的 `APB 模式` 入口完成路由、Skills 复用与模板化输出。
 
-采用多工作区结构，是为了让不同类型任务拥有清晰边界：产品问题先澄清，设计问题先形成体验表达，工程问题先落地验证，趋势问题先信息验证与机会提炼。
+当前用户身份：腾讯 IEG 游戏前沿部门技术公线 AI 产品经理。APB 既覆盖通用 AI PM 工作流，也在向游戏 AI、AIGC、内部平台方向扩展（详见 `ROADMAP.md`）。
 
-## Professional Workspaces
+## 2. Quick Start: APB Mode
 
-- `workspaces/pm-strategy/`：产品策略、需求澄清、PRD、SRS、MRD、竞品分析、用户旅程、任务拆解。
-- `workspaces/design-prototype/`：UI/UX、设计灵感研究、Figma Prompt、高保真交互原型、UI 评审。
-- `workspaces/engineering-build/`：代码阅读、MVP 落地、接口设计、前后端实现、测试、上线检查。
-- `workspaces/ai-trend-radar/`：AI 趋势研究、YouTube / GitHub / 论文 / 产品发布跟踪、信息差挖掘。
+以后默认使用以下方式调用 APB：
 
-## AGENTS.md Relationship
+```
+APB 模式：<你的任务>
+```
 
-根目录 `AGENTS.md` 定义全局角色、路由规则、安全边界和完成标准。每个子工作区的 `AGENTS.md` 定义该专业区的职责范围与后续扩展方向。
+不再需要每次手动指定具体工作区。APB 会自动完成三件事：
 
-## memory/
+1. 根据任务路由到 `pm-strategy` / `design-prototype` / `engineering-build` / `ai-trend-radar` 之一。
+2. 决定是否复用已有 Skills（包括 Lenny skills 与本地已安装 Skills）。
+3. 按对应 workspace 的 templates / workflows / output standards 输出结果。
 
-`memory/` 用于保存长期上下文，包括用户画像、全局项目上下文、关键决策记录和术语表。它帮助后续任务保持一致性，减少重复解释。
+如果任务不清晰，APB 默认先进入 `workspaces/pm-strategy/` 做需求澄清，再决定下一步。
 
-## projects/
+完整路由规则与冲突仲裁规则见根 `AGENTS.md`。
 
-`projects/` 用于存放具体项目的上下文、阶段性产物和项目级规则。全局能力放在 `workspaces/`，具体项目沉淀放在 `projects/`。
+### APB Mode 触发词
 
-## Recommended Usage
+以下任一表达都会触发 APB Mode：
 
-1. 先判断任务属于产品、设计、工程还是趋势研究。
-2. 读取根 `AGENTS.md` 的全局规则。
-3. 进入对应子工作区读取该区 `AGENTS.md`。
-4. 如果是具体项目，再补充读取 `projects/` 下的项目上下文。
-5. 输出结构化、可复制、可执行的结果。
+- `APB 模式`
+- `AI Product Builder 模式`
+- `按我的工作区规则`
+- `按 APB 工作流`
+- `用我的产品工作区`
+- `按 ai-product-builder`
 
-## Build Order
+## 3. APB Mode Examples
 
-Phase 1: Workspace Skeleton
-Phase 2: Compatibility Optimization
-Phase 3: Build pm-strategy Workspace
-Phase 4: Build design-prototype Workspace
-Phase 5: Build engineering-build Workspace
-Phase 6: Build ai-trend-radar Workspace
-Phase 7: Global Workspace Closure Check
-Phase 8: Documentation Cleanup
-Phase 9: Next Rollout Stages
+所有示例都以 `APB 模式：...` 起手，无需再指定工作区。
 
-Phase 9 includes P0 Skills creation, gradual MCP setup, and project-specific integration under `projects/`.
+| 场景 | 调用方式 |
+|---|---|
+| 需求澄清 | `APB 模式：帮我澄清这个产品想法。` |
+| PRD | `APB 模式：帮我写这个功能的 PRD。` |
+| 竞品分析 | `APB 模式：帮我做竞品分析，并输出差异化机会。` |
+| 优先级排序 | `APB 模式：把这些需求按 RICE 和 P0/P1/P2 排优先级。` |
+| 高保真原型 + Figma Prompt | `APB 模式：基于这个 PRD 生成高保真原型方案和 Figma Prompt。` |
+| MVP 工程拆解 | `APB 模式：把这个方案拆成 MVP_BUILD_PLAN。` |
+| AI 趋势周报 | `APB 模式：搜索最近一周 AI Agent 趋势，并按 AI_WEEKLY_REPORT_TEMPLATE 输出。` |
+| AI 功能必要性评估 | `APB 模式：评估这个功能是否真的需要 Agent。` |
+| UI/UX 评审 | `APB 模式：按 UI_AUDIT_TEMPLATE 评审这张页面截图。` |
+| 论文转产品洞察 | `APB 模式：把这篇论文转成产品洞察和 Demo idea。` |
 
-## Example Commands
+更多用法示例见 `skills-plan/EXISTING_SKILLS_REUSE_STRATEGY.md` 与 `skills-plan/LENNY_SKILLS_APB_MAPPING.md`。
 
-- 请进入 pm-strategy 工作区，帮我澄清这个需求
-- 请进入 design-prototype 工作区，为这个小程序页面生成 Figma Prompt
-- 请进入 engineering-build 工作区，阅读当前代码并给出实现计划
-- 请进入 ai-trend-radar 工作区，搜索最近一周 AI Agent 重要进展
-- 请根据 memory/DECISION_LOG.md 总结目前的工作区设计决策
+## 4. Architecture at a Glance
 
-## Optimization Roadmap
+```
+ai-product-builder/
+├── AGENTS.md                 路由大脑：APB Mode 触发 + Skill 冲突仲裁 + 安全规则
+├── README.md                 入口：当前文档
+├── ROADMAP.md                阶段路线图与当前状态
+├── memory/                   长期记忆：用户画像、决策、术语、全局上下文
+├── workspaces/               方法论中心（4 个专业工作区）
+│   ├── pm-strategy/
+│   ├── design-prototype/
+│   ├── engineering-build/
+│   └── ai-trend-radar/
+├── skills-plan/              Skills 复用策略 + Lenny 索引 / 映射 + 候选 SKILL_SPEC
+├── global-config-plan/       Codex 全局配置建议（仅规划，未写入 ~/.codex/）
+├── mcp-plan/                 MCP 接入路线图（仅规划，未配置）
+├── projects/                 真实项目产物（_PROJECT_TEMPLATE 已建立，可复制为新项目）
+└── cleanup-backups/          阶段性快照，仅供回滚，不应作为当前工作依据
+```
 
-This workspace is being upgraded from a simple multi-workspace skeleton into a three-layer AI Product Builder system:
+## 5. Workspaces Cheatsheet
 
-1. Global Codex Runtime Config
-2. Reusable Skills
-3. Project Workspace
+| 工作区 | 主要职责 | 何时被路由 |
+|---|---|---|
+| `workspaces/pm-strategy/` | 需求澄清、PRD / SRS / MRD、竞品分析、用户旅程、AI 功能评估、优先级排序、研发任务拆解 | 任务偏产品策略或需求；任务不清晰时的默认入口 |
+| `workspaces/design-prototype/` | 设计灵感、UI/UX 评审、Figma Prompt、高保真原型、设计系统、设计交付 | 任务偏 UI / UX / 原型 / 视觉 |
+| `workspaces/engineering-build/` | 代码理解、MVP 落地、API 设计、数据模型、AI 功能集成、测试用例、code review、上线检查 | 任务偏工程实现或 AI 集成 |
+| `workspaces/ai-trend-radar/` | AI 日报 / 周报、专题趋势、YouTube / GitHub / 论文研究、产品机会、Demo idea | 任务偏外部信息搜集与机会提炼 |
 
-The goal is to avoid overloading a single AGENTS.md while still enabling advanced AI PM, design, engineering, and trend research workflows.
+每个工作区都有自己的 `AGENTS.md` / `README.md` / `templates/` / `workflows/` / `prompts/`，作为方法论与模板的稳定层。
 
-See:
-- `ROADMAP.md`
-- `global-config-plan/`
-- `skills-plan/`
-- `mcp-plan/`
+## 6. Workspaces vs Projects
+
+| 目录 | 应放什么 | 不应放什么 |
+|---|---|---|
+| `workspaces/` | 通用方法论、模板、workflow、prompt（长期稳定） | 真实项目 PRD、真实设计稿、真实工程计划 |
+| `projects/` | 真实项目产物：项目级 PRD、设计交付、工程计划、趋势报告、决策记录 | 通用方法论或模板 |
+
+规则：
+
+- 真实项目内容必须放进 `projects/<project-slug>/`，不要写进 `workspaces/`。
+- `workspaces/` 的模板只放结构骨架，不塞具体业务内容。
+- 项目级输出使用统一的目录骨架：`00-context/` / `01-pm/` / `02-design/` / `03-engineering/` / `04-research/` / `05-reviews/` / `06-sync/` / `decisions/`。
+- `projects/_PROJECT_TEMPLATE/` **已建立**，可直接复制到 `projects/<project-slug>/` 开始新项目。详细说明见 `projects/_PROJECT_TEMPLATE/README.md` 与 `projects/_PROJECT_TEMPLATE/PROJECT_RULES.md`。
+
+## 7. Existing Skills and Lenny Skills
+
+APB 可以复用以下两类 Skills：
+
+- 本地已安装的 Anthropic / Codex 内置 Skills（如 `writing-prds`、`competitive-analysis`、`ai-product-strategy`、`ai-evals`、`design-systems`、`running-design-reviews`、`figma` 系列、`playwright` 等）。
+- 本地已安装的 Lenny skills（86 个 PM、设计、工程、增长、领导力、AI 方法论 Skill）。
+
+复用核心原则：
+
+- Skills 是**能力提供者**，APB workspace templates 是**最终输出 authority**。
+- Skills 输出与 APB 模板冲突时，按 APB 模板重格式化。
+- Skills 安全规则与 APB 安全规则冲突时，APB 安全规则优先。
+- 不因为 Skill 名字看起来相关就强行使用；必须 frontmatter `name` / `description` / 路径 / 任务匹配后才使用。
+- 重复路径的 Skill（同名同描述出现在多个路径）默认不优先选择，但**不删除、不移动、不禁用**。
+
+参考文档：
+
+- `skills-plan/EXISTING_SKILLS_REUSE_STRATEGY.md`：Skill 重用决策矩阵 + 6 类重用等级。
+- `skills-plan/LENNY_SKILLS_INDEX.md`：86 个 Lenny skills 的 APB 索引。
+- `skills-plan/LENNY_SKILLS_APB_MAPPING.md`：Lenny skills ↔ APB 工作区任务映射。
+
+## 8. Multi-thread Usage
+
+APB 未来会支持五类协作线程，用于在同一项目内分工协作。
+
+| 线程角色 | 主要负责 | 默认读 | 默认写 |
+|---|---|---|---|
+| Main Thread | 总协调、跨线程同步、决策汇总 | 全部 | `projects/<slug>/06-sync/` |
+| PM Strategy Thread | 需求澄清、PRD、竞品、优先级 | `01-context/`、`05-radar/` | `02-pm/` |
+| Design Prototype Thread | UI/UX 评审、Figma Prompt、高保真原型、设计系统 | `02-pm/` | `03-design/` |
+| Engineering Build Thread | MVP、API、AI 集成、测试、上线检查 | `02-pm/`、`03-design/` | `04-engineering/` |
+| AI Trend Radar Thread | AI 趋势、机会、Demo idea | 公共趋势源 | `05-radar/` |
+
+> **当前状态**（按子项分别标注）：
+> - `projects/_PROJECT_TEMPLATE/`：✅ **completed**（Step 10B）
+> - `06-sync/` 项目级通信层：✅ **completed**（Step 10B 已含 `THREAD_REGISTRY.md` / `TASK_BOARD.md` / `SYNC_SUMMARY.md` / `group/` / `dm/`）
+> - Global multi-thread protocol：✅ **completed**（Step 10C，详见 `docs/APB_MULTI_THREAD_PROTOCOL.md`）
+> - Thread startup prompts（5 类线程的标准启动 Prompt 模板）：✅ **completed**（Step 10D，位于 `prompts/thread-start/`）
+
+下一步建设项：
+
+- Step 10G（current）：核对 `ROADMAP.md` 与 `memory/DECISION_LOG.md` 状态一致性，补记关键决定。
+- Step 10H（planned）：First Pilot Project — 复制 `_PROJECT_TEMPLATE` 跑通一个最小真实项目，验证多线程协议、项目模板、启动 Prompt 在真实使用中的可用性。
+
+### Tool-Agnostic Runtime
+
+APB **不绑定 Claude**。Claude / Codex / Cowork / OpenClaw / 未来 Multica 都是可执行 APB 线程的不同 runtime，必须遵守同一套项目文件协议：
+
+- `AGENTS.md`：启动索引 + 路由规则 + 安全底线
+- `docs/APB_MODE.md`：APB Mode 详细行为
+- `docs/APB_MULTI_THREAD_PROTOCOL.md`：多线程协议（含 §14 Tool-Agnostic Agent Runtime）
+- `prompts/thread-start/`：5 类线程可复制启动 Prompt（跨 runtime 通用）
+- `projects/<project-slug>/06-sync/`：跨线程通信层（任何 runtime 都通过此处同步）
+
+要点：
+
+- **Claude slash commands 是可选便利入口**，不是 APB 的 source of truth；如果未来创建，只是调用 `prompts/thread-start/` 与 APB 文件规则的快捷方式。
+- **Codex 可直接通过 `AGENTS.md` + `prompts/thread-start/` 使用 APB**，不需要 `.claude/commands/`。
+- **不同 runtime 之间通过 `06-sync/` 同步**，不依赖聊天历史。聊天会话窗口是临时上下文，不是持久知识库。
+- **任何 runtime 遇到 blocker，必须按 §13 Blocker Reporting Protocol 写到 `06-sync/group/`**，不允许只在聊天窗口报告。
+
+详细规则与跨 runtime 行为对照见 `docs/APB_MULTI_THREAD_PROTOCOL.md` §14 与 `docs/TOOL_COMPATIBILITY.md`。
+
+## 9. Roadmap Snapshot
+
+- **Current Phase**：Phase 9C — Lenny Skills APB Index and Mapping。
+- **Next 1**：Phase 9D — P0 Skills Decision（基于真实使用证据决定是否创建 `apb-*` 自定义 Skills）。
+- **Next 2**：Phase 9F — Gradual MCP Setup（Context7 → GitHub → Figma → Playwright，按需逐个验证）。
+- **Next 3**：Phase 9G — Project-specific Integration（基于 `_PROJECT_TEMPLATE` 跑通真实项目）。
+
+Step 10 子任务进度：
+
+- **Step 10A**：Root README rewrite — ✅ **completed**
+- **Step 10B**：Project template + 06-sync — ✅ **completed**
+- **Step 10C**：Global multi-thread protocol — ✅ **completed**
+- **Step 10D**：Thread startup prompts — ✅ **completed**
+- **Step 10E**：Workspace example commands sync — ✅ **completed**
+- **Step 10F**：GLOBAL_CONTEXT baseline — ✅ **completed**（user-owned baseline by user）
+- **Step 10G**：Roadmap and decision log alignment — 🔄 **current**
+- **Step 10H**：First Pilot Project — ⏳ planned
+- **Step 10I**：Slim root `AGENTS.md` and move detailed rules to docs — ✅ **completed**
+
+详细路线见 `ROADMAP.md`。Step 10 系列作为 Phase 9G 的前置工作分阶段推进，已完成 8/9，Step 10H 待真实项目首跑。
+
+## 10. Safety and Boundaries
+
+| 类别 | 规则 |
+|---|---|
+| 用户全局配置 | 不修改 `~/.codex/`，除非用户明确要求。 |
+| 用户全局 Skills | 不修改 `~/.agents/skills/`，除非用户明确要求。Lenny skills 不删除、不移动、不禁用、不重命名。 |
+| MCP | 不直接配置 MCP；`mcp-plan/` 仅是规划，不是当前可执行的配置。 |
+| 凭据 | 不写入真实 token / API key / secret，仅使用 `${ENV_VAR}` 占位。 |
+| 业务数据 | 不把真实玩家数据、公司机密、未脱敏日志、内部敏感资料、合作方机密写入 APB 仓库。 |
+| 历史快照 | `cleanup-backups/` 仅供回滚使用，不应作为当前工作依据；APB 路由不应进入此目录。 |
+| 操作前 | 涉及真实代码修改、文件删除、生产配置、鉴权、支付、隐私、远程系统时，先说明影响范围与风险，再小步执行。 |
+
+完整安全规则见根 `AGENTS.md` 中 `Safety Rules`、`External Tool Skill Rules` 与 `Skill Conflict Rules` 段。
+
+## 11. Key Files
+
+| 文件 / 目录 | 作用 |
+|---|---|
+| `AGENTS.md` | APB 路由大脑：APB Mode 触发、Skill 冲突仲裁、安全规则、完成标准 |
+| `ROADMAP.md` | 阶段路线图与当前状态 |
+| `memory/USER_PROFILE.md` | 用户身份与目标 |
+| `memory/GLOBAL_CONTEXT.md` | 全局项目上下文（已由用户填写基线） |
+| `memory/DECISION_LOG.md` | 关键架构决策记录 |
+| `memory/TERMINOLOGY.md` | APB 术语表 |
+| `workspaces/` | 4 个专业工作区方法论中心 |
+| `skills-plan/` | Skills 复用策略 + Lenny 索引 / 映射 |
+| `mcp-plan/` | MCP 接入路线图（仅规划） |
+| `projects/` | 真实项目产物（`_PROJECT_TEMPLATE` 已建立） |
+| `docs/APB_MODE.md` | APB Mode 与 Skills 复用详细规则（行为顺序、外部工具 Skill 规则、Examples） |
+| `docs/APB_MULTI_THREAD_PROTOCOL.md` | 全局多线程协作协议（角色、读写矩阵、启动顺序、冲突避免、Blocker Reporting、**Tool-Agnostic Agent Runtime**、Multica 兼容） |
+| `prompts/thread-start/` | 多线程启动 Prompt 模板（Main / PM / Design / Engineering / Radar 五类，**Claude / Codex / Cowork / OpenClaw 都可复用**） |
+| `docs/TOOL_COMPATIBILITY.md` | Claude Code + Codex 双工具对照、跨平台路径表（Mac/Windows）、配置同步策略 |

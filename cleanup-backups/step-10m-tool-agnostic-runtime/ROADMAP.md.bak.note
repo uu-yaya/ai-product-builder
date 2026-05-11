@@ -1,0 +1,17 @@
+# Backup Note (Step 10M)
+
+完整 ROADMAP.md 在 Step 10L 修改后的状态备份在 `cleanup-backups/step-10l-tool-agnostic-refactor/ROADMAP.md.bak`（注：该备份为简化版，Phase 1–9 与 Step 10A–10K 的完整内容详见各 step 的旧版备份目录）。
+
+Step 10M 改动：
+
+1. 顶部 Current Status：`Step 10L Tool-Agnostic Refactor` 行从 "Current phase" 改为 "is completed."；新增 "Step 10M Tool-Agnostic Agent Runtime" 为 current。
+2. §Step 10L 子段：Status: current → completed。
+3. 末尾追加 §Step 10M: Tool-Agnostic Agent Runtime 子段。
+
+回滚：
+
+```bash
+# 从 10L 时期的快照恢复（注：该备份是简化版）
+cp cleanup-backups/step-10l-tool-agnostic-refactor/ROADMAP.md.bak ROADMAP.md
+# 完整版历史在更早的 step 备份中（如 step-10k-blocker-reporting）
+```

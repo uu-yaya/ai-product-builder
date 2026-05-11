@@ -86,13 +86,15 @@ workspaces/ai-trend-radar/
 
 ## Example Commands
 
-- 请进入 ai-trend-radar 工作区，生成今天的 AI 日报。
-- 请根据 AI_WEEKLY_REPORT_TEMPLATE.md 生成本周 AI Agent 趋势周报。
-- 请根据 YOUTUBE_RESEARCH_TEMPLATE.md 分析这个 YouTube 视频对 AI 产品经理的价值。
-- 请根据 GITHUB_TRENDING_RESEARCH_TEMPLATE.md 分析最近热门 AI 开源项目。
-- 请根据 PAPER_TO_PRODUCT_INSIGHT_TEMPLATE.md 把这篇论文转成产品洞察。
-- 请根据 AI_PRODUCT_OPPORTUNITY_TEMPLATE.md 从这些趋势中提炼产品机会。
-- 请根据 DEMO_IDEA_TEMPLATE.md 生成一个可落地 Demo idea。
+所有示例都以 `APB 模式：...` 起手，无需再指定工作区——APB 会自动路由到本工作区。
+
+- `APB 模式：生成今天的 AI 日报，按 AI_DAILY_REPORT_TEMPLATE 输出，并标注来源与可信度。`
+- `APB 模式：搜索最近一周 AI Agent 趋势，并按 AI_WEEKLY_REPORT_TEMPLATE 输出。`
+- `APB 模式：调研这个 GitHub 项目，提炼产品机会和 Demo idea，按 GITHUB_TRENDING_RESEARCH_TEMPLATE 输出。`
+- `APB 模式：分析这个 YouTube 视频对 AI 产品经理的价值，按 YOUTUBE_RESEARCH_TEMPLATE 输出，并区分事实/观点/推测。`
+- `APB 模式：把这篇论文转成产品洞察和可验证 Demo，按 PAPER_TO_PRODUCT_INSIGHT_TEMPLATE 输出。`
+- `APB 模式：从这些趋势中提炼产品机会，按 AI_PRODUCT_OPPORTUNITY_TEMPLATE 输出。`
+- `APB 模式：基于以上信号生成一个可落地 Demo idea，按 DEMO_IDEA_TEMPLATE 输出。`
 
 ## Maintenance Rules
 

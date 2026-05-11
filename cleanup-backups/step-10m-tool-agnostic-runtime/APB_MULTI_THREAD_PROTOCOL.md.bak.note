@@ -1,0 +1,16 @@
+# Backup Note (Step 10M)
+
+完整 `docs/APB_MULTI_THREAD_PROTOCOL.md` 备份在 `cleanup-backups/step-10k-blocker-reporting/APB_MULTI_THREAD_PROTOCOL.md.bak`（包含 §1–§13 全部内容，与 Step 10M 修改前的状态等价——Step 10L 没有改这份文件）。
+
+Step 10M 仅在文件末尾追加新 §14 Tool-Agnostic Agent Runtime（含 §14.1–§14.9 共 9 子段），不修改 §1–§13 任何内容。
+
+回滚命令：
+
+```bash
+# 删除 Step 10M 追加的 §14 段（手动用编辑器从 "## 14. Tool-Agnostic Agent Runtime" 起删到文件末尾）
+${EDITOR:-vim} docs/APB_MULTI_THREAD_PROTOCOL.md
+
+# 或直接从 Step 10K 的快照恢复
+cp cleanup-backups/step-10k-blocker-reporting/APB_MULTI_THREAD_PROTOCOL.md.bak \
+   docs/APB_MULTI_THREAD_PROTOCOL.md
+```

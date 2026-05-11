@@ -1,0 +1,21 @@
+# Task Board
+
+项目级任务分配与阻塞跟踪。Main Thread 维护，其他线程通过 `06-sync/group/` 投递新增 / 状态变更。
+
+## 状态字段说明
+
+- **Status**：Backlog / In Progress / Blocked / In Review / Done / Dropped
+
+## 任务清单
+
+| Task ID | Owner Thread | Task | Inputs | Outputs | Status | Blockers |
+|---|---|---|---|---|---|---|
+| T-001 | <Thread> | <一句话任务描述> | <依赖文件 / 上下文> | <产出文件 / 路径> | Backlog | <如有> |
+
+## 维护规则
+
+- Task ID 自增，建议 `T-<3 位数>`。
+- Owner Thread 必须是 `THREAD_REGISTRY.md` 中已登记的线程。
+- Inputs / Outputs 使用项目内相对路径，例如 `01-pm/PRD_<feature-slug>.md`。
+- 任务进入 In Review 后，必须有对应 `05-reviews/` 评审文件链接。
+- 阻塞超过 3 天必须在 `06-sync/group/` 发一条状态消息，并由 Main 在 `SYNC_SUMMARY.md` 标注。

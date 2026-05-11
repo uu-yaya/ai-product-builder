@@ -54,4 +54,4 @@ Use when the request is incomplete, too broad, solution-first, technically uncle
 
 ## 8. Example Command
 
-请进入 pm-strategy 工作区，帮我澄清这个需求，并输出已知信息、缺失信息、澄清问题、MVP 范围和风险。
+APB 模式：请基于以下信息进行需求澄清，并按 pm-strategy 的 Requirement Clarification Workflow 输出。
