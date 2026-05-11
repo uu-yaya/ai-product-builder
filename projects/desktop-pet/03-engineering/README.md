@@ -24,6 +24,16 @@
 - `CODE_REVIEW_<scope-slug>.md`
 - `LAUNCH_CHECKLIST_<feature-slug>.md`
 
+## 新支路目录
+
+同一个 project 内的新问题支路放到：
+
+```text
+03-engineering/branches/<branch-slug>/
+```
+
+`<branch-slug>` 必须与 `01-pm/branches/`、`02-design/branches/`、`04-research/branches/` 保持同名。支路内先建 `README.md`，再放工程计划、API 方案、数据模型、AI 集成、测试用例和上线清单。
+
 ## 写作要点
 
 - 真实代码修改前必须先读项目结构、定位相关文件、输出实现计划，再小步执行。

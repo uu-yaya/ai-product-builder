@@ -26,7 +26,7 @@ P0 推荐采用 `Context Lite Memory`：
 | `06-sync/SYNC_SUMMARY.md` | 当前项目状态、T-010 输入、记忆系统开放问题 |
 | `06-sync/TASK_BOARD.md` | 任务映射；用户 prompt 的 `T-00Y` 对应任务板 `T-010` |
 | `06-sync/group/2026-05-08T19-25-29_main_closeout-desktop-context-memory-frameworks.md` | Main Thread 对 P0 采集策略的收口结论 |
-| `04-research/TREND_RESEARCH_desktop-context-memory-frameworks.md` | Radar 对 macOS / Windows 上下文采集、OpenChronicle、Recall-like 框架与数据分级的调研 |
+| `04-research/context-memory-frameworks/TREND_RESEARCH_desktop-context-memory-frameworks.md` | Radar 对 macOS / Windows 上下文采集、OpenChronicle、Recall-like 框架与数据分级的调研 |
 | `decisions/DECISION_LOG.md` | 当前决策日志；截至本文件写入时，未看到用户 prompt 所说的 P0 采集策略决策行 |
 
 ## 3. Known Information

@@ -62,6 +62,25 @@
 - 临时草稿：`_draft_<topic-slug>.md`，正式化后去掉前缀。
 - 文件名不允许中文、空格、版本号（v1/v2）；演进信息记录在 `decisions/DECISION_LOG.md`。
 
+## 4.1 Branch Folder Rules
+
+同一个 project 内如果出现多个并行产品问题、能力方向或验证支路，各角色目录使用同名 `branches/<branch-slug>/` 管理支路产物：
+
+| Thread | Branch Path |
+|---|---|
+| PM Strategy Thread | `01-pm/branches/<branch-slug>/` |
+| Design Prototype Thread | `02-design/branches/<branch-slug>/` |
+| Engineering Build Thread | `03-engineering/branches/<branch-slug>/` |
+| AI Trend Radar Thread | `04-research/branches/<branch-slug>/` |
+
+支路规则：
+
+- `<branch-slug>` 使用英文小写短横线，例如 `embedded-companion-mvp`、`memory-center`。
+- 同一支路在不同角色目录中必须使用相同 `<branch-slug>`。
+- 每个支路文件夹建议先创建 `README.md`，写清 Goal、Status、Owner Thread、Inputs、Outputs、Related Sync Messages。
+- 已成为项目默认事实的产物，可由 Main Thread 从 `branches/<branch-slug>/` 收口到对应角色根目录或 `06-sync/SYNC_SUMMARY.md`。
+- `04-research/` 既有研究按主题文件夹归档；新增研究默认优先进入主题文件夹或 `branches/<branch-slug>/`，不要继续在根目录平铺。
+
 ## 5. Review Rules
 
 跨线程评审统一放进 `05-reviews/`：
