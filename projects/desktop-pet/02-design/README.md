@@ -22,6 +22,16 @@
 - `DESIGN_SYSTEM_<scope-slug>.md`
 - `DESIGN_HANDOFF_<feature-slug>.md`
 
+## 新支路目录
+
+同一个 project 内的新问题支路放到：
+
+```text
+02-design/branches/<branch-slug>/
+```
+
+`<branch-slug>` 必须与 `01-pm/branches/`、`03-engineering/branches/`、`04-research/branches/` 保持同名。支路内先建 `README.md`，再放设计简报、Figma Prompt、原型说明和交付文档。
+
 ## 写作要点
 
 - 设计前先确认 `01-pm/PRD_<feature-slug>.md` 已存在；否则回 `01-pm/` 澄清需求。

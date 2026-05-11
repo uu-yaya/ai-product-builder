@@ -214,7 +214,7 @@
 
 ## 15. 后续同步
 
-- 本文产物：`projects/desktop-pet/04-research/TREND_RESEARCH_steam-popular-desktop-pet-games.md`
+- 本文产物：`projects/desktop-pet/04-research/steam-and-embedded-companion/TREND_RESEARCH_steam-popular-desktop-pet-games.md`
 - 同步消息：`projects/desktop-pet/06-sync/group/2026-05-09T_radar_steam-popular-desktop-pet-games.md`
 - 建议 Main Thread 在 `06-sync/SYNC_SUMMARY.md` Latest Decisions 增加一条 2026-05-09 的 Radar 摘要。
 - 建议 PM Strategy Thread 在 T-001 输入中纳入本文第 9、11、13 节。

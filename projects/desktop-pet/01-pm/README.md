@@ -26,6 +26,16 @@
 - `REQUIREMENT_PRIORITY_<scope-slug>.md`
 - `DEVELOPMENT_TASK_BREAKDOWN_<feature-slug>.md`
 
+## 新支路目录
+
+同一个 project 内的新问题支路放到：
+
+```text
+01-pm/branches/<branch-slug>/
+```
+
+`<branch-slug>` 必须与 `02-design/branches/`、`03-engineering/branches/`、`04-research/branches/` 保持同名。支路内先建 `README.md`，再放 PRD、需求澄清、AI 必要性评估等文档。
+
 ## 写作要点
 
 - 必须先有 `00-context/PROJECT_CONTEXT.md`，再写 PRD。
