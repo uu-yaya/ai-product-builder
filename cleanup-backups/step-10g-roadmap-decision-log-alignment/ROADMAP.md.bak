@@ -1,0 +1,222 @@
+# AI Product Builder Roadmap
+
+## Current Status
+
+The workspace has completed the project-level foundation, global closure check, and Step 8 documentation cleanup:
+
+- Phase 1 Workspace Skeleton is completed.
+- Phase 2 Compatibility Optimization is completed.
+- Phase 3 Build pm-strategy Workspace is completed and accepted.
+- Phase 4 Build design-prototype Workspace is completed and accepted.
+- Phase 5 Build engineering-build Workspace is completed and accepted.
+- Phase 6 Build ai-trend-radar Workspace is completed and accepted.
+- Phase 7 Global Workspace Closure Check is completed and accepted as a staged milestone.
+- Phase 8 Documentation Cleanup is completed.
+- Phase 9A Existing Skills Reuse Strategy is completed.
+- Phase 9B Lenny Skills Audit is completed.
+- Phase 9C Lenny Skills APB Index and Mapping is completed.
+- Step 10A Root README Rewrite is completed.
+- Step 10B Project Template + 06-sync is completed.
+- Step 10C Global Multi-thread Protocol is completed.
+- Current phase: Step 10I Slim Root AGENTS.md and Move Detailed Rules to Docs.
+
+## Optimized Architecture
+
+The system uses a three-layer architecture:
+
+1. Global Codex Runtime Config
+   - Defines runtime behavior, safety defaults, profiles, memory, MCP, and global work agreements.
+   - Planned in `global-config-plan/`; actual user-level config may later live in `~/.codex/`.
+
+2. Reusable Skills
+   - Packages repeatable workflows such as PRD writing, competitor analysis, prioritization, UI review, prototype generation, MVP building, and trend radar.
+   - Planned in `skills-plan/`; actual skills may later live in `~/.agents/skills/`.
+
+3. Project Workspace
+   - Stores long-term context, workspace-specific rules, templates, workflows, prompts, and project decisions.
+   - Lives in this repository.
+
+## Implementation Phases
+
+### Phase 1: Workspace Skeleton
+
+Status: completed.
+
+Initialize the root workspace, global rules, memory files, professional workspace placeholders, and project directory.
+
+### Phase 2: Compatibility Optimization
+
+Status: completed.
+
+Create `ROADMAP.md`, `global-config-plan/`, `skills-plan/`, and `mcp-plan/` without changing user-level configuration or installing anything.
+
+### Phase 3: Build pm-strategy Workspace
+
+Status: completed and accepted.
+
+Add PM templates, workflows, and prompts for requirement clarification, PRD, SRS, MRD, competitor analysis, user journey, AI feature evaluation, and engineering task breakdown.
+
+### Phase 4: Build design-prototype Workspace
+
+Status: completed and accepted.
+
+Add design inspiration workflows, UI review checklists, Figma Prompt templates, high-fidelity prototype guidance, and visual optimization methods.
+
+### Phase 5: Build engineering-build Workspace
+
+Status: completed and accepted.
+
+Add code understanding workflows, MVP implementation templates, API planning, frontend/backend implementation guidance, test plans, and launch checks.
+
+### Phase 6: Build ai-trend-radar Workspace
+
+Status: completed and accepted.
+
+Add trend research workflows for YouTube, GitHub, papers, AI product launches, technical blogs, opportunity extraction, and demo idea generation.
+
+### Phase 7: Global Workspace Closure Check
+
+Status: completed and accepted as a staged milestone.
+
+Check root rules, memory files, workspace boundaries, planning directories, formatting, and safety constraints before deeper setup work.
+
+### Phase 8: Documentation Cleanup
+
+Status: completed.
+
+Clean Step 2 planning artifacts, remove duplicated draft sections, fix literal formatting artifacts, align README and ROADMAP status, and preserve only the readable planning versions.
+
+### Phase 9: Skills Reuse and Controlled Rollout
+
+Status: current phase.
+
+Before creating custom `apb-` Skills, prefer reusing existing installed Skills when their frontmatter `name`, `description`, path, and APB workspace fit are strong. Reuse must not be hardcoded. Existing Skills remain capability providers, while APB workspaces provide routing, templates, workflows, constraints, and final output standards.
+
+#### Phase 9A: Existing Skills Reuse Strategy
+
+Status: completed.
+
+Create the Existing Skills Reuse Decision Matrix and APB mode routing rules. Decide when installed Skills should use `Primary Reuse`, `Secondary Support`, `Use When Task Requires External Context`, `Use Only When Explicitly Requested`, `Do Not Prefer`, or `Duplicate / Review Later`.
+
+#### Phase 9B: Lenny Skills Audit
+
+Status: completed.
+
+Audit the local Lenny skills repository, identify root-level duplicates, summarize method coverage, and decide how APB should reuse Lenny methods without modifying user-level Skill files.
+
+#### Phase 9C: Lenny Skills APB Index and Mapping
+
+Status: current.
+
+Create APB-local index and workspace mapping documents for Lenny skills. Keep the original Lenny repository untouched while making reuse decisions easier and less noisy.
+
+#### Phase 9D: P0 Skills Decision
+
+Status: planned.
+
+Decide whether P0 workflows should rely on existing Skills or require custom APB Skills after observing real APB mode usage.
+
+#### Phase 9E: Optional APB Custom Skills
+
+Status: planned.
+
+Create custom `apb-` Skills only if existing Skills cannot reliably follow APB templates, trigger correctly, or support Chinese AI product manager workflows.
+
+Candidate custom names if needed:
+
+- `apb-prd-writer`
+- `apb-competitor-analysis`
+- `apb-requirement-prioritizer`
+
+#### Phase 9F: Gradual MCP Setup
+
+Status: planned.
+
+Introduce MCP gradually only when value is clear and after explicit confirmation:
+
+1. Context7
+2. GitHub
+3. Figma
+4. Playwright
+
+#### Phase 9G: Project-specific Integration
+
+Status: planned.
+
+Add concrete project context under `projects/`, including goals, scope, decisions, requirements, design notes, engineering notes, and delivery records.
+
+## Step 10: Multi-thread Foundation
+
+Step 10 是 Phase 9G 的前置准备工作，把 APB 从"单线程方法论库"升级为"可多线程协作的项目工作台"。它分为以下子步骤：
+
+### Step 10A: Root README Rewrite
+
+Status: completed.
+
+把根 `README.md` 从旧版 "进入某工作区" 用法改写成 APB Mode 操作手册，覆盖 Quick Start / APB Mode Examples / Workspaces vs Projects / Multi-thread Usage / Safety 等 11 个章节。旧版备份在 `cleanup-backups/step-10a-readme-rewrite/README.md.bak`。
+
+### Step 10B: Project Template + 06-sync
+
+Status: completed.
+
+创建 `projects/_PROJECT_TEMPLATE/`，含 6+1 层结构：`00-context/`（项目身份层）、`01-pm/` ~ `04-research/`（四线程产物层）、`05-reviews/`（跨线程评审层）、`06-sync/`（多线程通信层，含 `THREAD_REGISTRY.md` / `TASK_BOARD.md` / `SYNC_SUMMARY.md` / `group/` / `dm/` 6 条预置定向通道）、`decisions/`（项目级决策层）。
+
+### Step 10C: Global Multi-thread Protocol
+
+Status: completed.
+
+把 Step 10B 的项目级 06-sync 接入 APB 全局路由。产出：
+
+- `docs/APB_MULTI_THREAD_PROTOCOL.md`：12 节全局多线程协议（角色、读写矩阵、启动顺序、完成顺序、冲突避免、推荐流程、Multica 兼容、安全边界）。
+- 根 `AGENTS.md` 追加 `Multi-thread Routing & Read/Write Boundaries` 段，含 5 类线程触发词、Project File Ownership、06-sync Rules、cleanup-backups 路由禁入规则、Safety Boundary。
+- 根 `README.md` 更新 `_PROJECT_TEMPLATE` / 06-sync / global protocol / thread startup prompts 的状态描述。
+
+旧版备份在 `cleanup-backups/step-10c-multithread-protocol/`。
+
+### Step 10D: Thread Startup Prompts
+
+Status: current.
+
+为 5 类线程（Main / PM Strategy / Design Prototype / Engineering Build / AI Trend Radar）建立标准启动 Prompt 模板。产出：
+
+- `prompts/thread-start/MAIN_THREAD_START.md`
+- `prompts/thread-start/PM_THREAD_START.md`
+- `prompts/thread-start/DESIGN_THREAD_START.md`
+- `prompts/thread-start/ENGINEERING_THREAD_START.md`
+- `prompts/thread-start/RADAR_THREAD_START.md`
+
+每份模板含 7 节：Prompt Name / Use Case / Copyable Prompt / Required Inputs / Expected Output / Write Boundary / Safety Notes。Copyable Prompt 严格遵循 Step 10C 协议的 Standard Thread Startup Sequence（强制 Will read / Will write / Will not modify 输出，绑定对应 workspace 的 `AGENTS.md`）。
+
+旧版备份（README.md / ROADMAP.md）在 `cleanup-backups/step-10d-thread-start-prompts/`。
+
+### Step 10E: Workspace Example Commands Sync
+
+Status: planned.
+
+把 4 个工作区 `README.md` 的 Example Commands 与少量 workflow 首行的"请进入 X 工作区..."旧用法同步到 `APB 模式：...`。
+
+### Step 10F: GLOBAL_CONTEXT Baseline
+
+Status: user-owned / planned.
+
+由用户亲自填写 `memory/GLOBAL_CONTEXT.md`（Active Projects / Product Domains / Technical Preferences / Research Interests / Current Constraints / Open Questions），不让 AI 编造。这是 APB 长期记忆基线，影响所有 APB Mode 路由判断。
+
+### Step 10G: Roadmap and Decision Log Alignment
+
+Status: planned.
+
+完成 Step 10A–10F 后，整体核对 `ROADMAP.md` 与 `memory/DECISION_LOG.md` 的状态一致性，补记 Phase 9A/9B/9C 的关键决定与 Step 10 子任务决定。
+
+### Step 10I: Slim Root AGENTS.md and Move Detailed Rules to Docs
+
+Status: current.
+
+把根 `AGENTS.md` 从"长篇规则合集"瘦身为"APB 启动索引 + 路由规则 + 安全底线"，降低 agent 启动时的上下文负担。规则不丢失，详细行为迁移到专门文档。
+
+产出：
+
+- `docs/APB_MODE.md`：新建。承接从根 `AGENTS.md` 外移的 APB Mode 详细行为、Skill Selection Rules、Skill Conflict Rules、External Tool Skill Rules、APB Mode Examples（按 4 工作区分组）。
+- 根 `AGENTS.md`：瘦身为短版索引，保留 Role / Must Read / Core Routing / APB Mode / Multi-thread Mode / Project Output Rule / Safety Rules / Done Definition 八节，目标 ≤150 行。Multi-thread Routing 详细表格、Skill Selection / External Tool / Conflict 详细规则均迁移走，仅留摘要 + 链接。
+- 根 `README.md`：Key Files 表新增 `docs/APB_MODE.md` 一行。
+
+旧版备份在 `cleanup-backups/step-10i-slim-agents/`（含 `AGENTS.md.bak` / `README.md.bak` / `ROADMAP.md.bak`）。

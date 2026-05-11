@@ -1,0 +1,9 @@
+# Backup Note (Step 10M)
+
+完整 README.md 在 Step 10L 修改后的状态备份在 `cleanup-backups/step-10l-tool-agnostic-refactor/README.md.bak`。Step 10M 仅在 §8 Multi-thread Usage 末尾追加 `### Tool-Agnostic Runtime` 子段，并对 Key Files 表中 `docs/APB_MULTI_THREAD_PROTOCOL.md` 与 `prompts/thread-start/` 两行的描述做小幅补充（说明跨 runtime 适用），不重写其他段。
+
+回滚：
+
+```bash
+cp cleanup-backups/step-10l-tool-agnostic-refactor/README.md.bak README.md
+```

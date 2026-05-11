@@ -1,0 +1,47 @@
+# AI Product Builder Roadmap
+
+## Current Status
+
+The workspace has completed the project-level foundation, global closure check, and Step 8 documentation cleanup:
+
+- Phase 1 Workspace Skeleton is completed.
+- Phase 2 Compatibility Optimization is completed.
+- Phase 3 Build pm-strategy Workspace is completed and accepted.
+- Phase 4 Build design-prototype Workspace is completed and accepted.
+- Phase 5 Build engineering-build Workspace is completed and accepted.
+- Phase 6 Build ai-trend-radar Workspace is completed and accepted.
+- Phase 7 Global Workspace Closure Check is completed and accepted as a staged milestone.
+- Phase 8 Documentation Cleanup is completed.
+- Phase 9A Existing Skills Reuse Strategy is completed.
+- Phase 9B Lenny Skills Audit is completed.
+- Phase 9C Lenny Skills APB Index and Mapping is completed.
+- Step 10A Root README Rewrite is completed.
+- Step 10B Project Template + 06-sync is completed.
+- Step 10C Global Multi-thread Protocol is completed.
+- Step 10D Thread Startup Prompts is completed.
+- Step 10E Workspace Example Commands Sync is completed.
+- Step 10F GLOBAL_CONTEXT Baseline is completed.
+- Step 10I Slim Root AGENTS.md and Move Detailed Rules to Docs is completed.
+- Step 10G Roadmap and Decision Log Alignment is completed.
+- Current phase: Step 10K Blocker Reporting Protocol.
+- Step 10H First Pilot Project remains planned.
+
+## Optimized Architecture
+
+The system uses a three-layer architecture:
+
+1. Global Codex Runtime Config
+   - Defines runtime behavior, safety defaults, profiles, memory, MCP, and global work agreements.
+   - Planned in `global-config-plan/`; actual user-level config may later live in `~/.codex/`.
+
+2. Reusable Skills
+   - Packages repeatable workflows such as PRD writing, competitor analysis, prioritization, UI review, prototype generation, MVP building, and trend radar.
+   - Planned in `skills-plan/`; actual skills may later live in `~/.agents/skills/`.
+
+3. Project Workspace
+   - Stores long-term context, workspace-specific rules, templates, workflows, prompts, and project decisions.
+   - Lives in this repository.
+
+## Implementation Phases
+
+(Phase 1–9 与 Step 10A–10K 完整内容详见主 ROADMAP.md。本备份文件由 Step 10L 创建以便回滚。)

@@ -53,4 +53,4 @@ Use before implementation, refactoring, debugging, code review, or MVP planning 
 
 ## 8. Example Command
 
-请进入 engineering-build 工作区，阅读当前代码仓库，先看目录结构和技术栈，再从产品 + 工程视角解释主要模块、功能、风险和待确认问题，不要修改文件。
+APB 模式：请基于以下项目结构进行代码库理解，并按 engineering-build 的 Codebase Understanding Workflow 输出。

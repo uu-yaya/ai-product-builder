@@ -1,5 +1,19 @@
 # Existing Skills Reuse Strategy
 
+> **Codex Note (added in Step 10L)**
+>
+> 本文档原本针对 **Claude Code** 的 Skill 概念设计——它依赖 `~/.agents/skills/` 与 `~/.claude/skills/` 下的 `SKILL.md` frontmatter（`name` / `description` / `path` 字段）。
+>
+> **Codex CLI 没有完全等价的"Skill"抽象**：它通过 `~/.codex/skills/<name>/` 下的 `SKILL.md` + `agents/openai.yaml` 提供能力，并辅以 subagents / slash commands / plugins / automations。Codex 默认不扫描 Lenny skills 仓库（Lenny 包是 Claude/Anthropic skill 包结构）。
+>
+> 在 Codex 下，本文档应被解读为：
+>
+> 1. **核心原则不变**：APB workspace templates 仍是 final output authority；外部能力（无论叫 Skill / Subagent / Plugin / Slash Command）仅作为 capability provider。
+> 2. **下方 Frontmatter Inventory 与 Decision Matrix 中具体 Skill 名（`writing-prds` / `competitive-analysis` 等）只在 Claude Code 下默认可用**——Codex 启动时不会扫描 `~/.agents/skills/` 或 Lenny 仓库。
+> 3. **6 类重用等级（Primary Reuse / Secondary Support / Use When Task Requires External Context / Use Only When Explicitly Requested / Do Not Prefer / Duplicate / Review Later）的概念仍适用**，但触发面切换为 Codex 自己的 capability 列表（`~/.codex/skills/<name>/SKILL.md`、Codex plugins、subagents 等）。
+> 4. **简化路径**：在 Codex 下使用 APB，**直接按 workspace templates + `docs/APB_MODE.md` 行为指南执行**，不强求 Skill 复用——直到你 Codex 端有等价能力包出现。
+> 5. **完整双工具行为对照**：见 `docs/TOOL_COMPATIBILITY.md`。
+
 ## Purpose
 
 This document defines how AI Product Builder reuses already installed Codex Skills without immediately creating custom APB Skills. Existing Skills may provide useful capability, but APB remains responsible for routing, workflow, templates, constraints, and output standards.

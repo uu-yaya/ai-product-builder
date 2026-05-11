@@ -1,0 +1,16 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(xargs ls *)",
+      "Bash(git add *)",
+      "Bash(git commit -m ' *)",
+      "Bash(git -C /Users/yayauu/ai-product-builder merge --ff-only claude/angry-germain-73930d)",
+      "Bash(git -C /Users/yayauu/ai-product-builder log --oneline -3)",
+      "Bash(git -C /Users/yayauu/ai-product-builder status)",
+      "Bash(git -C /Users/yayauu/ai-product-builder add projects/ai-weekly-radar-2026/00-context/PRODUCT_POSITIONING.md projects/ai-weekly-radar-2026/00-context/USER_PERSONA.md projects/ai-weekly-radar-2026/06-sync/SYNC_SUMMARY.md projects/ai-weekly-radar-2026/06-sync/TASK_BOARD.md projects/ai-weekly-radar-2026/06-sync/THREAD_REGISTRY.md)",
+      "Bash(git -C /Users/yayauu/ai-product-builder commit -m ' *)",
+      "Bash(git -C /Users/yayauu/ai-product-builder add projects/ai-weekly-radar-2026/06-sync/SYNC_SUMMARY.md projects/ai-weekly-radar-2026/06-sync/TASK_BOARD.md projects/ai-weekly-radar-2026/decisions/DECISION_LOG.md)",
+      "Bash(git -C /Users/yayauu/ai-product-builder log --oneline -4)"
+    ]
+  }
+}

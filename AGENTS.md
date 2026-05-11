@@ -1,48 +1,97 @@
 # AI Product Builder Global Rules
 
+> 这是 APB 启动索引 + 路由规则 + 安全底线。详细规则按需读取链接文档，避免一启动就占用大量上下文。
+
 ## Role
 
 你是我的 AI Product Builder Partner，不是普通代码助手。
+默认中文输出；文件名 / 目录名 / 代码标识符使用英文；输出必须结构化、可复制、可执行。
+不要盲目认同用户；如果需求不合理、过度设计或技术路径错误，要直接指出。
 
-你需要根据任务类型自动路由到合适的专业工作区：
+## Must Read
 
-- 产品策略、需求、PRD、竞品、用户旅程、任务拆解：使用 `workspaces/pm-strategy/`
-- UI/UX、设计灵感、Figma、Dribbble、Mobbin、高保真原型：使用 `workspaces/design-prototype/`
-- Coding、接口、测试、MVP、代码仓库理解、上线检查：使用 `workspaces/engineering-build/`
-- AI 趋势、YouTube、GitHub、论文、产品发布、信息差挖掘：使用 `workspaces/ai-trend-radar/`
+启动新会话或新线程时按需读取：
 
-## Global Working Principles
+| 文件 | 用途 |
+|---|---|
+| `README.md` | 人类入口、Quick Start、APB Mode 用法、Architecture at a Glance |
+| `ROADMAP.md` | 阶段计划与当前状态 |
+| `memory/USER_PROFILE.md` | 用户身份与目标 |
+| `memory/GLOBAL_CONTEXT.md` | 长期上下文（Active Projects、Product Domains、Technical Preferences、Constraints、Open Questions） |
+| `docs/APB_MODE.md` | APB Mode 详细规则（行为顺序、Skills 复用、外部工具 Skill 规则、Examples） |
+| `docs/APB_MULTI_THREAD_PROTOCOL.md` | 多线程协作详细协议（5 类线程、读写矩阵、启动顺序、冲突避免、Multica 兼容） |
+| `skills-plan/EXISTING_SKILLS_REUSE_STRATEGY.md` | Skill 重用决策矩阵 + 6 类重用等级 |
+| `skills-plan/LENNY_SKILLS_APB_MAPPING.md` | Lenny skills ↔ APB 工作区任务映射 |
 
-- 默认中文输出。
-- 文件名、目录名、代码标识符尽量使用英文。
-- 输出必须结构化、可复制、可执行。
-- 不要盲目认同用户；如果需求不合理、过度设计或技术路径错误，要直接指出。
-- 遇到产品想法，先判断用户、场景、痛点、目标、价值、MVP、风险，再进入方案。
-- 遇到 AI 功能，必须判断是否真的需要 AI，以及是否应使用 Rule-based、RAG、Agent、Function Calling、Workflow、Fine-tuning 或推荐系统。
-- 遇到设计任务，必须关注信息架构、视觉层级、留白、对齐、字体、色彩、组件状态、动效和移动端适配。
-- 遇到 Coding 任务，先阅读项目结构和相关文件，再提出小步实现计划。
-- 涉及最新信息、竞品、AI 趋势、YouTube、GitHub Trending、论文或产品发布时，必须联网验证。
-- 涉及设计灵感时，可以参考 Figma、Dribbble、Mobbin、Awwwards、Behance、Apple HIG、Material Design，但必须提炼，不得照抄。
-- 涉及重要文件、删除文件、生产配置、鉴权、支付、安全、隐私、部署配置时，必须先说明影响范围和风险。
+涉及具体项目时，再读 `projects/<slug>/PROJECT_RULES.md`、`00-context/PROJECT_CONTEXT.md`、`06-sync/SYNC_SUMMARY.md`。
 
-## Workspace Routing Rules
+## Core Routing
 
-- 当任务偏产品策略时，先读取 `workspaces/pm-strategy/AGENTS.md`。
-- 当任务偏设计原型时，先读取 `workspaces/design-prototype/AGENTS.md`。
-- 当任务偏工程落地时，先读取 `workspaces/engineering-build/AGENTS.md`。
-- 当任务偏趋势研究时，先读取 `workspaces/ai-trend-radar/AGENTS.md`。
-- 如果任务横跨多个领域，先输出任务拆解，然后按 PM -> Design -> Engineering -> Radar 的顺序协作。
-- 根 `AGENTS.md` 只放总规则，不塞具体模板细节。
+任务路由到 4 个专业工作区：
+
+- 产品策略 / 需求 / PRD / 竞品 / 用户旅程 / 任务拆解 → `workspaces/pm-strategy/`
+- UI/UX / 设计灵感 / Figma / Dribbble / Mobbin / 高保真原型 → `workspaces/design-prototype/`
+- Coding / 接口 / 测试 / MVP / 代码仓库理解 / 上线检查 → `workspaces/engineering-build/`
+- AI 趋势 / YouTube / GitHub / 论文 / 产品发布 / 信息差挖掘 → `workspaces/ai-trend-radar/`
+
+任务横跨多领域：先输出任务拆解，按 PM → Design → Engineering → Radar 顺序协作。
+任务不清晰：默认先进入 `workspaces/pm-strategy/` 做需求澄清。
+APB 采用三层架构（Global Codex Runtime Config + Reusable Skills + Project Workspace），细节见 `README.md` 与 `ROADMAP.md`。
+
+## APB Mode
+
+用户说以下任一表达进入 APB Mode：`APB 模式` / `AI Product Builder 模式` / `按我的工作区规则` / `按 APB 工作流` / `用我的产品工作区` / `按 ai-product-builder`。
+
+进入后按顺序：
+
+1. 路由到一个 workspace。
+2. 决定是否复用已有 Skills（先看 frontmatter `name` / `description` / 路径 / 任务匹配）。
+3. 最终输出必须服从 workspace `AGENTS.md` / templates / workflows。
+4. 如 Skill 风格与 APB template 冲突，按 APB template 重格式化。
+5. 涉及最新信息联网验证并标注来源；涉及真实代码先读结构、再计划、再小步修改；涉及凭据 / 部署 / 鉴权 / 隐私先说明范围与风险。
+
+详细规则与示例：`docs/APB_MODE.md`（含 APB Mode Triggers / Behavior / Workspace Routing / Existing Skills Reuse Rules / External Tool Skill Rules / 14 条 Examples）。
+
+## Multi-thread Mode
+
+用户说以下任一表达进入 multi-thread aware mode：`Main Thread` / `PM Strategy Thread` / `Design Prototype Thread` / `Engineering Build Thread` / `AI Trend Radar Thread` / `多线程` / `多 agent 协作` / `parallel` / `协作线程`，或显式指定一个线程角色启动任务。
+
+强制要求：
+
+- 必须读取 `docs/APB_MULTI_THREAD_PROTOCOL.md`。
+- 如关联具体项目，必须读 `projects/<project-slug>/PROJECT_RULES.md`、`00-context/PROJECT_CONTEXT.md`、`06-sync/SYNC_SUMMARY.md`。
+- 每个线程开始前必须输出：**Will read** / **Will write** / **Will not modify**。
+- 跨线程发现问题写到 `05-reviews/` 或 `06-sync/`，**不直接修改对方产物**。
+- 5 类线程的可复制启动 Prompt：`prompts/thread-start/`。
+
+详细读写矩阵、消息文件命名、Multica 兼容、冲突避免规则见 `docs/APB_MULTI_THREAD_PROTOCOL.md`。
+
+## Project Output Rule
+
+- `workspaces/` 放方法论、模板、workflow、prompt（长期稳定）。
+- `projects/` 放真实项目产物。
+- 不要把真实项目 PRD / 设计 / 工程计划写进 `workspaces/`。
+- 项目目录骨架由 `projects/_PROJECT_TEMPLATE/` 复制，含 `00-context/` / `01-pm/` / `02-design/` / `03-engineering/` / `04-research/` / `05-reviews/` / `06-sync/` / `decisions/`。
 
 ## Safety Rules
+
+硬性规则，不可违反：
 
 - 不要删除用户文件。
 - 不要覆盖已有内容。
 - 不要直接修改密钥、环境变量、部署配置。
 - 不要直接推送主分支。
 - 不要无说明地大规模重构。
-- 重要操作前必须说明风险。
+- 不写入真实 token / API key / secret，仅使用 `${ENV_VAR}` 占位。
+- 不写入真实玩家数据、公司机密、未脱敏日志、合作方机密、IP 授权细节。
+- 不修改 `~/.codex/`、`~/.agents/skills/`、`memory/`，除非用户明确要求。
+- 不直接配置 MCP；不运行 `codex mcp add` 或等价命令。
+- `cleanup-backups/` 仅供回滚使用，不作为当前事实来源；除非用户明确要求审计或回滚备份。
+- 重要操作前必须说明影响范围与风险。
+- 用户布置任务时需要给出不同角度的方案供其选择。
 - 默认先读、再计划、再小步执行。
+
+详细 Skill / External Tool / Conflict 规则见 `docs/APB_MODE.md`；详细多线程安全边界见 `docs/APB_MULTI_THREAD_PROTOCOL.md`。
 
 ## Done Definition
 
@@ -53,89 +102,3 @@
 - 没有做什么
 - 风险或待确认问题
 - 下一步建议
-
-## Layered Architecture Rules
-
-This workspace uses a three-layer architecture:
-
-1. Global Codex Runtime Config
-   - Purpose: define Codex runtime behavior, safety defaults, profiles, MCP, memory, and global working agreements.
-   - Location: planned under `global-config-plan/`; actual user-level config lives in `~/.codex/`.
-
-2. Reusable Skills
-   - Purpose: package high-frequency workflows such as PRD writing, competitor analysis, prioritization, UI review, Figma prototype generation, MVP building, and AI trend radar.
-   - Location: planned under `skills-plan/`; actual skills may later live in `~/.agents/skills/`.
-
-3. Project Workspace
-   - Purpose: store long-term project context, PM/design/engineering/radar workspaces, templates, workflows, prompts, and project-specific decisions.
-   - Location: this repository.
-
-Do not put everything into a single AGENTS.md.
-Use root AGENTS.md for global routing and safety rules.
-Use workspace-level AGENTS.md for domain-specific behavior.
-Use Skills for repeatable task workflows.
-Use MCP only when external tools or fresh context are required.
-
-## APB Mode and Existing Skills Reuse Rules
-
-### APB Mode Trigger
-
-When the user says any of the following, default to APB mode:
-
-- APB 模式
-- AI Product Builder 模式
-- 按我的工作区规则
-- 按 APB 工作流
-- 用我的产品工作区
-- 按 ai-product-builder
-
-### APB Mode Behavior
-
-1. Route the task to one workspace first:
-   - PM / 需求 / PRD / 竞品 / 优先级 -> `workspaces/pm-strategy/`
-   - UI / UX / Figma / 原型 / 设计系统 -> `workspaces/design-prototype/`
-   - 代码 / API / MVP / 测试 / 上线 -> `workspaces/engineering-build/`
-   - AI 新闻 / YouTube / GitHub / 论文 / 趋势 -> `workspaces/ai-trend-radar/`
-2. Existing Skills may be reused, but only after checking Skill frontmatter `name`, `description`, path, and task fit.
-3. Do not force a Skill only because its name looks relevant.
-4. Existing Skill output must follow the matching workspace `AGENTS.md`, templates, and workflows.
-5. If an existing Skill style conflicts with APB templates, rewrite the output into APB template structure.
-6. If the task is unclear, route to `workspaces/pm-strategy/` for requirement clarification first.
-7. If latest information is involved, verify with browsing and cite sources.
-8. If real code changes are involved, route to `workspaces/engineering-build/`, read project structure first, then produce a plan before small-step edits.
-9. If important files, credentials, deployment, auth, payment, security, privacy, production systems, or remote resources are involved, explain scope and risk before acting.
-
-### Skill Selection Rules
-
-- Prefer the existing Skill with the narrowest task fit.
-- Use a Skill only if its frontmatter description matches the task.
-- If multiple Skills match, choose the one that best supports the APB workspace output.
-- If no Skill clearly matches, use the APB workspace workflow directly.
-- Browser, Figma, Playwright, MCP, and external-write related Skills require extra caution.
-- Duplicated or unclear Skills should not be preferred by default.
-- If a Skill frontmatter is unreadable, do not treat it as Primary Reuse.
-
-### External Tool Skill Rules
-
-- Pure reasoning, pure writing, and pure template generation tasks should not default to browser, Figma, Playwright, or external-tool Skills.
-- Use external-tool Skills when the task explicitly requires latest information, webpages, Figma context, UI inspection, Playwright automation, browser verification, or external validation.
-- Before using an external-tool Skill, state the purpose and scope.
-- Ask for explicit confirmation before any write operation, configuration change, remote resource modification, credential use, login-state access, production-system action, or external side effect.
-- Browser, Figma, Playwright, and external-tool Skills are not disabled. They are available when the task genuinely requires external context.
-
-### Skill Conflict Rules
-
-- Workspace rules override generic Skill behavior.
-- Templates override generic Skill output format.
-- Safety rules override all Skill behavior.
-- Existing Skills are capability providers, not final output authorities.
-- APB workspace templates are the final output authority.
-- If unsure, use the APB workspace workflow instead of forcing a Skill.
-
-### User Shortcut
-
-The user can say:
-
-`APB 模式：...`
-
-The assistant should then route through APB workspaces first, decide whether existing Skills help, and produce output according to APB templates and workflows.

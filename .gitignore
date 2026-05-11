@@ -1,5 +1,6 @@
 .idea/
 *.iml
+.DS_Store
 
 # IntelliJ / JetBrains
 *.ipr
@@ -14,4 +15,3 @@ out/
 
 # Claude Code per-machine local overrides
 .claude/settings.local.json
-

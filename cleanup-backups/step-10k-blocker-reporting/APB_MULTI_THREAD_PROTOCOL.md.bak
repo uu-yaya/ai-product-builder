@@ -1,0 +1,290 @@
+# APB Multi-thread Protocol
+
+## 1. Purpose
+
+本文档定义 APB（AI Product Builder）多线程协作协议，适用于多个 Codex / Claude / OpenClaw / Cowork / 未来 Multica agent 同时参与同一个 APB 项目的场景。
+
+它的作用：
+
+- 给每个线程一个明确角色与读写边界，避免互相覆盖。
+- 给跨线程沟通一个标准格式（`05-reviews/` 与 `06-sync/`）。
+- 给新加入的线程一个标准启动流程，缩短上下文恢复时间。
+
+它**不替代** `projects/<project-slug>/PROJECT_RULES.md`：
+
+- 项目级规则优先于全局协议。
+- 当本文档与项目级 `PROJECT_RULES.md` 冲突时，以项目级为准。
+- 当两者都没有覆盖时，按根 `AGENTS.md` 的安全规则执行。
+
+## 2. Core Principles
+
+- 一个线程只负责一个明确角色（Main / PM / Design / Engineering / Radar）。
+- 一个线程只写入自己的授权目录。
+- 跨线程协作通过 `05-reviews/`（评审）与 `06-sync/`（消息、任务板、共享摘要）完成。
+- **不直接修改其他线程的产物文件**；要修复需通过 review 或 Main Thread 的 request。
+- 每个线程开始任务前必须在回答开头声明：
+  - **Will read**
+  - **Will write**
+  - **Will not modify**
+- `06-sync/SYNC_SUMMARY.md` 是新线程启动时**优先读取**的共享状态摘要。
+- `06-sync/group/` 与 `06-sync/dm/` **不是保密区**，所有线程都可读。
+- 不存放真实玩家数据、公司机密、未脱敏日志、token、API key、secret。
+
+## 3. Thread Roles
+
+### Main Thread
+
+**职责**：
+
+- 任务总控
+- 判断工作区归属并分配任务到对应线程
+- 拆分子任务
+- 维护 `06-sync/THREAD_REGISTRY.md`
+- 维护 `06-sync/TASK_BOARD.md`
+- 维护 `06-sync/SYNC_SUMMARY.md`
+- 汇总 review
+- 维护项目级 `decisions/DECISION_LOG.md`
+
+**默认可写**：
+
+- `projects/<project-slug>/06-sync/`
+- `projects/<project-slug>/05-reviews/`
+- `projects/<project-slug>/decisions/`
+- 必要时更新 `projects/<project-slug>/README.md`
+
+**默认不可写**：
+
+- `01-pm/`
+- `02-design/`
+- `03-engineering/`
+- `04-research/`
+
+### PM Strategy Thread
+
+**职责**：
+
+- 需求澄清
+- PRD / SRS / MRD
+- AI 功能评估
+- 竞品分析
+- 优先级排序（RICE / P0–P2）
+- 研发任务拆解
+
+**默认可写**：
+
+- `projects/<project-slug>/01-pm/`
+- 当任务明确是竞品 / 市场 / 趋势研究时，可写 `projects/<project-slug>/04-research/`
+
+**默认不可写**：
+
+- `02-design/`
+- `03-engineering/`
+- `06-sync/` 中由 Main 维护的文件（`THREAD_REGISTRY.md` / `TASK_BOARD.md` / `SYNC_SUMMARY.md`），但可向 `06-sync/group/` 或 `06-sync/dm/pm-to-*/` 写消息
+
+### Design Prototype Thread
+
+**职责**：
+
+- UI/UX 评审
+- Figma Prompt
+- 高保真原型方案
+- 设计系统
+- 设计交付（handoff）
+
+**默认可写**：
+
+- `projects/<project-slug>/02-design/`
+- `06-sync/group/`、`06-sync/dm/design-to-*/`
+- `05-reviews/DESIGN_REVIEW_*.md`
+
+**默认不可写**：
+
+- `01-pm/`
+- `03-engineering/`
+- `04-research/`
+
+### Engineering Build Thread
+
+**职责**：
+
+- MVP Build Plan
+- API Implementation Plan
+- Data Model
+- AI Integration（含 fallback / 评估 / 成本 / 延迟 / 可观测）
+- Test Cases
+- Code Review
+- Launch Checklist（含 Go / No-go 与回滚）
+
+**默认可写**：
+
+- `projects/<project-slug>/03-engineering/`
+- `06-sync/group/`、`06-sync/dm/engineering-to-*/`
+- `05-reviews/ENGINEERING_REVIEW_*.md`
+
+**默认不可写**：
+
+- `01-pm/`
+- `02-design/`
+- 真实业务代码仓库，除非用户另行明确授权
+
+### AI Trend Radar Thread
+
+**职责**：
+
+- AI 趋势（日报 / 周报 / 专题）
+- YouTube / GitHub / 论文 / 技术博客信息挖掘
+- 竞品与技术雷达
+- Demo idea
+- 产品机会提炼
+
+**默认可写**：
+
+- `projects/<project-slug>/04-research/`
+- `06-sync/group/`、`06-sync/dm/radar-to-*/`
+- `05-reviews/RESEARCH_REVIEW_*.md`
+
+**默认不可写**：
+
+- `01-pm/`
+- `02-design/`
+- `03-engineering/`
+
+## 4. File Ownership Matrix
+
+| Thread | Can Write | Can Read | Should Not Modify |
+|---|---|---|---|
+| Main Thread | `06-sync/THREAD_REGISTRY.md`、`06-sync/TASK_BOARD.md`、`06-sync/SYNC_SUMMARY.md`、`06-sync/group/`、`06-sync/dm/main-to-*/`、`05-reviews/`、`decisions/`、`<slug>/README.md` | 全部 | `01-pm/` / `02-design/` / `03-engineering/` / `04-research/` 内的他人产物 |
+| PM Strategy Thread | `01-pm/`、必要时 `04-research/`、`05-reviews/PM_REVIEW_*.md`、`06-sync/group/`、`06-sync/dm/pm-to-*/` | `00-context/`、`04-research/`、`02-design/`、`05-reviews/`、`06-sync/` | `02-design/`、`03-engineering/`、`06-sync/THREAD_REGISTRY.md`、`06-sync/TASK_BOARD.md`、`06-sync/SYNC_SUMMARY.md` |
+| Design Prototype Thread | `02-design/`、`05-reviews/DESIGN_REVIEW_*.md`、`06-sync/group/`、`06-sync/dm/design-to-*/` | `00-context/`、`01-pm/`、`05-reviews/`、`06-sync/` | `01-pm/`、`03-engineering/`、`04-research/`、`06-sync/THREAD_REGISTRY.md`、`06-sync/TASK_BOARD.md`、`06-sync/SYNC_SUMMARY.md` |
+| Engineering Build Thread | `03-engineering/`、`05-reviews/ENGINEERING_REVIEW_*.md`、`06-sync/group/`、`06-sync/dm/engineering-to-*/` | `00-context/`、`01-pm/`、`02-design/`、`05-reviews/`、`06-sync/` | `01-pm/`、`02-design/`、`04-research/`、真实业务代码仓库（除非授权）、`06-sync/THREAD_REGISTRY.md`、`06-sync/TASK_BOARD.md`、`06-sync/SYNC_SUMMARY.md` |
+| AI Trend Radar Thread | `04-research/`、`05-reviews/RESEARCH_REVIEW_*.md`、`06-sync/group/`、`06-sync/dm/radar-to-*/` | `00-context/`、`05-reviews/`、`06-sync/` | `01-pm/`（除非 PM 明确委托）、`02-design/`、`03-engineering/`、`06-sync/THREAD_REGISTRY.md`、`06-sync/TASK_BOARD.md`、`06-sync/SYNC_SUMMARY.md` |
+
+## 5. Communication Layer
+
+`06-sync/` 是项目级多线程沟通区。结构：
+
+| 工件 | 谁写 | 谁读 | 用途 |
+|---|---|---|---|
+| `THREAD_REGISTRY.md` | Main Thread | 全部 | 线程角色、读写区、状态、最后更新时间 |
+| `TASK_BOARD.md` | Main Thread（其他线程通过 `group/dm` 报告进度或阻塞） | 全部 | 项目级任务分配与阻塞 |
+| `SYNC_SUMMARY.md` | Main Thread | 全部，**新线程优先读** | 项目状态摘要：当前阶段、最新决策、Open Questions、Active Tasks、Blockers、Next Actions、Important Messages |
+| `group/<file>.md` | 任意线程 | 全部 | 公开消息，**一条消息一个 Markdown 文件** |
+| `dm/<from>-to-<to>/<file>.md` | 仅 from 线程 | 全部（**不是保密**） | 定向消息 |
+
+**消息文件命名**：
+
+- group：
+  ```
+  YYYY-MM-DDTHH-MM-SS_<thread>_<topic-slug>.md
+  ```
+  例如：`2026-04-30T10-15-00_pm_prd-clarify-question.md`
+
+- dm：
+  ```
+  YYYY-MM-DDTHH-MM-SS_<from-thread>_to_<to-thread>_<topic-slug>.md
+  ```
+  例如：`2026-04-30T11-22-30_pm_to_design_handoff-uiux-questions.md`
+
+`<thread>` 取值：`main` / `pm` / `design` / `engineering` / `radar`。`<topic-slug>` 使用英文小写短横线。
+
+## 6. Standard Thread Startup Sequence
+
+每个线程启动时，必须按以下顺序执行：
+
+1. 读取根 `AGENTS.md`。
+2. 读取 `docs/APB_MULTI_THREAD_PROTOCOL.md`（本文件）。
+3. 读取 `projects/<project-slug>/PROJECT_RULES.md`。
+4. 读取 `projects/<project-slug>/00-context/PROJECT_CONTEXT.md`。
+5. 读取 `projects/<project-slug>/06-sync/SYNC_SUMMARY.md`。
+6. 根据本线程角色读取对应 workspace 的 `AGENTS.md`：
+   - PM Strategy Thread → `workspaces/pm-strategy/AGENTS.md`
+   - Design Prototype Thread → `workspaces/design-prototype/AGENTS.md`
+   - Engineering Build Thread → `workspaces/engineering-build/AGENTS.md`
+   - AI Trend Radar Thread → `workspaces/ai-trend-radar/AGENTS.md`
+   - Main Thread 不绑定单一 workspace，但可按需读取
+7. 在回答开头输出：
+   - **Will read**：本次任务会读哪些文件 / 目录
+   - **Will write**：本次任务计划写哪些文件 / 目录
+   - **Will not modify**：明确不会改动的范围（例如 `workspaces/`、`~/.codex/`、其他线程产物）
+8. 再开始任务执行。
+
+## 7. Standard Thread Completion Sequence
+
+每个线程完成任务时必须：
+
+1. 写入自己的授权产物目录（按角色边界）。
+2. 如发现跨线程问题，写入 `05-reviews/` 或 `06-sync/group/` / `06-sync/dm/`，**不直接修改其他线程文件**。
+3. 输出本次任务的 done 摘要，包含：
+   - **Files created / updated**：精确路径列表
+   - **Questions for other threads**：跨线程待回答问题
+   - **Suggested next thread**：建议下一个执行的线程角色
+   - **Whether Main Thread needs to update SYNC_SUMMARY.md**：是 / 否，以及关键变更点
+
+## 8. Conflict Avoidance Rules
+
+- **不要两个线程同时写同一个文件**。如必须协作，先 Main Thread 在 `TASK_BOARD.md` 分派单一 owner。
+- **不要直接修改其他线程产物**。要修复请走 `05-reviews/` 或 `06-sync/group/` 通知所有者线程。
+- **不要把 review 写进对方原文件**；评审一律放进 `05-reviews/<role>_REVIEW_<feature-slug>.md`。
+- **不要把 group/dm 多条消息塞进同一个文件**。每条消息一个 Markdown 文件，避免并发覆盖。
+- **不要把 `SYNC_SUMMARY.md` 当作聊天日志**。它是 Main 维护的精炼共享摘要；超长时归档到 `06-sync/group/<date>_sync-summary-snapshot.md`。
+- **不要把 `06-sync/dm/` 当作私密 / 安全存储**。任何线程都能读 dm/。敏感信息一律不进仓库。
+- **如果需要修改他人产物，向 Main Thread 提交 request**（写一条 `06-sync/group/` 或 `06-sync/dm/<from>-to-main/` 消息），由 Main 决定是否分派给所有者线程修复。
+
+## 9. Recommended Project Flow
+
+不是每个项目都要跑完整流程，可以按任务裁剪：
+
+1. **Main Thread 初始化**：填 `00-context/PROJECT_CONTEXT.md`（或 ack 已填）、登记 `06-sync/THREAD_REGISTRY.md`、建立初始 `06-sync/TASK_BOARD.md` 与 `06-sync/SYNC_SUMMARY.md`。
+2. **Radar Thread（可选）**：进行趋势 / 竞品 / 技术研究，输出到 `04-research/`。
+3. **PM Thread**：输出需求澄清、PRD、AI 功能评估、优先级，到 `01-pm/`。
+4. **Design Thread**：基于 PRD 输出原型 / Figma Prompt / Design Handoff，到 `02-design/`。
+5. **Engineering Thread**：基于 PRD + Handoff 输出 MVP / API / Test / Launch Plan，到 `03-engineering/`。
+6. **Main Thread 收口**：汇总 `05-reviews/`、更新 `decisions/DECISION_LOG.md` 与 `06-sync/SYNC_SUMMARY.md`。
+
+裁剪示例：
+
+- 单点 PRD 任务：Main → PM。
+- 趋势研究 → 产品机会：Main → Radar → PM。
+- 已有 PRD 的工程评估：Main → Engineering。
+
+## 10. Multica Compatibility
+
+- APB **默认以本地文件协议为底座**：所有持久知识在 `projects/<slug>/` 下的 Markdown 文件中。
+- Multica 未来可以作为可选 agent 调度层，但不是必需。
+- 推荐的映射关系：
+
+| Multica 概念 | APB 概念 |
+|---|---|
+| Multica board / issues | `projects/<slug>/06-sync/TASK_BOARD.md` |
+| Multica comments / activity | `projects/<slug>/06-sync/group/<file>.md` |
+| Multica agent profiles | `projects/<slug>/06-sync/THREAD_REGISTRY.md` |
+| Multica decisions / approvals | `projects/<slug>/decisions/DECISION_LOG.md` |
+| Multica project metadata | `projects/<slug>/00-context/PROJECT_CONTEXT.md` |
+
+- 即使未来使用 Multica，APB 项目文件仍是最终长期知识库。
+- **不要让 APB 依赖 Multica 才能运行**；APB 必须可在没有 Multica 的纯本地环境中工作。
+
+## 11. Safety Boundaries
+
+- 不存真实玩家数据。
+- 不存公司机密。
+- 不存未脱敏日志。
+- 不存 token / API key / secret，仅使用 `${ENV_VAR}` 占位。
+- 不修改 `~/.codex/`。
+- 不修改 `~/.agents/skills/`。
+- 不配置 MCP（不运行 `codex mcp add` 或等价命令）。
+- 不修改真实业务代码，除非用户明确授权。
+- 不进入 `cleanup-backups/` 作为当前工作依据；除非用户明确要求审计或回滚备份。
+- 涉及生产 / 鉴权 / 隐私 / 远程系统时，先在 `decisions/DECISION_LOG.md` 留痕并说明影响范围。
+
+## 12. Done Definition
+
+多线程任务完成必须满足：
+
+- 产物写入了**正确的**授权目录（按 Section 4 File Ownership Matrix）。
+- read/write boundary 未被破坏（无越权写入）。
+- 跨线程问题已记录在 `05-reviews/` 或 `06-sync/`。
+- Main Thread 知道是否需要更新 `06-sync/SYNC_SUMMARY.md`，以及具体更新点。
+- 没有写入敏感信息（token / 凭据 / 真实玩家数据 / 公司机密 / 未脱敏日志）。
+- 没有越权修改其他目录（`workspaces/`、`memory/`、`~/.codex/`、`~/.agents/skills/` 等）。
+- 任务结束输出 done 摘要，包含 Files / Questions / Suggested next thread / SYNC_SUMMARY 更新需求。

@@ -54,11 +54,14 @@ workspaces/pm-strategy/
 
 ## Example Commands
 
-- 请进入 pm-strategy 工作区，帮我澄清这个需求。
-- 请根据 PRD_TEMPLATE.md 生成某某功能的 PRD。
-- 请根据 AI_FEATURE_EVALUATION_TEMPLATE.md 评估这个功能是否需要 Agent。
-- 请根据 COMPETITOR_ANALYSIS_TEMPLATE.md 分析这个竞品。
-- 请根据 DEVELOPMENT_TASK_BREAKDOWN_TEMPLATE.md 把这份 PRD 拆成研发任务。
+所有示例都以 `APB 模式：...` 起手，无需再指定工作区——APB 会自动路由到本工作区。
+
+- `APB 模式：帮我澄清这个产品想法，并按 pm-strategy 的需求澄清流程输出。`
+- `APB 模式：帮我写这个功能的 PRD，输出必须符合 PRD_TEMPLATE。`
+- `APB 模式：评估这个 AI 功能是否真的需要 Agent，按 AI_FEATURE_EVALUATION_TEMPLATE 输出。`
+- `APB 模式：帮我做竞品分析，并输出差异化机会和下一步行动。`
+- `APB 模式：把这些需求按 RICE 和 P0/P1/P2 排优先级。`
+- `APB 模式：把这份 PRD 按 DEVELOPMENT_TASK_BREAKDOWN_TEMPLATE 拆成研发任务。`
 
 ## Maintenance Rules
 

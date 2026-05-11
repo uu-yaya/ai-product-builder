@@ -10,7 +10,7 @@
 
 | Task ID | Owner Thread | Task | Inputs | Outputs | Status | Blockers |
 |---|---|---|---|---|---|---|
-| T-001 | AI Trend Radar Thread | 首期 Baseline + W18 周报：30 天背景 + 7 天增量（窗口 2026-04-22 → 2026-04-28） | `00-context/PROJECT_CONTEXT.md`、`00-context/LINKS.md`、`04-research/AI_WEEKLY_REPORT_TEMPLATE.md`、`decisions/DECISION_LOG.md` | `04-research/AI_WEEKLY_REPORT_2026-W18.md`（Issue 字段标 `Baseline`） | **Backlog**（联网权限已解锁 2026-04-28；等待用户启动 Radar Thread） | 无 |
+| T-001 | AI Trend Radar Thread | 首期 Baseline + W18 周报：30 天背景 + 7 天增量（窗口 2026-04-22 → 2026-04-28） | `00-context/PROJECT_CONTEXT.md`、`00-context/LINKS.md`、`04-research/AI_WEEKLY_REPORT_TEMPLATE.md`、`decisions/DECISION_LOG.md` | `04-research/AI_WEEKLY_REPORT_2026-W18.md`（Issue 字段标 `Baseline`） | **Blocked**（since 2026-04-28T15-21-54；P0 — Radar 重跑后 WebSearch / WebFetch 仍被拒） | [`06-sync/group/2026-04-28T15-21-54_radar_blocked-w18-web-tools-denied.md`](group/2026-04-28T15-21-54_radar_blocked-w18-web-tools-denied.md) — 即使 #11 已落 settings.json，子线程仍 permission denied；需重启 Claude Code 或调整 settings 路径 / 语法（见 DECISION_LOG #12 Proposed） |
 
 ## 维护规则
 

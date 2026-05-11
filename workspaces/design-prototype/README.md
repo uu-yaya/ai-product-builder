@@ -63,12 +63,14 @@ workspaces/design-prototype/
 
 ## Example Commands
 
-- 请进入 design-prototype 工作区，为这个小程序首页生成高保真原型方案。
-- 请根据 FIGMA_PROMPT_TEMPLATE.md 把这个页面需求转成 Figma Make Prompt。
-- 请根据 UI_AUDIT_TEMPLATE.md 评审当前页面截图。
-- 请根据 DESIGN_INSPIRATION_RESEARCH_TEMPLATE.md 为这个 AI 产品找设计灵感。
-- 请根据 DESIGN_SYSTEM_TEMPLATE.md 为这个项目定义设计系统。
-- 请根据 DESIGN_HANDOFF_TEMPLATE.md 把这个设计方案整理成交付工程的说明。
+所有示例都以 `APB 模式：...` 起手，无需再指定工作区——APB 会自动路由到本工作区。
+
+- `APB 模式：基于这个 PRD 生成高保真原型方案和 Figma Prompt。`
+- `APB 模式：把这个页面需求转成 Figma Make Prompt，按 FIGMA_PROMPT_TEMPLATE 输出。`
+- `APB 模式：评审这张页面截图，按 UI_AUDIT_TEMPLATE 输出。`
+- `APB 模式：为这个 AI 产品找设计灵感，按 DESIGN_INSPIRATION_RESEARCH_TEMPLATE 输出，并提炼可复用模式与不可照抄的点。`
+- `APB 模式：为这个项目定义设计系统，按 DESIGN_SYSTEM_TEMPLATE 输出。`
+- `APB 模式：把这个设计方向整理成 Design Handoff，按 DESIGN_HANDOFF_TEMPLATE 输出。`
 
 ## Maintenance Rules
 
