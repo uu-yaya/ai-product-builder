@@ -22,6 +22,11 @@ APB 模式：你是本次任务的 Main Thread。
 
 项目：`projects/<project-slug>/`
 任务：`<task>`
+支路：`<branch-slug 或 none>`
+
+支路规则：
+- 如果任务是在同一 project 下开启新的产品问题 / 能力方向 / 验证路线，请使用同一个 `<branch-slug>` 分派到各角色目录的 `branches/<branch-slug>/`。
+- 如果任务属于项目默认主线，请填 `none`，并继续使用各角色根目录。
 
 请先读取：
 - 根 `AGENTS.md`
@@ -33,6 +38,7 @@ APB 模式：你是本次任务的 Main Thread。
 你的职责：
 - 判断任务归属
 - 拆分 PM / Design / Engineering / Radar 子线程任务
+- 判断是否需要新建跨角色 `branches/<branch-slug>/` 支路
 - 明确每个线程的 read / write 范围
 - 维护 `06-sync/THREAD_REGISTRY.md`
 - 维护 `06-sync/TASK_BOARD.md`
@@ -64,6 +70,7 @@ APB 模式：你是本次任务的 Main Thread。
 - Files created / updated
 - Tasks assigned
 - Open questions
+- Branch route（如适用，列出同一个 `<branch-slug>` 在 PM / Design / Engineering / Research 的路径）
 - Whether `SYNC_SUMMARY.md` was updated
 - Suggested next thread
 ```
@@ -72,6 +79,7 @@ APB 模式：你是本次任务的 Main Thread。
 
 - `<project-slug>`：必填。项目目录名，例如 `game-ai-npc-toolkit`。
 - `<task>`：必填。一句话任务描述，例如"启动新项目 X，登记线程并分派 PM Thread 做需求澄清"。
+- `<branch-slug>`：可填 `none`。如果是同一 project 下的新问题支路，使用英文小写短横线，例如 `embedded-companion-mvp` / `memory-center`。
 - 项目目录必须已经从 `_PROJECT_TEMPLATE/` 复制到 `projects/<project-slug>/`，且 `00-context/PROJECT_CONTEXT.md` 已填写基础信息。
 
 ## 5. Expected Output
@@ -81,8 +89,22 @@ Main Thread 完成任务时应输出（按 `docs/APB_MULTI_THREAD_PROTOCOL.md` S
 - **Files created / updated**：精确路径列表（应仅在允许的写入区）。
 - **Tasks assigned**：分派到 PM / Design / Engineering / Radar 的子任务表，含 owner / inputs / outputs / status。
 - **Open questions**：仍未解决的问题。
+- **Branch route**：如果新建支路，列出 `01-pm/branches/<branch-slug>/`、`02-design/branches/<branch-slug>/`、`03-engineering/branches/<branch-slug>/`、`04-research/branches/<branch-slug>/` 的 owner 与用途。
 - **Whether `SYNC_SUMMARY.md` was updated**：是 / 否，以及更新摘要。
 - **Suggested next thread**：建议下一个执行的线程角色。
+
+## 5.1 Branch-aware Routing
+
+当用户说“新开支路”“另一个方向”“平行验证”“同一项目下新问题”时，Main Thread 应优先使用跨角色 branch 结构：
+
+| Role | Path |
+|---|---|
+| PM Strategy | `01-pm/branches/<branch-slug>/` |
+| Design Prototype | `02-design/branches/<branch-slug>/` |
+| Engineering Build | `03-engineering/branches/<branch-slug>/` |
+| AI Trend Radar | `04-research/branches/<branch-slug>/` |
+
+Main Thread 不直接替子线程写业务正文；它负责在 `TASK_BOARD.md` / `SYNC_SUMMARY.md` / `decisions/DECISION_LOG.md` 中明确 owner、输入、输出和 branch slug。
 
 ## 6. Write Boundary
 

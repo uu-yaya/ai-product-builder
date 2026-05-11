@@ -21,6 +21,12 @@ APB 模式：你是本次任务的 AI Trend Radar Thread。
 
 项目：`projects/<project-slug>/`
 任务：`<task>`
+支路：`<branch-slug 或 none>`
+
+输出归档：
+- 如果任务属于项目已有 research 主题文件夹，请写入对应主题文件夹。
+- 如果是新问题支路，请写入 `projects/<project-slug>/04-research/branches/<branch-slug>/`。
+- 如果无法判断归档位置，先读取 `projects/<project-slug>/04-research/README.md`，再说明你的选择。
 
 请先读取：
 - 根 `AGENTS.md`
@@ -28,6 +34,7 @@ APB 模式：你是本次任务的 AI Trend Radar Thread。
 - `projects/<project-slug>/PROJECT_RULES.md`
 - `projects/<project-slug>/00-context/PROJECT_CONTEXT.md`
 - `projects/<project-slug>/06-sync/SYNC_SUMMARY.md`
+- `projects/<project-slug>/04-research/README.md`
 - `workspaces/ai-trend-radar/AGENTS.md`
 
 根据任务需要读取：
@@ -35,6 +42,8 @@ APB 模式：你是本次任务的 AI Trend Radar Thread。
 - `workspaces/ai-trend-radar/workflows/`
 - `skills-plan/EXISTING_SKILLS_REUSE_STRATEGY.md`
 - `skills-plan/LENNY_SKILLS_APB_MAPPING.md`
+- 如 `支路` 不是 `none`：`projects/<project-slug>/04-research/branches/README.md`
+- 如支路目录已存在：`projects/<project-slug>/04-research/branches/<branch-slug>/README.md`
 
 你的职责：
 - AI 趋势研究
@@ -45,6 +54,7 @@ APB 模式：你是本次任务的 AI Trend Radar Thread。
 
 只允许写入：
 - `projects/<project-slug>/04-research/`
+- 如 `支路` 不是 `none`，优先写入 `projects/<project-slug>/04-research/branches/<branch-slug>/`
 - 如需跨线程沟通，可写入 `projects/<project-slug>/06-sync/group/` 或对应 `dm/`
 
 不要修改：
@@ -67,12 +77,14 @@ APB 模式：你是本次任务的 AI Trend Radar Thread。
 - Will read
 - Will write
 - Will not modify
+- Output route（写入哪个 research 主题文件夹或 branch，并说明原因）
 
 完成后请输出：
 - Files created / updated
 - Key findings
 - Source links / citations
 - Questions for PM
+- Archive route
 - Whether Main Thread needs to update `SYNC_SUMMARY.md`
 - Suggested next thread
 ```
@@ -81,6 +93,7 @@ APB 模式：你是本次任务的 AI Trend Radar Thread。
 
 - `<project-slug>`：必填。
 - `<task>`：必填。例如"生成本周 AI Agent 趋势周报"或"研究最近一周 AI NPC / Inworld / Convai 产品动态并提炼对本项目的机会"。
+- `<branch-slug>`：可填 `none`。如果是新问题支路，使用英文小写短横线，例如 `embedded-companion-mvp` / `memory-center`。
 - 时间范围：建议在 `<task>` 中明确（YYYY-MM-DD 起止），避免趋势研究范围漂移。
 
 ## 5. Expected Output
@@ -91,6 +104,18 @@ APB 模式：你是本次任务的 AI Trend Radar Thread。
 - **Questions for PM**：建议 PM Thread 接手判断的问题（同时建议落 `06-sync/dm/radar-to-pm/`）。
 - **Whether Main Thread needs to update `SYNC_SUMMARY.md`**：是 / 否，以及关键变更点。
 - **Suggested next thread**：常见为 PM（机会评估）或回到 Main（决策是否立项）。
+
+## 5.1 Branch-aware Output Routing
+
+如果项目级 `PROJECT_RULES.md` 或 `04-research/README.md` 定义了主题文件夹 / `branches/<branch-slug>/`，Radar Thread 必须先做归档路由：
+
+| 情况 | 推荐写入 |
+|---|---|
+| 补充已有研究主题 | `04-research/<topic-folder>/` |
+| 新产品问题 / 新能力方向 / 新验证支路 | `04-research/branches/<branch-slug>/` |
+| 不确定是否新支路 | 先写入 `06-sync/group/` 提问或在任务开头说明归档判断 |
+
+如果创建新支路，必须先创建或更新 `04-research/branches/<branch-slug>/README.md`，写清 Goal / Status / Inputs / Outputs / Related Sync Messages。
 
 ## 6. Write Boundary
 

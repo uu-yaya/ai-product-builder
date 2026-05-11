@@ -22,6 +22,12 @@ APB 模式：你是本次任务的 Design Prototype Thread。
 
 项目：`projects/<project-slug>/`
 任务：`<task>`
+支路：`<branch-slug 或 none>`
+
+输出归档：
+- 如果这是项目默认主线设计，请写入 `projects/<project-slug>/02-design/`。
+- 如果这是同一 project 下的新问题支路，请写入 `projects/<project-slug>/02-design/branches/<branch-slug>/`。
+- 如果无法判断，先读取 `projects/<project-slug>/02-design/README.md` 和项目规则，再说明你的选择。
 
 请先读取：
 - 根 `AGENTS.md`
@@ -29,6 +35,7 @@ APB 模式：你是本次任务的 Design Prototype Thread。
 - `projects/<project-slug>/PROJECT_RULES.md`
 - `projects/<project-slug>/00-context/PROJECT_CONTEXT.md`
 - `projects/<project-slug>/06-sync/SYNC_SUMMARY.md`
+- `projects/<project-slug>/02-design/README.md`
 - `workspaces/design-prototype/AGENTS.md`
 
 根据任务需要读取：
@@ -37,6 +44,8 @@ APB 模式：你是本次任务的 Design Prototype Thread。
 - `skills-plan/EXISTING_SKILLS_REUSE_STRATEGY.md`
 - `skills-plan/LENNY_SKILLS_APB_MAPPING.md`
 - `projects/<project-slug>/01-pm/`
+- 如 `支路` 不是 `none`：`projects/<project-slug>/02-design/branches/README.md`
+- 如支路目录已存在：`projects/<project-slug>/02-design/branches/<branch-slug>/README.md`
 
 你的职责：
 - UI/UX 评审
@@ -47,6 +56,7 @@ APB 模式：你是本次任务的 Design Prototype Thread。
 
 只允许写入：
 - `projects/<project-slug>/02-design/`
+- 如 `支路` 不是 `none`，优先写入 `projects/<project-slug>/02-design/branches/<branch-slug>/`
 - 如需跨线程沟通，可写入 `projects/<project-slug>/06-sync/group/` 或对应 `dm/`
 
 不要修改：
@@ -64,11 +74,13 @@ APB 模式：你是本次任务的 Design Prototype Thread。
 - Will read
 - Will write
 - Will not modify
+- Output route（写入 Design 根目录或 branch，并说明原因）
 
 完成后请输出：
 - Files created / updated
 - Design assumptions
 - Questions for PM / Engineering
+- Archive route
 - Whether Main Thread needs to update `SYNC_SUMMARY.md`
 - Suggested next thread
 ```
@@ -77,6 +89,7 @@ APB 模式：你是本次任务的 Design Prototype Thread。
 
 - `<project-slug>`：必填。
 - `<task>`：必填。例如"基于 PRD_ai-npc-companion.md 输出高保真原型方案"或"按 UI_AUDIT_TEMPLATE 评审首页"。
+- `<branch-slug>`：可填 `none`。如果是新问题支路，使用英文小写短横线，并与 PM / Engineering / Research 保持同名。
 - 前置：`01-pm/` 下应有可参考的 PRD 或 PM Brief；如缺失，建议先回到 PM Thread。
 
 ## 5. Expected Output
@@ -86,6 +99,18 @@ APB 模式：你是本次任务的 Design Prototype Thread。
 - **Questions for PM / Engineering**：跨线程问题（建议同时落 `06-sync/dm/design-to-pm/` 或 `06-sync/dm/design-to-engineering/`）。
 - **Whether Main Thread needs to update `SYNC_SUMMARY.md`**：是 / 否，以及关键变更点。
 - **Suggested next thread**：常见为 Engineering（拿到 handoff）或回到 PM（需要补需求）。
+
+## 5.1 Branch-aware Output Routing
+
+Design Thread 必须先判断本次设计是项目主线，还是同一 project 下的新支路：
+
+| 情况 | 推荐写入 |
+|---|---|
+| 项目默认 MVP / 当前主线设计 | `02-design/` |
+| 新问题支路 / 平行验证方向 | `02-design/branches/<branch-slug>/` |
+| 支路需要 Engineering 接力 | 在 done 摘要中明确同一个 `<branch-slug>` |
+
+如果创建新支路，必须先创建或更新 `02-design/branches/<branch-slug>/README.md`，写清 Goal / Status / Upstream PM Input / Outputs / Related Sync Messages。
 
 ## 6. Write Boundary
 

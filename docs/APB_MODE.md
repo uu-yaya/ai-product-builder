@@ -132,4 +132,5 @@
 - 多线程协作详细协议：`docs/APB_MULTI_THREAD_PROTOCOL.md`
 - 项目级模板：`projects/_PROJECT_TEMPLATE/`
 - 多线程启动 Prompt：`prompts/thread-start/`
+- 日常短 Prompt：`prompts/thread-start/BRANCH_AWARE_QUICK_PROMPTS.md`
 - 长期记忆：`memory/USER_PROFILE.md` / `memory/GLOBAL_CONTEXT.md` / `memory/DECISION_LOG.md` / `memory/TERMINOLOGY.md`

@@ -22,6 +22,12 @@ APB 模式：你是本次任务的 PM Strategy Thread。
 
 项目：`projects/<project-slug>/`
 任务：`<task>`
+支路：`<branch-slug 或 none>`
+
+输出归档：
+- 如果这是项目默认主线需求，请写入 `projects/<project-slug>/01-pm/`。
+- 如果这是同一 project 下的新问题支路，请写入 `projects/<project-slug>/01-pm/branches/<branch-slug>/`。
+- 如果无法判断，先读取 `projects/<project-slug>/01-pm/README.md` 和项目规则，再说明你的选择。
 
 请先读取：
 - 根 `AGENTS.md`
@@ -29,6 +35,7 @@ APB 模式：你是本次任务的 PM Strategy Thread。
 - `projects/<project-slug>/PROJECT_RULES.md`
 - `projects/<project-slug>/00-context/PROJECT_CONTEXT.md`
 - `projects/<project-slug>/06-sync/SYNC_SUMMARY.md`
+- `projects/<project-slug>/01-pm/README.md`
 - `workspaces/pm-strategy/AGENTS.md`
 
 根据任务需要读取：
@@ -37,6 +44,8 @@ APB 模式：你是本次任务的 PM Strategy Thread。
 - `skills-plan/EXISTING_SKILLS_REUSE_STRATEGY.md`
 - `skills-plan/LENNY_SKILLS_APB_MAPPING.md`
 - `projects/<project-slug>/04-research/`
+- 如 `支路` 不是 `none`：`projects/<project-slug>/01-pm/branches/README.md`
+- 如支路目录已存在：`projects/<project-slug>/01-pm/branches/<branch-slug>/README.md`
 
 你的职责：
 - 需求澄清
@@ -48,6 +57,7 @@ APB 模式：你是本次任务的 PM Strategy Thread。
 
 只允许写入：
 - `projects/<project-slug>/01-pm/`
+- 如 `支路` 不是 `none`，优先写入 `projects/<project-slug>/01-pm/branches/<branch-slug>/`
 - 如任务明确是竞品 / 市场 / 趋势研究，可写入 `projects/<project-slug>/04-research/`
 - 如需跨线程沟通，可写入 `projects/<project-slug>/06-sync/group/` 或对应 `dm/`
 
@@ -65,11 +75,13 @@ APB 模式：你是本次任务的 PM Strategy Thread。
 - Will read
 - Will write
 - Will not modify
+- Output route（写入 PM 根目录或 branch，并说明原因）
 
 完成后请输出：
 - Files created / updated
 - Open questions
 - Questions for other threads
+- Archive route
 - Whether Main Thread needs to update `SYNC_SUMMARY.md`
 - Suggested next thread
 ```
@@ -78,6 +90,7 @@ APB 模式：你是本次任务的 PM Strategy Thread。
 
 - `<project-slug>`：必填。
 - `<task>`：必填。例如"为 NPC Companion 功能写 PRD"或"评估 AIGC 资产生成 pipeline 是否真的需要 Agent"。
+- `<branch-slug>`：可填 `none`。如果是新问题支路，使用英文小写短横线，并与 Design / Engineering / Research 保持同名。
 - 前置：`00-context/PROJECT_CONTEXT.md` 已填基础信息（用户、场景、目标、约束）。如未填，先在回答中要求 Main Thread 或用户补齐。
 
 ## 5. Expected Output
@@ -87,6 +100,18 @@ APB 模式：你是本次任务的 PM Strategy Thread。
 - **Questions for other threads**：需要 Design / Engineering / Radar 回答的问题（建议同时落地为 `06-sync/dm/pm-to-<role>/` 消息）。
 - **Whether Main Thread needs to update `SYNC_SUMMARY.md`**：是 / 否，以及关键变更点。
 - **Suggested next thread**：例如 Design / Engineering / Radar，或回到 Main 收口。
+
+## 5.1 Branch-aware Output Routing
+
+PM Thread 必须先判断本次需求是项目主线，还是同一 project 下的新支路：
+
+| 情况 | 推荐写入 |
+|---|---|
+| 项目默认 MVP / 当前主线需求 | `01-pm/` |
+| 新问题支路 / 平行验证方向 | `01-pm/branches/<branch-slug>/` |
+| 支路需要 Design / Engineering / Radar 接力 | 在 done 摘要中明确同一个 `<branch-slug>` |
+
+如果创建新支路，必须先创建或更新 `01-pm/branches/<branch-slug>/README.md`，写清 Goal / Status / Decisions / Inputs / Outputs / Related Sync Messages。
 
 ## 6. Write Boundary
 

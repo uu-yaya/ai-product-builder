@@ -230,6 +230,7 @@ grep -rE "sk-[A-Za-z0-9]{20,}|ghp_[A-Za-z0-9]{20,}" projects/$PROJ_SLUG/ || echo
 
 - `prompts/thread-start/MAIN_THREAD_START.md`：项目已存在时**重启** Main Thread 用此（不是首次 init）
 - `prompts/thread-start/PM_THREAD_START.md` / `DESIGN_THREAD_START.md` / `ENGINEERING_THREAD_START.md` / `RADAR_THREAD_START.md`：四类子线程接力
+- `prompts/thread-start/BRANCH_AWARE_QUICK_PROMPTS.md`：日常短 prompt，支持主题文件夹和 `branches/<branch-slug>/`
 - `docs/APB_MULTI_THREAD_PROTOCOL.md` §13 Blocker Reporting / §14 Tool-Agnostic Agent Runtime
 - `docs/APB_MODE.md`：APB Mode 详细行为规则
 - `docs/TOOL_COMPATIBILITY.md`：Claude Code / Codex / Cowork 跨工具对照
