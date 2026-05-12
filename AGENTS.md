@@ -80,7 +80,7 @@ APB 采用三层架构（Global Codex Runtime Config + Reusable Skills + Project
 - 不要删除用户文件。
 - 不要覆盖已有内容。
 - 不要直接修改密钥、环境变量、部署配置。
-- 默认不要直接推送主分支；但用户在当前任务中明确授权“直推 main / 可以直推 / 不用切分支”时，可以推送 `main`。推送前必须先 `fetch` 并确认不会覆盖远端新提交；禁止 force push，除非用户单独明确要求并说明风险。
+- **本项目默认在 `main` 分支直接提交并推送**（2026-05-12 用户决定：所有 session 统一在 main 操作，方便多 session 协作时立即看到文件修改）。所有 session（Claude / Codex / 其他 agent）默认不走 feature branch + PR 流程；除非用户明确要求"开 PR" / "开分支" / "走 review" 时才创建分支。推送前必须先 `fetch` 并确认不会覆盖远端新提交；禁止 force push，除非用户单独明确要求并说明风险。
 - 不要无说明地大规模重构。
 - 不写入真实 token / API key / secret，仅使用 `${ENV_VAR}` 占位。
 - 不写入真实玩家数据、公司机密、未脱敏日志、合作方机密、IP 授权细节。
