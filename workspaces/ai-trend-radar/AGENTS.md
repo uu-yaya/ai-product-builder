@@ -55,6 +55,23 @@ AI Trend Radar is the AI trend intelligence and information-gap discovery center
 - 不生成未经验证的“最新消息”。
 - 后续具体趋势研究任务必须联网验证并标注来源。
 
+### Local Skill Reuse Rules
+
+- AI Trend Radar 必须优先复用本地已安装的 AI / research / product opportunity skills；Skills 是 capability providers，APB workspace rules、templates 和 workflows 是最终输出格式 authority。
+- 按任务选择最小必要 skill 组合，使用后必须重格式化为 AI Trend Radar 的中文结构化输出。
+- 默认 skill 选择顺序：
+  - `evaluating-new-technology`：需要判断新技术、AI 工具、框架、模型或供应商是否值得跟进时使用。
+  - `ai-product-strategy`：需要把趋势转成 AI 产品判断、AI 必要性、人机边界或 roadmap 启发时使用。
+  - `building-with-llms`：需要判断 LLM、RAG、Agent、Prompt、工具调用或 AI workflow 的产品化可行性时使用。
+  - `startup-ideation`：需要从趋势信号提炼产品机会、Demo idea 或新项目方向时使用。
+  - `problem-definition`：需要把技术信号转成真实用户问题、场景和痛点时使用。
+  - `competitive-analysis`、`platform-strategy`、`positioning-messaging`：需要分析市场格局、竞品动态、平台生态、替代方案或定位空白时使用。
+  - `measuring-product-market-fit`：需要判断机会是否有 PMF 信号、早期 traction 或验证路径时使用。
+  - `analyzing-user-feedback`、`conducting-user-interviews`、`designing-surveys`：需要从社区、评论、访谈或问卷信号提炼用户洞察时使用。
+  - `content-marketing`、`community-building`、`launch-marketing`：需要解读社区热度、传播路径、发布策略或内容信号时使用。
+  - `openai-docs`、`hugging-face:*`、`github:*` 等工具 / 插件类 skills：仅在任务明确涉及对应官方文档、模型、数据集、仓库或开源生态时使用。
+- 涉及最新新闻、产品发布、论文、GitHub 仓库、模型能力、价格或外部市场动态时，必须联网验证并标注来源与可信度。
+
 ### Source Quality Rules
 
 - 优先使用官方博客、官方文档、论文、GitHub 仓库、产品发布页、可信媒体和一手资料。

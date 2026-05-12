@@ -54,6 +54,22 @@ Design Prototype is the design taste, UI/UX review, Figma Prompt, and high-fidel
 - 先确定信息架构和用户路径，再进入页面布局、组件和视觉细节。
 - 输出应能指导原型工具和后续工程实现。
 
+### Local Skill Reuse Rules
+
+- Design Prototype 必须优先复用本地已安装的 design / product / prototype skills；Skills 是 capability providers，APB workspace rules、templates 和 workflows 是最终输出格式 authority。
+- 按任务选择最小必要 skill 组合，使用后必须重格式化为 Design Prototype 的中文结构化输出。
+- 默认 skill 选择顺序：
+  - `behavioral-product-design`：需要分析用户动机、行为阻力、习惯形成、激活路径或体验摩擦时使用。
+  - `running-design-reviews`：需要 UI/UX 评审、设计 critique、问题优先级和修复建议时使用。
+  - `product-taste-intuition`：需要产品品味、体验质量、视觉取舍或定性判断时使用。
+  - `design-systems`：需要设计 token、组件规范、状态规范、设计系统治理时使用。
+  - `design-engineering`：需要设计到工程交付、组件边界、实现可行性和 handoff 时使用。
+  - `user-onboarding`：需要首访体验、activation、aha moment、新手引导或空状态设计时使用。
+  - `positioning-messaging`、`brand-storytelling`、`launch-marketing`：需要页面文案、价值表达、品牌叙事或发布页面信息层级时使用。
+  - `figma`、`figma-generate-design`、`figma-implement-design`、`figma-create-design-system-rules`：仅在用户提供 Figma 上下文、明确要求 Figma 工作流或需要设计系统规则时使用。
+  - `imagegen`：仅在需要生成视觉资产、概念图、产品图、插画或原型素材时使用。
+- 设计灵感研究涉及最新设计趋势、竞品界面或外部设计平台时，必须联网验证并标注来源。
+
 ### UX Evaluation Principles
 
 - 检查信息架构、任务路径、信息密度、认知负担和关键操作是否清晰。
