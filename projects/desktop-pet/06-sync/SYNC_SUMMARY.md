@@ -10,7 +10,7 @@ Last Updated: 2026-05-12
 - 主线程持有人：uu via Claude (claude.ai/code) + 历史 Codex 阶段
 - 当前焦点：memory-dataset 分支 PM 立场升项目级（P0 6 条已 Accepted）；启动 Engineering Build Thread 接 schema；启动 Design Prototype Thread 接 Memory Center；PM 横向扩展（voice-interaction / companion-behavior 分支）；项目级 PRIVACY_BOUNDARY 修订（Deferred 等 voice-interaction 启动后合并审议）
 - 当前状态：
-  1. **memory-dataset 分支已完成 v2.4 + AI Eval v3**（详见 `01-pm/branches/memory-dataset/REQUIREMENT_CLARIFICATION_memory-dataset.md` v2.4 + `01-pm/branches/memory-dataset/AI_FEATURE_EVALUATION_memory-dataset.md` v3）；用户 2026-05-11 / 5-12 多轮反馈已全部收口；分支本质从"被动 vs 主动"演化为"脑 vs 嘴和耳"（数据感知层 vs I/O 通道）。
+  1. **memory-dataset 分支已完成 v2.5.1 + AI Eval v3**（详见 `01-pm/branches/memory-dataset/REQUIREMENT_CLARIFICATION_memory-dataset.md` v2.5.1 + `01-pm/branches/memory-dataset/AI_FEATURE_EVALUATION_memory-dataset.md` v3）；v2.4 → v2.5 全量修订（**6 通道并存**：MCP + OS API + 浏览器扩展全方位 + OS Scripting Bridge + CLI + IFTTT；**档 A 完整**：A1 派生 + A2 操作语义 + A3 编辑动作派生；§10 键盘分级新增 L1.5；§13 项目级决策候选 11 → 15 条）→ v2.5.1 mock §11 同步补丁（schema_version 0.2.0 → 0.3.0；主文档 16 个数据章节 100% 有对应 mock）；用户 2026-05-11 / 5-12 多轮反馈已全部收口；分支本质从"被动 vs 主动"演化为"脑 vs 嘴和耳"（数据感知层 vs I/O 通道）。
   2. **Radar 已完成两批共 7 项调研**（5/11 三项：行为信号库 / 中国 app MCP / 跨数据源 mock；5/12 四项：音频派生库 / OS Now Playing API / 本地 VLM / 浏览器 tab 检测）；PM 答复 14 个 Radar 问题已就位。
   3. **P0 决策已升项目级 6 条**（VLM 三档混合 / 双轨分发 / MiniCPM-V 法务核验 / aubio IPC 隔离 / MAS MediaRemote 风险 / settings.json 联网放行补登）。
   4. **PRIVACY_BOUNDARY 修订提案 Deferred** — 等 voice-interaction 分支启动后合并审议（届时 STT / 麦克风边界变更需走同一份 amendment）。
@@ -49,6 +49,9 @@ Last Updated: 2026-05-12
 | 2026-05-12 | **MiniCPM-V 4.5 商用条款必须法务核验**（不过则 MVP 主线切 Qwen2.5-VL-7B Apache 2.0）；**aubio GPL-3.0 必须 IPC 子进程隔离**（避免传染整个二进制） | `decisions/DECISION_LOG.md` |
 | 2026-05-12 | `.claude/settings.json` 联网放行 1 + 28 域名白名单补登（之前已落地于 ai-weekly-radar-2026，本项目 DECISION_LOG 现补记） | `.claude/settings.json` + `decisions/DECISION_LOG.md` |
 | 2026-05-12 | PRIVACY_BOUNDARY 修订提案 **Deferred** — 等 voice-interaction 分支启动后合并审议（届时 STT / 麦克风边界变更将走同一份 amendment） | `01-pm/branches/memory-dataset/PRIVACY_BOUNDARY_AMENDMENT_PROPOSAL_audio-and-vlm-extension.md`（Status: Deferred） |
+| 2026-05-12 | PM 完成 memory-dataset **v2.5 全量修订**（6 通道并存 + 档 A 完整 A1+A2+A3 + §10 L1.5 + OS Scripting Bridge + §13 项目级决策候选 11→15 条；§4.7.4 VLM 视频类保留 v2.4 不动） | `01-pm/branches/memory-dataset/REQUIREMENT_CLARIFICATION_memory-dataset.md` v2.5 + `06-sync/group/2026-05-12T11-39-26_pm_memory-dataset-v2.5-and-v2.5.1-completed.md` |
+| 2026-05-12 | PM 完成 **v2.5.1 mock §11 同步补丁**（schema_version 0.2.0 → 0.3.0；§11.0 / §11.3 / §11.4 / §11.4.1 / §11.12 / §11.13 / §11.14 全部到位；6 类新通道 mock 字段层 100% 到位） | `01-pm/branches/memory-dataset/REQUIREMENT_CLARIFICATION_memory-dataset.md` v2.5.1 §11 + `06-sync/group/2026-05-12T11-39-26_pm_memory-dataset-v2.5-and-v2.5.1-completed.md` §3 |
+| 2026-05-12 | Main Thread 收口 v2.5 / v2.5.1：DECISION_LOG 新增 2 条 Accepted（#12 6 通道并存 / #14 OS Scripting Bridge）+ 1 条里程碑 Accepted（v2.5 + v2.5.1 完成）；候选 #13 / #15 未升项目级，保留分支级立场 | `decisions/DECISION_LOG.md`（2026-05-12 ×3 新行） |
 
 ## 3. Open Questions
 
@@ -81,7 +84,7 @@ Last Updated: 2026-05-12
 | T-001 | PM Strategy Thread | 基于 PROJECT_CONTEXT 输出 desktop-pet MVP 的需求澄清 + AI 必要性评估 | **In Progress**（memory 分支已 v2.4，MVP 整体澄清待 PM 横向扩展） |
 | T-011 | Engineering Build Thread | 设计跨平台 `Context Capture Adapter` 技术方案（v2 含 audio + 多 OS 路径 + VLM 三档混合 + Tab Detection Adapter + A1 白名单） | Backlog（解锁 — P0 决策已升级，可启动） |
 | T-012 | Design Prototype Thread | 设计 Memory Center / 桌宠设置面板信息架构（含 VLM 状态指示 / MCP 启停面板 / 键盘 L1 / 音频 A0 开关 / Onboarding 三选一 / 浏览器扩展引导） | Backlog（解锁 — 需求已就位，可启动） |
-| T-028 | PM Strategy Thread | PM memory-dataset 分支需求澄清 + AI 必要性评估 + PRIVACY_BOUNDARY 修订提案 | **In Progress**（v2.4 + v3 已落盘，PRIVACY_BOUNDARY 提案 Deferred 等 voice-interaction 合并审议） |
+| T-028 | PM Strategy Thread | PM memory-dataset 分支需求澄清 + AI 必要性评估 + PRIVACY_BOUNDARY 修订提案 | **In Progress**（v2.5.1 + v3 已落盘 + group 通告已发；PRIVACY_BOUNDARY 提案 Deferred 等 voice-interaction 合并审议；6 通道并存 / OS Scripting Bridge 已升项目级 DECISION_LOG #12 / #14） |
 
 ## 5. Blockers
 
@@ -126,6 +129,8 @@ Last Updated: 2026-05-12
 | Radar 第二批四项调研完成（音频派生库 / OS Now Playing API / 本地 VLM / 浏览器 tab 检测） | `06-sync/group/2026-05-12T09-43-10_radar_memory-dataset-four-research-completed.md` | 2026-05-12 |
 | PM 答复 Radar 第二批 10 个问题（VLM 三档混合 / 双轨分发 / 模型选型法务核验 / Tab 扩展锁定等） | `06-sync/group/2026-05-12T09-52-06_pm_memory-dataset-radar-batch2-ack.md` | 2026-05-12 |
 | PRIVACY_BOUNDARY 修订提案（Status: Deferred — 等 voice-interaction 分支启动后合并审议） | `01-pm/branches/memory-dataset/PRIVACY_BOUNDARY_AMENDMENT_PROPOSAL_audio-and-vlm-extension.md` | 2026-05-11 / Deferred 2026-05-12 |
+| PM 完成 memory-dataset v2.5 全量修订 + v2.5.1 mock §11 同步补丁 | `06-sync/group/2026-05-12T11-39-26_pm_memory-dataset-v2.5-and-v2.5.1-completed.md` | 2026-05-12 |
+| Main 收口 memory-dataset 两批 Radar + PM ack 四条群消息 | `06-sync/group/2026-05-12T11-45-00_main_closeout-memory-dataset-cycle.md` | 2026-05-12 |
 
 ## 维护规则
 
