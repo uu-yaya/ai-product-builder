@@ -4,7 +4,7 @@
 > Branch: `memory-dataset`
 > Thread: PM Strategy Thread
 > Date: 2026-05-11
-> Status: Draft v2.5（用户决定扩展采集面：档 A 增量扩展 A1 + A2 + A3 三套；OS 级 API 6 通道扩展替代 MCP 缺失；浏览器扩展全方位 6 类；新增 §4.12 OS Scripting Bridge（osascript / PowerShell COM）接入娱乐工作 app；VLM 视频类保留 v2.4 §4.7.4 不动）
+> Status: Draft v2.5.1（v2.5 全量修订 + mock §11 同步：§11.0 加 6 新通道开关字段；§11.3 / §11.4 加档 A v2.5 字段；新增 §11.4.1 编辑动作派生 / §11.12 OS API 6 通道 / §11.13 浏览器扩展全方位 / §11.14 OS Scripting Bridge mock）
 > Scope: 仅 PM 视角的数据需求声明与原因解释。**不包含** schema 工程落地、SDK API、UI、存储架构与模型选型。
 
 ## 0.0 分支本质（v2.3.3，2026-05-11 19:30 — 框架精确化）
@@ -88,6 +88,19 @@ voice-interaction.STT_output(text: str) → memory-dataset.chat(text)
 3. 实际效果对用户也更直观：用户记得朋友"听过 / 看过 / 知道什么"，但不会记得"朋友是用左耳还是右耳听到的"。
 
 ---
+
+## 0.7 v2.5.1 修订摘要（2026-05-12 — Mock §11 同步 v2.5 主体）
+
+1. **背景**：v2.5 主体修订完成后，§11 mock 还停留在 v2.4 字段集，与 §3 / §4 / §10 不一致。用户要求 mock §11 同步 v2.5。
+2. **§11.0 mock_metadata 扩展**：schema_version 0.2.0 → 0.3.0，新增 6 字段开关：os_api_enabled_channels / browser_extension_enabled_categories / osa_com_enabled_apps / keyboard_signal_levels_enabled (含 L1.5) / cli_tool_enabled / ifttt_webhook_enabled。
+3. **§11.3 behavior_pc 扩展**：input_indicators 加 5 个 v2.5 A1 字段（mouse_region_heatmap_top3 / mouse_event_type_burst / input_device_switch_event / multi_display_activity / scroll_intensity_signal）。
+4. **§11.4 behavior_ui 扩展**：新增 `semantic_events_v2_5[]` 含 9 类 OS 级操作语义事件（save / copy_paste / undo_redo_burst / fullscreen_toggle / lock_unlock / new_window / new_tab / app_install_uninstall / window_arrangement_change）。
+5. **§11.4.1 新增 behavior_edit**：A3 编辑动作派生 5 字段（text_edit_action_burst / undo_redo_rate_per_min / ime_state / editing_session_duration_min / text_edit_burst_frequency），对应 §10 L1.5。
+6. **§11.12 新增 OS API 6 通道 mock**：now_playing 引用 §11.10 / user_activity / recent_files / notification_center / calendar / device_status。每通道带 `enabled` 开关。
+7. **§11.13 新增浏览器扩展全方位 mock**：6 类 tab category + 每类独立开关；active_tab_signal 含 platform + url_domain + path_class_hint，**不读页面内容**。
+8. **§11.14 新增 OS Scripting Bridge mock**：bridge_kind (osascript / powershell_com) / user_authorized_apps / samples[]（spotify now_playing / notes recent_documents / outlook unread_count / vlc app_state）/ ui_indicator_shown_per_app（合规检查项）。
+9. **未变更**：§11.1 chat / §11.2 profile / §11.5 MCP / §11.6 game_idip / §11.7 game_event / §11.8 game_vlm / §11.9 current_context / §11.10 audio_derived / §11.11 playwright_tool_result（v2.5 主体没改这些字段）。
+10. **v2.5.1 是 mock 同步补丁**，主文档 §3 / §4 / §10 / §13 等 v2.5 主体内容**不变**。
 
 ## 0.6 v2.5 修订摘要（2026-05-12 — 用户决定扩展采集面 + 接入通道 + OS Scripting Bridge）
 
@@ -1079,8 +1092,9 @@ PM 工作模式：
 ```json
 {
   "mock_metadata": {
-    "schema_version": "0.2.0",
+    "schema_version": "0.3.0",
     "reference_spec": "01-pm/branches/memory-dataset/REQUIREMENT_CLARIFICATION_memory-dataset.md",
+    "spec_version": "v2.5",
     "player_id": "player_a1c93f01",
     "game_id": "<game_codename>",
     "time_range": ["2026-04-21T09:00:00Z", "2026-04-21T10:00:00Z"],
@@ -1091,7 +1105,13 @@ PM 工作模式：
     ],
     "mcp_user_enabled_sources": ["dida", "feishu", "steam"],
     "audio_a0_enabled": true,
-    "playwright_enabled_sources": ["bilibili"]
+    "playwright_enabled_sources": ["bilibili"],
+    "os_api_enabled_channels": ["now_playing", "user_activity", "recent_files", "notification_center", "calendar", "device_status"],
+    "browser_extension_enabled_categories": ["video", "shopping", "reading", "learning", "social_browsing", "work"],
+    "osa_com_enabled_apps": ["spotify", "apple_music", "vlc", "notes", "office_outlook"],
+    "keyboard_signal_levels_enabled": ["L0", "L1", "L1_5"],
+    "cli_tool_enabled": ["spotify_cli"],
+    "ifttt_webhook_enabled": false
   }
 }
 ```
@@ -1206,7 +1226,7 @@ PM 备注：`mock_metadata` 是**示例数据集**的元状态，不是运行时
 }
 ```
 
-### 11.3 行为数据 - PC 传统进程 + 派生输入指标
+### 11.3 行为数据 - PC 传统进程 + 派生输入指标（v2.5 扩展 A1 5 字段）
 
 ```json
 {
@@ -1223,7 +1243,23 @@ PM 备注：`mock_metadata` 是**示例数据集**的元状态，不是运行时
     "input_intensity_level": "high",
     "typing_rhythm_signal": "steady",
     "mouse_activity_burst": false,
-    "app_switch_rate_per_min": 2
+    "app_switch_rate_per_min": 2,
+    "_v2_5_new_fields": {
+      "mouse_region_heatmap_top3": ["center", "top-right", "left"],
+      "mouse_event_type_burst": [
+        {"event": "double_click", "at": "2026-04-21T09:14:32Z"},
+        {"event": "drag_select", "at": "2026-04-21T09:14:55Z"},
+        {"event": "scroll_burst", "at": "2026-04-21T09:15:00Z"}
+      ],
+      "input_device_switch_event": [
+        {"from": "keyboard", "to": "trackpad", "at": "2026-04-21T09:14:48Z"}
+      ],
+      "multi_display_activity": {
+        "foreground_display_index": 0,
+        "cross_display_drag_count_recent_30s": 1
+      },
+      "scroll_intensity_signal": "medium"
+    }
   },
   "recent_apps_top3": [
     {"name": "VS Code", "fg_duration_min": 35},
@@ -1233,7 +1269,15 @@ PM 备注：`mock_metadata` 是**示例数据集**的元状态，不是运行时
 }
 ```
 
-### 11.4 行为数据 - UI 信息 + 快捷键事件流（P1）
+v2.5 补充说明：
+1. `mouse_region_heatmap_top3`：屏幕分 9 区（top-left / top / top-right / left / center / right / bottom-left / bottom / bottom-right），按近 30s 鼠标活动密度返回 top 3 区域；**不带坐标**。
+2. `mouse_event_type_burst`：事件流类别（double_click / long_press / drag_select / scroll_burst 等），**不带坐标 / 不带选中内容**。
+3. `input_device_switch_event`：设备类别切换事件流（keyboard / trackpad / mouse / pen / touch）。
+4. `multi_display_activity`：仅 display index + 跨屏拖事件计数，**不带跨屏拖的内容**。
+5. `scroll_intensity_signal`：滚动强度桶（light / medium / heavy）。
+6. 字段名占位 `_v2_5_new_fields` 仅为本 mock 阅读方便；正式 schema 由 Engineering 决定是否扁平化（建议扁平化进 `input_indicators` 顶层）。
+
+### 11.4 行为数据 - UI 信息 + 操作语义事件流（v2.5 扩展 A2 8 字段）
 
 ```json
 {
@@ -1250,9 +1294,55 @@ PM 备注：`mock_metadata` 是**示例数据集**的元状态，不是运行时
   "shortcut_events": [
     {"combo": "cmd+s", "at": "2026-04-21T09:16:12Z"},
     {"combo": "alt+tab", "at": "2026-04-21T09:16:25Z"}
+  ],
+  "semantic_events_v2_5": [
+    {"event": "save", "at": "2026-04-21T09:16:12Z"},
+    {"event": "copy_paste", "at": "2026-04-21T09:16:18Z", "kind": "copy"},
+    {"event": "undo_redo_burst", "at": "2026-04-21T09:16:20Z", "rate_per_min": 4},
+    {"event": "fullscreen_toggle", "at": "2026-04-21T09:16:25Z", "kind": "enter"},
+    {"event": "new_tab", "at": "2026-04-21T09:16:28Z"},
+    {"event": "lock_unlock", "at": "2026-04-21T09:50:00Z", "kind": "lock"},
+    {"event": "app_install_uninstall", "at": "2026-04-21T08:30:00Z", "kind": "install", "app_name": "<app_codename>"},
+    {"event": "window_arrangement_change", "at": "2026-04-21T09:17:00Z", "kind": "split_screen_enter"}
   ]
 }
 ```
+
+v2.5 补充说明：
+1. `semantic_events_v2_5` 是 v2.5 新增的"OS 级操作语义事件流"，与 `shortcut_events`（modifier+键白名单）独立、可同时存在。
+2. 9 类事件名（save / copy_paste / undo_redo_burst / fullscreen_toggle / lock_unlock / new_window / new_tab / app_install_uninstall / window_arrangement_change）固定枚举；**不带任何输入内容 / 文件路径 / 剪贴板原文**。
+3. macOS 实现路径：NSEvent global monitor + Accessibility events；Windows 实现：`SetWinEventHook(EVENT_SYSTEM_*)`。
+4. 用户在 Memory Center 可按事件类别 + 单条目开关。
+5. 正式 schema 建议把 `semantic_events_v2_5` 扁平化到顶层 `semantic_events`；本 mock 加版本后缀仅为阅读对比。
+
+### 11.4.1 行为数据 - 编辑动作派生（v2.5 新增 A3 5 字段，对应 §10 L1.5）
+
+```json
+{
+  "data_source": "behavior_edit",
+  "player_id": "player_a1c93f01",
+  "snapshot_at": "2026-04-21T09:17:30Z",
+  "active_app_at_snapshot": "VS Code",
+  "edit_signals": {
+    "text_edit_action_burst": [
+      {"action": "insert_chunk", "at": "2026-04-21T09:17:05Z"},
+      {"action": "delete_chunk", "at": "2026-04-21T09:17:12Z"},
+      {"action": "cross_paragraph_jump", "at": "2026-04-21T09:17:18Z"},
+      {"action": "selection_op", "at": "2026-04-21T09:17:25Z"}
+    ],
+    "undo_redo_rate_per_min": 5,
+    "ime_state": "en",
+    "editing_session_duration_min": 25,
+    "text_edit_burst_frequency": "high"
+  }
+}
+```
+
+v2.5 补充说明：
+1. **不读字符内容 / IME composition / 剪贴板 / 选中文本**；仅"动作类别 + 频率 + 时长 + IME 状态"五维派生。
+2. `text_edit_action_burst` 动作类别枚举（insert_chunk / delete_chunk / cross_paragraph_jump / selection_op）；位置 / 行号 / 列号都不进。
+3. `ime_state`：cn / en / jp / kr / other / none，仅状态不读 composition string。
+4. 与 §11.3 §11.4 互补：§11.3 是低层物理动作（按键 / 鼠标）；§11.4 是 OS 级语义事件；§11.4.1 是 app 内编辑动作类别。三层独立可关闭。
 
 ### 11.5 MCP 数据（用户自选启用，v2.2 更新候选清单）
 
@@ -1458,6 +1548,179 @@ v2.3 补充说明：
 2. `result_snippet` 仅本次对话使用；不进入 `atomic_facts` / `episode` / `profile` 累积。
 3. `credential_storage` 必须为 `os_keychain`；任何其他取值视为违规。
 4. `persisted_html: false` 与 `writes_to_long_term_profile: false` 是合规检查项，硬约束。
+
+### 11.12 OS 级 API 通道（v2.5 新增 6 类，对应 §4.4.6）
+
+```json
+{
+  "data_source": "os_api",
+  "player_id": "player_a1c93f01",
+  "snapshot_at": "2026-04-21T09:30:00Z",
+  "channels": {
+    "now_playing": {
+      "_ref": "见 §11.10 audio_derived.a1_now_playing（v2.4 已锁，本通道复用）",
+      "enabled": true
+    },
+    "user_activity": {
+      "enabled": true,
+      "source": "macos_handoff",
+      "current_activity": {
+        "app": "Notes",
+        "activity_type": "editing_note",
+        "note_title_redacted": "<note_codename_1>",
+        "since": "2026-04-21T09:25:00Z"
+      }
+    },
+    "recent_files": {
+      "enabled": true,
+      "items": [
+        {"app": "VS Code", "file_name_redacted": "<code_file_1>", "modified_at": "2026-04-21T09:20:00Z"},
+        {"app": "Pages", "file_name_redacted": "<doc_file_1>", "modified_at": "2026-04-21T09:05:00Z"},
+        {"app": "Figma", "file_name_redacted": "<design_file_1>", "modified_at": "2026-04-20T22:30:00Z"}
+      ],
+      "_note": "仅文件名（已脱敏）+ 时间 + 所在 app，不读文件内容"
+    },
+    "notification_center": {
+      "enabled": true,
+      "unread_summary": [
+        {"source_app": "wechat", "count": 5, "since": "2026-04-21T09:25:00Z"},
+        {"source_app": "outlook", "count": 2, "since": "2026-04-21T09:10:00Z"}
+      ],
+      "_note": "仅 source + 数量 + 时间，不读通知正文"
+    },
+    "calendar": {
+      "enabled": true,
+      "source": "macos_eventkit",
+      "next_event": {
+        "title_redacted": "<event_codename>",
+        "starts_at": "2026-04-21T09:45:00Z",
+        "minutes_until_start": 15
+      },
+      "_note": "与 §11.5 mcp.calendar_next_event (feishu) 互补；这里走 OS 个人日历" 
+    },
+    "device_status": {
+      "enabled": true,
+      "battery_level_pct": 38,
+      "is_charging": false,
+      "display_brightness_level": "medium",
+      "bluetooth_connected_count": 2,
+      "network_environment": "wifi_home"
+    }
+  }
+}
+```
+
+v2.5 补充说明：
+1. 6 个通道各自独立 `enabled` 开关；用户在 Memory Center 单独启停。
+2. 所有通道走 OS 公开 API，不依赖具体 app 的 MCP；与 §4.4.6 PM 立场对齐。
+3. `recent_files` / `notification_center` / `calendar` 三个通道都**只读元数据**：文件名 / 通知来源 + 数量 / 日历标题，**不读内容正文**。
+4. `device_status` 字段都是低敏：电池等级 / 充电状态 / 蓝牙连接计数 / 网络环境（如 wifi_home / wifi_office / cellular / 未知）；不带具体 SSID 名称（避免位置泄露）。
+5. 字段名 `_ref` / `_note` 仅 mock 阅读用，正式 schema 不带。
+
+### 11.13 浏览器扩展全方位（v2.5 扩展 §4.7.4 到 6 类，对应 §4.4.7）
+
+```json
+{
+  "data_source": "browser_extension",
+  "player_id": "player_a1c93f01",
+  "snapshot_at": "2026-04-21T09:35:00Z",
+  "browser": "chrome",
+  "extension_version": "<ext_codename>",
+  "active_tab_category": "learning",
+  "active_tab_signal": {
+    "category": "learning",
+    "platform": "bilibili_class",
+    "tab_title_redacted": "在 B 站学习区看视频",
+    "url_domain": "www.bilibili.com",
+    "url_path_class_hint": "video_section_learning"
+  },
+  "recent_tab_categories_top3": [
+    {"category": "work", "platform": "github", "duration_min": 15},
+    {"category": "reading", "platform": "zhihu", "duration_min": 8},
+    {"category": "learning", "platform": "bilibili_class", "duration_min": 5}
+  ],
+  "category_enabled_status": {
+    "video": true,
+    "shopping": true,
+    "reading": true,
+    "learning": true,
+    "social_browsing": false,
+    "work": true
+  }
+}
+```
+
+v2.5 补充说明：
+1. 6 类 tab 识别（视频 / 购物 / 阅读 / 学习 / 社交浏览 / 工作）；每类独立开关 `category_enabled_status`。
+2. 仅识别 tab 身份：`url_domain` + 路径中的类别标识（如 `video_section_learning`）+ 脱敏 tab title；**不读页面内容**。
+3. 用户必须先在浏览器安装扩展 + Native Messaging 主路径；macOS AppleScript / Win UIA 兜底。
+4. 国产浏览器（360 / QQ / 搜狗 / Edge 国内版 / UC）走 Beta 支持；与扩展兼容验证完成才上 Beta。
+5. 这条 mock 与 §11.8 game_vlm 视频类（v2.4 §4.7.4）**独立**：扩展只识别 tab 身份；要在某 tab 启动 VLM 仍需用户对该视频 app 实例显式开 VLM 开关。
+
+### 11.14 OS Scripting Bridge（v2.5 新增，对应 §4.12）
+
+```json
+{
+  "data_source": "os_scripting_bridge",
+  "player_id": "player_a1c93f01",
+  "snapshot_at": "2026-04-21T09:40:00Z",
+  "platform": "macos",
+  "bridge_kind": "osascript_applescript",
+  "user_authorized_apps": ["spotify", "apple_music", "vlc", "notes", "office_outlook"],
+  "samples": [
+    {
+      "app": "spotify",
+      "field": "osa_now_playing",
+      "value": {
+        "title": "<song_codename>",
+        "artist": "<artist_codename>",
+        "duration_sec": 215,
+        "elapsed_sec": 88,
+        "app_source": "spotify_desktop"
+      },
+      "fetched_at": "2026-04-21T09:39:50Z",
+      "ttl_until": "2026-04-21T10:39:50Z"
+    },
+    {
+      "app": "notes",
+      "field": "osa_recent_documents",
+      "value": [
+        {"title_redacted": "<note_codename_1>", "modified_at": "2026-04-21T09:25:00Z"},
+        {"title_redacted": "<note_codename_2>", "modified_at": "2026-04-21T08:40:00Z"}
+      ],
+      "fetched_at": "2026-04-21T09:39:55Z",
+      "ttl_until": "2026-04-21T10:39:55Z"
+    },
+    {
+      "app": "office_outlook",
+      "field": "osa_unread_count",
+      "value": {"unread_emails": 4, "unread_meetings_today": 2},
+      "fetched_at": "2026-04-21T09:39:58Z",
+      "ttl_until": "2026-04-21T10:39:58Z"
+    },
+    {
+      "app": "vlc",
+      "field": "osa_app_state",
+      "value": {"running": true, "fg": false, "current_media_redacted": "<media_codename>", "has_unsaved_changes": false},
+      "fetched_at": "2026-04-21T09:40:00Z",
+      "ttl_until": "2026-04-21T10:40:00Z"
+    }
+  ],
+  "ui_indicator_shown_per_app": {
+    "spotify": "正在通过系统脚本接口读 Spotify 元数据",
+    "notes": "正在通过系统脚本接口读 Notes 元数据"
+  }
+}
+```
+
+v2.5 补充说明：
+1. `bridge_kind` 枚举：`osascript_applescript`（macOS）/ `powershell_com`（Windows）。
+2. 每个 app 必须在 `user_authorized_apps` 列表内且用户在系统设置→隐私与安全性→自动化（macOS）/ 启用 COM（Windows）授权。
+3. **仅读取**：所有 `field` 都是元数据查询（now_playing / recent_documents / unread_count / app_state / browser_current_tab），**不允许写入**（如 `tell spotify to play` 类调用禁止）。
+4. **不读取**：消息正文 / 邮件正文 / 文档正文 / 任何文件内容。
+5. 短期缓存 ≤ 1h（`ttl_until`）；长期记忆仅保留聚合摘要（"用户最近常用 Notes / Spotify"）。
+6. `ui_indicator_shown_per_app` 是合规检查项：启用 OSA 桥接时桌宠 UI 必须显示对应可见提示。
+7. 与 §11.5 MCP / §11.10 audio A1 / §11.12 OS API 互补；分工见 §4.12.5。
 
 ---
 
