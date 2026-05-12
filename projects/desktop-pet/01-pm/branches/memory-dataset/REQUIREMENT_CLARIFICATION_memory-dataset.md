@@ -101,7 +101,9 @@ voice-interaction.STT_output(text: str) → memory-dataset.chat(text)
 
 ---
 
-## 0.8 v2.5.1 文档一致性修复摘要（2026-05-12 — Codex 评审 + PM 自查 9 条全部修）
+## 0.8 v2.5.1 文档一致性修复摘要（2026-05-12 — Codex 两轮评审 + PM 自查 共 15 条全部修）
+
+### 0.8.1 第一轮（9 条，commit 8160a95）
 
 1. **背景**：v2.4 → v2.5 → v2.5.1 三轮快速迭代后，Codex 评审找到 7 条 + PM 自查补 2 条共 9 条文档一致性问题：版本号残留 / Deferred 口径冲突 / VLM 优先级 P1 vs P2 / A1-A3 命名空间复用 / 70%-7B 残留 / source_category 边界模糊 / MCP MVP 措辞拉扯。
 2. **修复 1（P1-1）PRIVACY_BOUNDARY 提案口径统一**：line 7 顶部 `Status: Proposal` → `Status: Deferred`；§5 拆 Rejected / Deferred 两条独立路径 + 加状态语义对照表；§5.2 `v2.3 / v2` 锁版本号改为"当前版本"中性措辞。
@@ -111,7 +113,22 @@ voice-interaction.STT_output(text: str) → memory-dataset.chat(text)
 6. **修复 5（P2-1）source_category 边界澄清**：README §1.5 + 主文档 §4.9 加"采集技术通道 vs 数据来源域"区分说明。
 7. **修复 6（P2-2）VLM 70% / 7B 残留消除**：AI Eval §7 评估指标 line 685 从 `≥70%` 升 `≥85%`（三档混合）；§10 Open Questions #5 从 Open 改为 Resolved（Radar Task F 已证伪 70% 假设）；§3.6.4 line 339 "本地 VLM 7B 级候选" 加 nuance 明确"作为三档中档兜底，与 CNN + 云端配合"。
 8. **修复 7（P2-3）MCP "MVP 不依赖" vs "MVP 首批" 措辞澄清**：§4.4.3 #4 + §4.4.4 顶部 + §11.5 顶部各加澄清 — 两个表述指不同维度（产品 MVP 整体 vs MCP 通道内部分级）。
-9. **不引入新功能 / 不改字段定义 / 不改 mock 字段 / 不动 AI 立场**：纯文档内部一致性修复。
+
+### 0.8.2 第二轮（6 条，2026-05-12 Codex 复审）
+
+1. **背景**：第一轮 9 条修复后 Codex 复审，发现 §1-§2 提案范围仍按 v2.3 三项口径 / VLM 云端授权三种措辞冲突 / VLM 档 2 规格 2-4B vs 7-8B 矛盾 / Rejected 撤回清单遗漏。
+2. **修复 8（P1-1）PRIVACY_BOUNDARY §1 §2 范围扩展到 v2.5 八项**：§1 #4 #5 改"v2.3 三项 + v2.5 五项中至少 4 项与硬约束有交集"；§2 拆为 §2.1（v2.3 三项对照）+ §2.2（v2.5 五项扩展表）+ §2.3（受影响总览，主要 #2 + 次要 #1/#3/#4/#5）。
+3. **修复 9（P1-2）"唯一受影响 #2" 表述废除**：原 §2 末尾 "唯一受影响 #2" 改为分层（主要 / 次要 / 不冲突），并加注 "v2.3 旧表仅适用 v2.3 三项"。
+4. **修复 10（P1-3）§5 Rejected 撤回清单补 §4.4.8 / §4.4.9**：原撤回清单仅含 v2.5 三项（OS API / 浏览器扩展全方位 / OS Scripting Bridge），补全 CLI 工具调用 + IFTTT/Zapier webhook + 档 A 扩展 + L1.5；§13.5 #2.3 同步扩展。
+5. **修复 11（P1-4）VLM 云端授权统一为两层模型**：AI Eval §3.6.1.1 图 + §3.6.3 #3.3 + §3.6.4 #2 统一为 **① onboarding 总开关 + ② 每次激活前用户显式确认本次上传**；任一层缺失则降级 unknown。原"每次激活给可见 UI 状态指示"含糊层删除。
+6. **修复 12（P1-5）VLM 档 2 规格统一为量化 7-8B**：AI Eval §3.6.1.1 图 + §3.6.3 #2 + §3.6.6 + §7 + §9 全文 "2-4B VLM" → "量化 7-8B VLM"；图中 "MiniCPM-V-2 / Qwen2.5-VL-3B 量级，~2GB 显存" 改为 "MiniCPM-V 4.5 (8B int4) / Qwen2.5-VL-7B (Q4_K_M)，~4-5GB 显存"；PM 立场 #2 显存表述同步修正。Qwen2.5-VL-3B 在 §3.6.6 仍保留为 License 红线（仅研究用 / 禁商用）。
+7. **修复 13（P2-1）REQUIREMENT_CLARIFICATION §13.5 #2.3 Rejected 清单扩展**：原仅列 v2.3 三项，扩展为 v2.3 三项 + v2.5 五项（含 §4.4.8 / §4.4.9）+ 档 A + L1.5 + §4.3.5 排除项，与 PRIVACY_BOUNDARY 提案 §5 完全对齐。
+
+### 0.8.3 共同约束
+
+1. **不引入新功能 / 不改字段定义 / 不改 mock 字段 / 不动 AI 立场**：纯文档内部一致性修复。
+2. **不锁版本号**：所有撤回 / Defer / Accepted 条款均使用"当前版本"中性措辞，跟未来 v2.6+ 演化。
+3. **状态语义清晰**：Accepted / Rejected / Deferred 三状态下 v2.3 三项 + v2.5 五项的处理方式分别明确，详见 PRIVACY_BOUNDARY 提案 §5 状态语义对照表。
 
 ## 0.7 v2.5.1 修订摘要（2026-05-12 — Mock §11 同步 v2.5 主体）
 
@@ -1844,10 +1861,17 @@ Memory Center / 桌宠设置面板需求点：
 ## 13.5 Main Thread 收口（建议安排顺序）
 
 1. 按 Radar §8 更新 `06-sync/TASK_BOARD.md` / `06-sync/SYNC_SUMMARY.md` / `06-sync/THREAD_REGISTRY.md`。
-2. **PRIVACY_BOUNDARY 修订提案审议**（v2.3 新增高优先级）：
+2. **PRIVACY_BOUNDARY 修订提案审议**（v2.3 新增高优先级；v2.5.1 修订：纳入 v2.5 五项）：
    1. 文件：[`PRIVACY_BOUNDARY_AMENDMENT_PROPOSAL_audio-and-vlm-extension.md`](PRIVACY_BOUNDARY_AMENDMENT_PROPOSAL_audio-and-vlm-extension.md)。
-   2. 涉及项目级 `01-pm/PRIVACY_BOUNDARY_memory-system.md` §2 #2 修订 + §3.1 P0 Whitelist 新增 + VLM 白名单类别扩展 + #8 Playwright 受限放行。
-   3. Accepted 后由 Main Thread 直接修改项目级文件并在 `decisions/DECISION_LOG.md` 留痕；Rejected 后 PM 同步收回 v2.3 中 §4.7 视频扩展 / §4.10 音频 / §4.11 Playwright。
+   2. 涉及项目级 `01-pm/PRIVACY_BOUNDARY_memory-system.md` §2 #1 #2 #4 #5 修订 + §3.1 P0 Whitelist 新增 + VLM 白名单类别扩展 + #8 Playwright 受限放行 + v2.5 五项（OS API / 浏览器全方位 / OS Scripting Bridge / CLI / IFTTT）边界澄清。
+   3. **当前状态：Deferred**（2026-05-12 Main Thread 收口，等 voice-interaction 启动后合并审议；详见提案 §5 状态语义对照表）。
+   4. **Accepted 路径**：Main Thread 直接修改项目级文件并在 `decisions/DECISION_LOG.md` 留痕。
+   5. **Rejected 路径**：PM 同步收回**当前版本**中相关章节（**不锁版本号**）：
+      - v2.3 三项：§4.7 视频扩展 / §4.10 音频 / §4.11 Playwright；
+      - v2.5 五项：§4.4.6 OS API / §4.4.7 浏览器扩展全方位 / **§4.4.8 CLI 工具调用** / **§4.4.9 IFTTT / Zapier webhook 桥接** / §4.12 OS Scripting Bridge；
+      - 附加：§4.3 行为档 A 扩展（A1/A2/A3）+ §10 键盘 L1.5 + §4.3.5 4 条排除项；
+      - 与 PRIVACY_BOUNDARY 提案 §5 Rejected 段保持一致。
+   6. **Deferred 路径**（当前）：不撤回任何章节，PM 分支级立场保持，Engineering / Design 按分支立场实现。
 3. 视情况在 `decisions/DECISION_LOG.md` 留痕本批 PM 立场升项目级决策。
 
 ### 13.5.1 项目级决策候选清单（v2.5 更新，15 条）
