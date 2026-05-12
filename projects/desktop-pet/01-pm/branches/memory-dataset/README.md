@@ -5,7 +5,7 @@
 1. Branch Slug：`memory-dataset`
 2. Owner Thread：PM Strategy Thread
 3. Started：2026-05-11
-4. Status：Draft v2.4 + AI Eval v3（Radar 第二批 4 项调研完成后 PM 答 10 问 + 大幅修订：VLM 三档混合架构 / 双轨分发立场 / 音频 warmup 5s / 浏览器 Tab 扩展锁定 / 国产浏览器 Beta / License 红线 4 条）
+4. Status：Draft v2.5 + AI Eval v3（v2.5 用户决定扩展采集面：档 A 增量 A1+A2+A3 / OS API 6 通道 / 浏览器扩展全方位 6 类 / OS Scripting Bridge 新增接入桌面 app / CLI + IFTTT 补充通道；VLM 视频类保留 v2.4 不动；§10 键盘分级扩展到 L1.5；项目级决策候选清单 11 → 15 条）
 5. Cross-role Mirror：`02-design/branches/memory-dataset/` / `03-engineering/branches/memory-dataset/` / `04-research/branches/memory-dataset/`（按需自然生长，本轮 PM 只建本目录）
 
 ## 1.5 分支本质（v2.3.3 框架精确化，2026-05-11 19:30）
@@ -87,7 +87,18 @@
     3. `2026-05-12T09-13-46_pm_local-vlm-feasibility-radar-research.md` — 2026 消费级硬件能否跑 7B VLM 实时陪伴；候选模型对比；PM §3.6.6 估算复核；目标用户硬件分布。
     4. `2026-05-12T09-13-46_pm_browser-tab-detection-radar-research.md` — 浏览器多 tab 合规检测（UIA / Accessibility / 浏览器扩展 / MCP）；只识别 tab 身份不读内容。
 14. 2026-05-12 09:43：Radar 第二批四项调研完成（通告 `06-sync/group/2026-05-12T09-43-10_radar_memory-dataset-four-research-completed.md`，含 10 个 PM 问题）。
-15. 2026-05-12 09:52：PM 答 10 问 + 大幅修订三个产物：
+15. 2026-05-12 10:00+：用户进一步反馈"行为数据用户操作"和"娱乐工作 APP MCP"限制太大。PM 进入 Brainstorming First（v2.5 merged Rules 之后第一次正式应用），列 17 候选 idea；用户选定档 A 增量 + OS API + 浏览器全方位 + OS Scripting Bridge；VLM 视频类保留不动。
+16. 2026-05-12 10:30：进入 **v2.5 全量修订**：
+    1. §0.6 新增 v2.5 修订摘要（8 条）。
+    2. §3 总览表新增 4 行（OS API 通道 / 浏览器扩展全方位 / OS Scripting Bridge / CLI+IFTTT）。
+    3. §4.3 全面重写：A1 派生信号扩展（5 新字段） + A2 操作语义事件（8 字段，OS 级语义事件名） + A3 编辑动作派生（5 字段）+ 排除项加强（10 条）。
+    4. §4.4 重构为"6 通道并存总览"：MCP（v2.4 沿用）+ OS API 6 类 + 浏览器扩展全方位 6 类 + OS Scripting Bridge（§4.12）+ CLI 调用 + IFTTT 桥接。
+    5. **§4.12 新增 OS Scripting Bridge**（osascript / AppleScript + PowerShell COM Automation）：接入桌面客户端 app 元数据（Spotify / Music / VLC / IINA / Notes / Bear / Things / Office / Outlook / Reminders 等）；6 节细则。
+    6. §10 键盘分级扩展为 5 层（含 L1.5 编辑动作派生层）。
+    7. §13 Engineering 接手清单从 8 项扩展到 14 项；项目级决策候选 11 → 15 条；Design 面板需求 7 → 13 条。
+    8. **未直接修改**：§4.7.4 VLM 视频类（保留 v2.4 不动）；mock §11.x 暂不全量更新；AI Eval 同步顶部 + Branch Scope；PRIVACY_BOUNDARY 修订提案保持 Deferred 状态但加注 v2.5 新增 OSA / COM / OS API / 浏览器扩展全方位通道一并 voice-interaction 启动时合并审议。
+
+17. 2026-05-12 09:52：PM 答 10 问 + 大幅修订三个产物：
     1. `REQUIREMENT_CLARIFICATION_memory-dataset.md` v2.3.4 → v2.4：§0.5 新增 v2.4 摘要、§4.7.4 锁定浏览器扩展 + Native Messaging 主路径 + 国产浏览器 Beta、§10.3 加 audio warmup 5s + OS 音频流接入策略、§13 重写为 13.1-13.5.2 全面更新（含 11 条项目级决策候选 + 4 条法务 / 合规前置项）。
     2. `AI_FEATURE_EVALUATION_memory-dataset.md` v2 → v3：§0 新增 v3 摘要、§1 一句话结论扩展到 15 个 AI 候选点、§2 总览矩阵 VLM 行改写、**§3.6 重写为三档混合架构**（CNN 初筛 + 2-4B VLM 兜底 + 云端最终兜底）、**§3.6.6 评估指标重写**（≥85% 可用率 + 4 层架构兜底 + License 红线）、§3.10.6 加 warmup + License、§9.1 MVP 范围扩展到 12 项、§9.3 不进 MVP 扩展到 14 类。
     3. PM ack 群消息：`06-sync/group/2026-05-12T09-52-06_pm_memory-dataset-radar-batch2-ack.md`。

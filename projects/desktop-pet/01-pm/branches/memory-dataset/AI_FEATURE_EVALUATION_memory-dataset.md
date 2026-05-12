@@ -4,7 +4,7 @@
 > Branch: `memory-dataset`
 > Thread: PM Strategy Thread
 > Date: 2026-05-11
-> Status: Draft v3（Radar 第二批 4 项调研后 PM 收口：§3.6 VLM 重写为**三档混合架构**（CNN 初筛 + 2-4B VLM 兜底 + 云端最终兜底）；§3.6.6 指标重写（≥85%）；§3.10 audio 加 warmup；模型选型锁定 MiniCPM-V 4.5 + Qwen2.5-VL-7B；建立在 `REQUIREMENT_CLARIFICATION_memory-dataset.md` v2.4 之上）
+> Status: Draft v3（建立在 `REQUIREMENT_CLARIFICATION_memory-dataset.md` v2.5 之上 — 2026-05-12 后续更新：v2.5 在主文档扩展了档 A 行为信号 / OS API 6 通道 / 浏览器扩展全方位 6 类 / OS Scripting Bridge / CLI / IFTTT 等通道，但**AI 必要性立场不变** — 新通道全部是规则 / 元数据级，不引入新 AI 候选点；VLM 三档混合架构 / 模型选型 / audio warmup 均保持 v3 状态。如新通道未来引入新 AI 评估需要，再升 v4）
 > Scope: 仅 PM 视角的"用不用 AI / 用哪种 AI / 在哪里跑 / 错了怎么办"立场声明。**不包含**模型选型最终结果、模型权重、Prompt 工程、Function Calling schema、训练数据、SDK API。
 >
 > Branch Scope（v2.3.1，2026-05-11 19:00）：本文件只覆盖 memory-dataset 范围内的 AI 能力评估。**不包含**：TTS / STT / 麦克风 / 语音情绪韵律 / 声纹 / 音色克隆 / 双向语音对话 — 这些归 `voice-interaction` 分支（待启动），届时由该分支独立做 AI Feature Evaluation。本文件 §3.10 audio A0 是**系统音频流派生**（听音乐场景），不是麦克风也不是语音识别。

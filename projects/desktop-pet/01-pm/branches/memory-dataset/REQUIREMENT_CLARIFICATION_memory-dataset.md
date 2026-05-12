@@ -4,7 +4,7 @@
 > Branch: `memory-dataset`
 > Thread: PM Strategy Thread
 > Date: 2026-05-11
-> Status: Draft v2.4（Radar 第二批 4 项调研完成后 PM 收口：音频 warmup 指标、浏览器 tab 检测方案锁定、VLM 三档混合架构、Now Playing API 双分发渠道立场）
+> Status: Draft v2.5（用户决定扩展采集面：档 A 增量扩展 A1 + A2 + A3 三套；OS 级 API 6 通道扩展替代 MCP 缺失；浏览器扩展全方位 6 类；新增 §4.12 OS Scripting Bridge（osascript / PowerShell COM）接入娱乐工作 app；VLM 视频类保留 v2.4 §4.7.4 不动）
 > Scope: 仅 PM 视角的数据需求声明与原因解释。**不包含** schema 工程落地、SDK API、UI、存储架构与模型选型。
 
 ## 0.0 分支本质（v2.3.3，2026-05-11 19:30 — 框架精确化）
@@ -88,6 +88,26 @@ voice-interaction.STT_output(text: str) → memory-dataset.chat(text)
 3. 实际效果对用户也更直观：用户记得朋友"听过 / 看过 / 知道什么"，但不会记得"朋友是用左耳还是右耳听到的"。
 
 ---
+
+## 0.6 v2.5 修订摘要（2026-05-12 — 用户决定扩展采集面 + 接入通道 + OS Scripting Bridge）
+
+1. **背景**：用户 2026-05-12 提出 v2.4 对"行为数据用户操作"与"娱乐工作 APP MCP"限制太大，需要扩展。PM 提出 17 个候选 idea，用户选定档 A 增量 + OS API + 浏览器全方位 + OS Scripting Bridge；VLM 视频类保留 v2.4 §4.7.4 不动。
+2. **§4.3 行为数据用户操作全面扩展**（档 A 增量，不触 keylog 红线）：
+   1. **A1 派生信号扩展**（§4.3.3 新增 5 字段）：mouse_region_heatmap_top3 / mouse_event_type_burst / input_device_switch_event / multi_display_activity / scroll_intensity_signal。
+   2. **A2 操作语义事件**（§4.3.4 重写为"快捷键 + 操作语义事件"，8 字段）：save / copy_paste / undo_redo_burst / fullscreen_toggle / lock_unlock / new_window / new_tab / app_install / window_arrangement。基于 macOS NSApp.sendEvent intercepts / Accessibility events 与 Windows EVENT_SYSTEM_*。
+   3. **A3 文本编辑场景派生**（§4.3.4.1 新增，5 字段）：text_edit_action_burst / undo_redo_rate_per_min / ime_state / editing_session_duration_min / text_edit_burst_frequency。仅"动作类别"，不读字符内容 / IME composition / 剪贴板。
+   4. **§4.3.5 排除项强化**：新增鼠标坐标流 / 像素 heatmap / 拖选选中内容 / 屏幕坐标完整时序排除。
+   5. **§10 键盘分级新增 L1.5 编辑动作派生层**（与档 A A3 对应），L2 / L3 红线不变。
+3. **§4.4 接入通道大幅重构**（从"MCP 通道"扩为"信号源总览"）：
+   1. **OS 级 API 通道 6 新增**：UserActivity（macOS Handoff / Win Activity Feed） / Recent Files（NSMetadataQuery / Win Recent Items） / Notification Center / Calendar (EventKit / Outlook) / 设备状态环境（蓝牙 / 电池 / 网络） / Now Playing（v2.4 §4.10 已锁，本次再扩大范围）。
+   2. **浏览器扩展全方位 6 类**：除 v2.4 视频类外，新增购物 / 阅读 / 学习 / 社交浏览 / 工作 5 类，共用 v2.4 §4.7.4 扩展 + Native Messaging 主路径与"只识别 tab 身份不读内容"硬边界。
+   3. **MCP 收紧为"工作类生态成熟"通道**：MVP 首批仍锁 dida / feishu / steam；不再期待娱乐 / 内容类 app 走 MCP。
+   4. **IFTTT / Zapier / Make webhook 桥接**作为 P2 探索通道。
+4. **§4.12 新增 OS Scripting Bridge**（osascript / AppleScript + PowerShell COM Automation）：接入 Spotify / Apple Music / Music.app / QuickTime / VLC / IINA / Notes / Bear / Things / Reminders / Office / Outlook 等支持系统脚本接口的 app；比 MCP 通用，比 OS API 具体，比 Playwright 稳定；走"app 主动暴露脚本接口"合规路径。
+5. **§3 总览表新增 4 行**：行为数据扩展 / OS API 通道 / 浏览器扩展全方位 / OS Scripting Bridge。
+6. **§4.7.4 视频类 VLM 保留 v2.4 不动**：用户决定保留"剧情同步反应"愿景；不接受 trade-off 降级。
+7. **§13 Next Steps 重写**：Engineering 接手清单大幅扩展（含 OS API 6 通道 + 浏览器扩展 6 类 + OS Scripting Bridge 调研）；Radar 第三批潜在调研主题列出。
+8. **未直接修改**：mock §11.x 暂不全量更新（v2.5 字段太多，等 Engineering schema 草案后一并对齐）；AI Feature Evaluation 同步顶部 + §2 + §3.11；PRIVACY_BOUNDARY 修订提案保持 Deferred 状态但加注本批 v2.5 新增通道也将合并到 voice-interaction 提案审议中。
 
 ## 0. v2 更新摘要（2026-05-11）
 
@@ -253,6 +273,10 @@ voice-interaction.STT_output(text: str) → memory-dataset.chat(text)
 | 3.9 | 跨切片：profile 元字段 | ①每条偏好 / 兴趣 / 行为模式的置信度 ②来源（聊天 / 游戏 / 行为 / 用户主动确认） ③首次出现时间 / 上次确认时间 ④是否用户已纠错过 | 元字段，附在 profile 的每个 entry 上 | 防止"假记忆"穿帮的关键 | 同左 | 不引入新采集；只约束 profile 输出 schema | **P0** |
 | 3.10 | 系统音频派生信号（v2.3 新增） | ①BPM ②能量曲线 ③节拍点 ④静音状态 | 派生标量 + 短期 buffer ≤30s；不存原音频；不识别说话内容 | 较少（音乐场景） | 较少（与 idip 协同）；核心服务"随音乐舞动" | ⚠️ 需 PRIVACY_BOUNDARY 修订把 #2 拆为 A0-A3 分级 | **P1（用户单独授权）** |
 | 3.11 | Playwright 受限放行（v2.3 新增，从禁止调整） | ①用户主动查询时一次性返回 ②曲名 / 收藏列表 / 已登录页面数据 | tool_call 一次性结果，buffer ≤5min，不进 long-term profile | ④（"刚才那首歌叫什么"细节） | ④（"我 B 站新增了什么"细节） | ⚠️ 需 PRIVACY_BOUNDARY 新增 #8 Playwright 受限放行 + 7 条边界规则 | **P2（用户主动触发 + 单 app 授权）** |
+| 3.12 | OS 级 API 通道（v2.5 新增 6 类） | ①OS Now Playing ②UserActivity ③Recent Files ④Notification Center ⑤Calendar ⑥设备状态环境 | 系统级元数据，不依赖具体 app MCP；本地优先 | ① ④ ⑤（细节感）/ ②（活动连续）/ ⑥（环境感知） | 较少（与 §4.5 §4.6 互补） | ✅ OS 公开 API + 用户授权 + 默认关；与 PRIVACY_BOUNDARY 兼容 | **P0 / P1 分层（详见 §4.4.6）** |
+| 3.13 | 浏览器扩展全方位（v2.5 扩展 v2.4 视频类） | ①视频 ②购物 ③阅读 ④学习 ⑤社交浏览 ⑥工作 6 类 tab 身份识别 | 浏览器扩展 + Native Messaging 主路径 + AX/UIA 兜底；仅识别 tab 身份不读内容 | ④（购物 / 阅读 / 学习 / 社交浏览） | ④（工作类 tab） | ✅ v2.4 §4.7.4 既有方案扩展，未引入新硬约束 | **P1（用户按类别开启）** |
+| 3.14 | OS Scripting Bridge（v2.5 新增 — osascript + COM）| ①Spotify / Apple Music / VLC / IINA / Notes / Bear / Things / Office / Outlook / Reminders 等 app 元数据读取 | macOS osascript + Windows PowerShell COM；仅读取元数据，不调用修改类接口 | ④（"你最近在 Notes 里写了几篇"细节） | 较少（除非游戏 launcher 有 OSA 接口） | ⚠️ 走 OS 公开脚本接口 + 用户授权 + app 主动暴露三重保险；需在 PRIVACY_BOUNDARY 修订提案加注 | **P1（用户单 app 授权）** |
+| 3.15 | CLI 工具调用 + IFTTT 桥接（v2.5 新增） | ①Spotify CLI / VS Code CLI 等公开 CLI 调用 ②用户配置的 IFTTT / Zapier webhook | 元数据级；P2 探索 | 较少 | 较少 | ✅ 用户授权范围内；webhook 仅接受用户主动配置 | **P2（IFTTT 探索）/ P1（CLI 子集）** |
 
 ---
 
@@ -338,58 +362,115 @@ voice-interaction.STT_output(text: str) → memory-dataset.chat(text)
 | 3 | `ui_text_snapshot`（白名单 app + opt-in） | 短期 buffer ≤ 5min | "屏幕上有错误弹窗" → 桌宠主动询问"要帮你看看吗" | P1 |
 | 4 | `focused_element_role`（按钮 / 文本框 / 标题） | 短期 buffer | 推断"用户正在输入" → 不打扰 | P1 |
 
-#### 4.3.3 派生输入指标 — 期望字段（**P0** 默认）
+#### 4.3.3 派生输入指标 — 期望字段（**P0** 默认，v2.5 档 A1 扩展）
+
+| 编号 | 字段 | 形态 | 桌宠侧用途 | 优先级 |
+|---|---|---|---|---|
+| 1 | `input_intensity_level`（low / medium / high） | 实时桶化 | "专注中，别打扰" | P0 |
+| 2 | `typing_rhythm_signal`（steady / bursty / idle） | 滑窗派生 | 区分"流畅输出"vs"卡壳停顿" | P0 |
+| 3 | `mouse_activity_burst`（突发标签） | 衍生 | "频繁点击 = 找东西 / 玩 click 类游戏" | P0 |
+| 4 | `app_switch_rate_per_min`（仅数值） | 实时 | "频繁切 app = 工作焦虑 / 多线程" | P0 |
+| 5 | **`mouse_region_heatmap_top3`（屏幕分 9 区，仅区域桶）**（v2.5 新增） | 实时滑窗 enum[3] | "用户最近在屏左 / 中 / 右上区域操作" | P0 |
+| 6 | **`mouse_event_type_burst`（double_click / long_press / drag_select / scroll_burst 等事件名）**（v2.5 新增） | 事件流（无坐标） | "刚拖选" / "刚双击" — 推断操作类型 | P0 |
+| 7 | **`input_device_switch_event`（keyboard / trackpad / mouse / pen / touch 设备类别切换）**（v2.5 新增） | 事件流 | "切到触摸板 / 数位板" → 推断"开始画画 / 触控浏览" | P0 |
+| 8 | **`multi_display_activity`（前台 display index + 跨屏拖事件）**（v2.5 新增） | 实时状态 + 切换事件 | "用户多屏工作中" / "跨屏操作中" | P0 |
+| 9 | **`scroll_intensity_signal`（light / medium / heavy）**（v2.5 新增） | 实时桶 | "用户在快速滚动浏览" / "逐字阅读" | P0 |
+
+#### 4.3.4 操作语义事件流 — 期望字段（**P0 / P1** v2.5 重写，A2 扩展）
+
+> v2.4 §4.3.4 仅"快捷键事件流"，v2.5 扩展为更广的"OS 级操作语义事件" — 不只看键盘组合，还看 OS 级语义事件名。**与 keylog 性质完全不同**：keylog 是"按了 a"；这是"做了'保存'这件事"。
+
+| 编号 | 字段 | 触发来源 | 桌宠侧用途 | 优先级 |
+|---|---|---|---|---|
+| 1 | `shortcut_event[]`（modifier + 命名键白名单） | 全局键盘事件白名单匹配 | v2.4 沿用：cmd+s / alt+tab / ctrl+c | P0 |
+| 2 | **`semantic_event.save`**（v2.5 新增） | cmd+s / ctrl+s / OS auto-save 信号 | "刚保存" | P0 |
+| 3 | **`semantic_event.copy_paste`**（v2.5 新增） | cmd+c / cmd+v / ctrl+c / ctrl+v | "刚复制 / 刚粘贴" — 不带剪贴板内容 | P0 |
+| 4 | **`semantic_event.undo_redo_burst`**（v2.5 新增） | cmd+z 频次 ≥3 次 / 分钟 | "用户在反复犹豫 / 探索" | P0 |
+| 5 | **`semantic_event.fullscreen_toggle`**（v2.5 新增） | OS fullscreen API（macOS `kAXFullScreenAttribute` / Win `WM_SIZE` + state） | "进入 / 退出全屏" | P0 |
+| 6 | **`semantic_event.lock_unlock`**（v2.5 新增） | OS lock screen API | "用户离开 / 回来" — 决定是否打扰 | P0 |
+| 7 | **`semantic_event.new_window` / `new_tab` / `close_window`**（v2.5 新增） | OS 窗口 / 浏览器事件 | "开新窗口 / 新 tab" / "关窗口" | P0 |
+| 8 | **`semantic_event.app_install_uninstall`**（v2.5 新增） | OS install hook（macOS Launch Services / Win MSI events） | "刚装了新 app" / "刚卸了 X app" | P1 |
+| 9 | **`semantic_event.window_arrangement_change`**（v2.5 新增） | OS window mgmt API（macOS Mission Control / Win 平铺分屏 / Stage Manager） | "切到分屏工作 / 收纳工作区" | P1 |
+
+PM 边界（v2.5 加强版）：
+1. **只**采集 modifier 组合键和"操作语义事件名"，**不**采集普通字符键内容；`a` / `enter` / `space` 不进 stream。
+2. 不存任意键的完整时间戳序列（避免节奏反推）；每条事件聚合到 100ms 桶。
+3. 语义事件的"事件名 + 时间"是固定枚举，**不带任何输入内容 / 文件路径具体值 / 剪贴板原文**。
+4. macOS 实现路径：`NSApp.sendEvent` intercepts + Accessibility events（`AXObserverAddNotification`）+ `NSEvent global monitor`。
+5. Windows 实现路径：`SetWinEventHook(EVENT_SYSTEM_*)` + `EVENT_OBJECT_*`，**严禁** `SetWindowsHookEx(WH_KEYBOARD_LL)`（Defender keylogger 启发式高风险）。
+6. 用户可在 Memory Center 看到"过去 24h 触发过哪些操作语义事件"按类别 + 单条目开关。
+
+#### 4.3.4.1 文本编辑场景派生（**P0** v2.5 新增，A3 增量）
 
 | 编号 | 字段 | 形态 | 桌宠侧用途 |
 |---|---|---|---|
-| 1 | `input_intensity_level`（low / medium / high） | 实时桶化 | "专注中，别打扰" |
-| 2 | `typing_rhythm_signal`（steady / bursty / idle） | 滑窗派生 | 区分"流畅输出"vs"卡壳停顿" |
-| 3 | `mouse_activity_burst`（突发标签） | 衍生 | "频繁点击 = 找东西 / 玩 click 类游戏" |
-| 4 | `app_switch_rate_per_min`（仅数值） | 实时 | "频繁切 app = 工作焦虑 / 多线程" |
+| 1 | `text_edit_action_burst`（insert_chunk / delete_chunk / cross_paragraph_jump / selection_op 等动作类别） | 事件流（无内容） | "用户在大段重构 / 微调 / 反复跳转" — 不读编辑内容 |
+| 2 | `undo_redo_rate_per_min`（int） | 实时 | 反复修改频率 → 推断"卡壳 / 探索 / 流畅" |
+| 3 | `ime_state`（cn / en / jp / kr / other / none） | 实时状态 | 当前 IME 输入法状态 — 仅状态不读 composition |
+| 4 | `editing_session_duration_min`（int） | 实时 | 在当前编辑 app 持续编辑时长 |
+| 5 | `text_edit_burst_frequency`（low / medium / high） | 实时桶 | "文档写作中 / 平稳输入 / 闲置浏览" |
 
-#### 4.3.4 快捷键事件流 — 期望字段（**P1** opt-in）
+PM 边界（v2.5）：
+1. ❌ **任何字符内容**（输入文本 / 删除文本 / 选中文本 / 剪贴板原文 / IME composition string）。
+2. ❌ **任何字符级编辑位置**（句首 / 句中 / 行号 / 列号）。
+3. ✅ 仅"动作类别 + 频率 + 时长 + IME 状态"五维派生指标。
+4. 与 §4.3.3 派生输入指标互补：4.3.3 是低层物理动作（按键 / 鼠标），4.3.4.1 是高层语义动作（编辑 / 跨段跳转）。
 
-| 编号 | 字段 | 形态 | 桌宠侧用途 |
-|---|---|---|---|
-| 1 | `shortcut_event[]`（仅 modifier + 命名键，例如 `cmd+s` / `alt+tab` / `ctrl+c`） | 事件流 | "刚保存文档"、"刚复制"、"刚切到另一个 app" |
-| 2 | `shortcut_whitelist`（默认系统级 + 用户配置） | 配置 | 仅采集白名单内的快捷键事件 |
-
-PM 边界（硬规则）：
-1. **只**采集 modifier 触发的组合键，**不**采集普通字符键；`a` / `enter` / `space` 不进 stream。
-2. 不存任意键的时间戳序列（避免节奏反推）；每条事件聚合到 100ms 桶。
-3. 用户可在 Memory Center 看到"过去 24h 触发过哪些快捷键"列表并按需关闭。
-
-#### 4.3.5 排除项（任何优先级都不允许）
+#### 4.3.5 排除项（v2.5 加强版 — 不允许任何形式 / 任何优先级）
 
 | 编号 | 数据 | 排除理由 |
 |---|---|---|
 | 1 | 字符级原始按键流 | 等同 keylog |
 | 2 | hash 后的按键序列 | 节奏反推 + 字典攻击仍可还原内容 |
 | 3 | 键盘事件的完整时间戳序列 | 通过 keystroke timing attack 可推断字符 |
-| 4 | 鼠标点击坐标 + 屏幕截图配对 | 等同被动监控操作 |
-| 5 | 第三方 IM / 邮件 / 浏览器地址栏输入捕获 | 跨 app 内容采集，全部排除 |
+| 4 | **鼠标坐标流（任何粒度）**（v2.5 强化） | 等同被动监控操作 |
+| 5 | **像素级 heatmap**（v2.5 新增） | 反推鼠标轨迹 → 等同坐标流 |
+| 6 | **拖选 / 框选时的选中内容**（v2.5 新增） | 内容采集 |
+| 7 | **任何屏幕坐标的完整时间序列**（v2.5 新增） | 反推用户屏幕操作路径 |
+| 8 | 第三方 IM / 邮件 / 浏览器地址栏输入捕获 | 跨 app 内容采集 |
+| 9 | **IME composition / 候选词 / 输入内容**（v2.5 新增） | 反推用户输入文本 |
+| 10 | **剪贴板内容 / 拖拽文件内容**（v2.5 新增） | 跨 app 内容采集 |
 
-### 4.4 APP MCP 获取（3.4）
+### 4.4 APP 信号源总览（3.4，v2.5 大幅扩展 — 从"仅 MCP"扩为 6 通道并存）
 
-#### 4.4.1 期望字段
+#### 4.4.0 v2.5 重构说明：6 通道并存
+
+v2.4 把 MCP 视为"唯一合规通道"，v2.5 用户决定**扩展接入面**。**MCP 不再是唯一通道**，而是 6 个并存通道之一。所有通道仍守"用户授权 + 默认关闭 + 不读私有内容"硬边界。
+
+| 通道编号 | 通道 | 性质 | MVP 内位置 | 详见 |
+|---|---|---|---|---|
+| C-1 | **MCP**（v2.4 已有） | App 主动暴露的 Model Context Protocol server | MVP 首批 3 个（dida / feishu / steam）+ P1 后半段 2 个（office / dingtalk） | §4.4.1 - §4.4.5（v2.4 沿用） |
+| C-2 | **OS 级 API 通道 6 类**（v2.5 大幅新增） | macOS / Windows 原生 API，不依赖具体 app | P0 / P1 分层 | §4.4.6 |
+| C-3 | **浏览器扩展全方位 6 类**（v2.5 扩展 v2.4 视频类） | Chrome / Edge / Safari / Firefox / Arc 扩展 + Native Messaging | P1 | §4.4.7 |
+| C-4 | **OS Scripting Bridge（osascript / PowerShell COM）**（v2.5 新增） | macOS AppleScript / Win COM Automation；接入支持系统脚本接口的 app（Spotify / Apple Music / VLC / Notes / Office 等） | P1 | §4.12 |
+| C-5 | **CLI 工具调用**（v2.5 新增） | 公开 skill / OS 自带 CLI（用户授权 OAuth scope 内） | P1 | §4.4.8 |
+| C-6 | **IFTTT / Zapier webhook 桥接**（v2.5 新增） | 用户自行配置的 webhook | P2 探索 | §4.4.9 |
+
+PM 立场（重要）：
+1. **MCP 仍是"工作类生态成熟"通道的首选**（飞书 / 钉钉 / 滴答 / Steam / Office），但**不再期待娱乐 / 内容类 app 走 MCP**（Bilibili / QQ 音乐 / 腾讯视频等没有合规 MCP，转用其他通道）。
+2. **OS API + 浏览器扩展 + OS Scripting Bridge** 是 v2.5 覆盖娱乐 + 笔记 + 生活类 app 的**主路径**。
+3. **CLI / IFTTT** 是补充通道，门槛高，仅供 P1 后半段 / P2 探索。
+4. **没有一个通道是"唯一合规"的**，但**所有通道都受同一组硬边界约束**：用户授权 / 默认关 / 不读私有内容 / 短期缓存 / Memory Center 可见 + 单通道开关。
+
+#### 4.4.1 MCP 通道期望字段（v2.4 沿用）
 
 | 编号 | 字段 | 形态 | 桌宠侧用途 |
 |---|---|---|---|
 | 1 | `mcp_tool_result.media_now_playing`（Spotify / Apple Music） | 实时状态 | "刚听完那首歌呀" 类细节 |
-| 2 | `mcp_tool_result.task_progress`（Things / Notion / 番茄钟类，仅 app 主动暴露） | 实时状态 + 衍生摘要 | "你的 25 分钟番茄到了 / 又卡在同一个任务" |
+| 2 | `mcp_tool_result.task_progress`（滴答 / Things 等） | 实时状态 + 衍生摘要 | "今日截止 / 当前优先级任务" |
 | 3 | `mcp_tool_result.steam_now_playing` / `mcp_tool_result.epic_now_playing` | 实时状态 | 游戏 launcher 信号，配合 §4.5 |
-| 4 | `mcp_tool_result.calendar_next_event`（仅用户授权日历，且仅"下一项 + 距开始 < 30 min"） | 实时状态 | "10 分钟后有个会，要不要先存档？" |
+| 4 | `mcp_tool_result.calendar_next_event`（飞书 / Outlook 等用户授权日历） | 实时状态 | "10 分钟后有个会，要不要先存档？" |
 
-#### 4.4.2 需要的原因
+#### 4.4.2 需要的原因（v2.5 更新）
 
-1. C 端用户的工作 / 娱乐 app 数据是构造"知心好友"细节感的关键，没有这一层桌宠就只能聊"虚的"。
-2. MCP 是**唯一合规的获取通道**：app 主动暴露 → 用户授权 → 桌宠拿到。不允许绕过 MCP 直接读 app 私有数据 / 数据库 / 文档。
+1. C 端用户的工作 / 娱乐 app 数据是构造"知心好友"细节感的关键。
+2. **v2.5 调整**：MCP 不再是唯一通道；娱乐 / 内容类 app 没有合规 MCP，转用 §4.4.6 OS API + §4.4.7 浏览器扩展 + §4.12 OS Scripting Bridge 等通道补足。
 
-#### 4.4.3 边界（v2 锁定用户答复）
+#### 4.4.3 MCP 通道边界
 
-1. 数据来源**必须**来自 app 主动启用的 MCP server，**不**爬 app 私有文件 / 不 hook app 进程 / 不走 Playwright 浏览器自动化（如 QQ 音乐 `Roy-gyy/QQMusic` 路径，Radar Task B §5.2 明确归类为"超出本调研边界，桌宠不推荐采用"）。
+1. 数据来源**必须**来自 app 主动启用的 MCP server，**不**爬 app 私有文件 / 不 hook app 进程 / 不走 Playwright 浏览器自动化（如 QQ 音乐 `Roy-gyy/QQMusic` 路径）。
 2. 记忆系统只保留**短期缓存**（≤ 1h）+ **脱敏摘要**（如"用户最近常用滴答清单"），不保留 raw MCP 返回原文。
-3. **用户在 Memory Center 自选**哪些第三方 MCP 启用 / 停用（用户 Q2 答复锁定）；默认全部关闭。
+3. **用户在 Memory Center 自选**哪些第三方 MCP 启用 / 停用；默认全部关闭。
 4. PM 优先级 P1：依赖生态 MCP 成熟度，**MVP 不依赖此类**。
 5. 中国流行 app 的 MCP 公开能力 — Radar Task B 已完成调研（`04-research/branches/memory-dataset/TREND_RESEARCH_china-app-mcp-server-capabilities.md`）。
 
@@ -409,6 +490,83 @@ PM 决策（v2.2）：
 3. **不进入 MVP**：网易云音乐 / 腾讯文档 / 腾讯日历 / Bilibili 等 Radar §4.2 P2 候选；视 P1 落地表现再评估。
 4. **不接入清单（确认）**：番茄 ToDo / Focus To-Do / Forest（无公开通道）、腾讯视频 / 爱奇艺 / 优酷（无个人 API）、WeGame / Epic 中国版（用例不匹配）、QQ 音乐（仅 Playwright 路径，超边界）、Notion（中国 C 端基数小）。这些既不进入 §11 mock，也不在产品菜单暴露。
 5. **此清单不是项目级最终决定**：本节为 PM 立场，建议升入 `decisions/DECISION_LOG.md` 由 Main Thread 收口。本轮按用户指示不升项目级。
+
+#### 4.4.5 v2.5 MCP 不再是唯一通道（v2.5 加注）
+
+v2.4 §4.4.4 候选清单**保持不变**（MVP 首批 3 + P1 后半段 2 + 不接入 5），但 v2.5 把"非 MCP 通道"也纳入主路径，分别在 §4.4.6 - §4.4.9 + §4.12 展开。
+
+#### 4.4.6 OS 级 API 通道（C-2，v2.5 大幅新增 6 类）
+
+> 不依赖具体 app 是否暴露 MCP，走 macOS / Windows 原生 API 直接拿数据。比 MCP 通用 / 比 Playwright 稳定 / 比浏览器扩展精度高。
+
+| 编号 | 通道 | 实现路径 | 桌宠侧用途 | 优先级 | 边界 |
+|---|---|---|---|---|---|
+| 1 | **OS Now Playing**（v2.4 §4.10 已锁，本次扩大） | macOS MediaRemote / Windows SMTC | 系统级"现在播什么"（音乐 / 视频 / 播客标题 + 时长 + 进度） | P0 | 仅元数据 |
+| 2 | **OS UserActivity**（v2.5 新增） | macOS Handoff API / Win Activity Feed | 任意 app 主动 emit 的活动（如"在 Notes 写第 N 篇 / 在 Pages 编辑文档"） | P1 | 仅 app 自愿暴露 |
+| 3 | **OS Recent Files**（v2.5 新增） | macOS NSMetadataQuery / Win Recent Items | 系统级"最近编辑文件"元数据 → "你昨天在写的那个文档 / 设计图 / 代码" | P1 | 仅文件名 + 时间 + 所在 app，**不读文件内容** |
+| 4 | **OS Notification Center**（v2.5 新增） | macOS NotificationCenter / Win Action Center | "你刚收到 N 条 X 通知" → 推断"用户在被打扰" | P1 | 仅来源 + 时间 + 类型，**不读通知正文** |
+| 5 | **OS Calendar / Reminders**（v2.5 新增） | macOS EventKit / Win Outlook People Calendar API | 个人日历 + 工作日历（与飞书 MCP 互补，覆盖个人场景） | P1 | 用户授权 access |
+| 6 | **OS 设备状态 / 环境**（v2.5 新增） | 电池 / 充电 / 显示器亮度 / 蓝牙连接 / 网络变化 | 推断"用户在咖啡馆"（蓝牙+网络变化）/ "用户在加班"（凌晨 + 电池低） | P2 探索 | OS 级低敏，桶化使用 |
+
+PM 边界（OS API 通道通用）：
+1. **仅采集 OS 公开 API 暴露的元数据**；不走私有 framework（除了 MacOS MediaRemote 单分发渠道见 v2.4 §4.10 双轨决策）。
+2. 每类通道用户在 Memory Center 单独开关；默认关闭。
+3. **不读取**任何 app 的私有内容（文件正文 / 通知正文 / 日历事件描述等）。
+4. 短期缓存 ≤ 1h；长期记忆只保留聚合标签（如"用户常在咖啡馆工作"）。
+5. macOS / Windows 具体实现路径详见 `04-research/branches/memory-dataset/TREND_RESEARCH_behavior-signal-libraries.md` + `TREND_RESEARCH_os-now-playing-api.md`。
+
+#### 4.4.7 浏览器扩展全方位（C-3，v2.5 扩展 v2.4 §4.7.4 视频类）
+
+> v2.4 §4.7.4 已锁定"浏览器扩展 + Native Messaging"为视频 tab 检测主路径。v2.5 把同一扩展通道扩展到**全方位 tab 识别**（不只视频）。
+
+| 类别 | 示例 app | 桌宠用途 | 优先级 |
+|---|---|---|---|
+| 视频（v2.4 已有） | YouTube / Bilibili / 腾讯视频 / 爱奇艺 / 优酷 | 陪看（配合 §4.7.4 VLM 视频类） | P1 |
+| **购物**（v2.5 新增） | 淘宝 / 京东 / 拼多多 / 小红书购物 / 闲鱼 | "你在买什么呀" → profile.shopping_pattern | P1 |
+| **阅读**（v2.5 新增） | 知乎 / 微信公众号 / Medium / 少数派 / 36 氪 | 文章主题（仅 tab title 中的类别标签） → profile.reading_interests | P1 |
+| **学习**（v2.5 新增） | B 站学习区 / Coursera / 极客时间 / Udemy / 慕课网 | 学习主题 / 进度 → "你最近在学什么呀" | P1 |
+| **社交浏览**（v2.5 新增） | Twitter / X / 微博 / 小红书 / 豆瓣 | 浏览习惯（仅 tab 平台 + 类别，不读内容） | P1 |
+| **工作**（v2.5 新增） | GitHub / GitLab / Linear / Jira / Figma Web / Notion Web | 工作上下文 → "你今天在 GitHub 看 PR / 在 Figma 看设计" | P1 |
+
+共同边界（沿用 v2.4 §4.7.4）：
+1. 浏览器扩展 + Native Messaging 主路径；macOS AppleScript / Windows UIA 兜底（详见 Radar Task E 调研）。
+2. **仅识别 tab 身份**（域名 + 脱敏 tab title 中的 app/平台/类别标识），**不读页面内容**。
+3. 用户在 Memory Center 按类别 + 按 app 双层开关；默认关闭，用户主动启用类别。
+4. 国产浏览器（360 / QQ / 搜狗 / Edge 国内版 / UC）走 Beta 支持；Engineering 第一周验证 ≥50% 可用率才上 Beta，否则推迟 P2。
+5. **不允许**：mcp-chrome 类全功能浏览器 MCP（权限过大）、页面内容抓取（属 §4.11 Playwright）、JS 注入。
+
+#### 4.4.8 CLI 工具调用通道（C-5，v2.5 新增）
+
+> 用户对 CLI 范围澄清：不是 git / github，而是**有 CLI 接口接入娱乐工作 app**。这条通道现实中比较狭窄 — 现代桌面 app 主要走 GUI + URL Scheme，纯 CLI 接入面不多。但仍有一些价值：
+
+| CLI 工具 | 接入对象 | 桌宠用途 | 优先级 |
+|---|---|---|---|
+| `spotify-cli` / `spotify-tui` / `sptlrx` 等三方 Spotify CLI | Spotify desktop 状态查询 | OS Now Playing 不可用时的备用通道 | P2 |
+| `code` CLI（VS Code） | `code --status` 查当前打开文件 / 工作区 | 与 OS Recent Files 互补 | P2 |
+| `osascript` 触发 app | 通用 macOS app 脚本调用入口 | 属 §4.12 OS Scripting Bridge 范畴，本节不展开 | — |
+| 公开 skill 调用（OpenAI docs / HF / GitHub Web API）| 桌宠对话时调用 | 桌宠用，不替用户做决定 | P1 |
+| 系统只读 CLI（`ps` / `top` / `pmset` / `defaults read` 等） | 进程 / 系统状态 | 与 §4.2 active_app 互补 | P2 |
+
+PM 边界：
+1. **不**调用任何可能修改 app 状态 / 系统状态的 CLI（如 `spotify-cli play`，只用 `spotify-cli status`）。
+2. **不**调用涉及用户输入数据的 CLI（如 `git diff` / `git log -p` 这类读 commit 内容）；只用元数据级 CLI（如 `git log --oneline -5` 看分支活跃度可，但本节范围本来就不含 git）。
+3. CLI 调用结果**短期 buffer ≤ 5min**，**不进 long-term profile 原文**，仅摘要进 long-term。
+4. 用户在 Memory Center 看到"过去 7 天调用了哪些 CLI"列表并按需关闭。
+
+#### 4.4.9 IFTTT / Zapier / Make webhook 桥接（C-6，v2.5 新增 P2 探索）
+
+> 用户自配 webhook，把 app 事件 ping 给桌宠。极致灵活但门槛高。
+
+| 用法示例 | 桌宠用途 |
+|---|---|
+| 用户在 IFTTT 配 "Spotify play → ping pet" | 拿 now playing 信号（与 §4.10 A1 互补） |
+| 用户在 Zapier 配 "Notion update → ping pet" | 拿 Notion 进度（绕开 Notion 没 MCP） |
+| 用户在 Make 配 "Google Calendar event → ping pet" | 拿 Google Calendar 信号（绕开 EventKit 不支持 Google 账号） |
+
+PM 边界：
+1. 仅接受**用户主动配置 + 用户签名验证**的 webhook，**不**接受任意外部来源。
+2. webhook 入口**仅接受元数据**（事件类型 + 时间 + app 名 + 用户预设的字段），**不接受任意 payload**。
+3. P2 探索，**不进 MVP**；Engineering / Design 评估桌宠是否提供"webhook 接收端点"功能。
 
 ### 4.5 游戏数据 - 状态 idip 数据对比（3.5）
 
@@ -691,6 +849,72 @@ PM 决策（v2.2）：
 
 ---
 
+### 4.12 OS Scripting Bridge（C-4，v2.5 新增 — 替代缺失 MCP 的主要工作 / 娱乐 app 通道）
+
+> 用户对 CLI 的真实诉求是"接入娱乐工作 app"。现实中纯 CLI 接入面有限，但**macOS osascript / AppleScript + Windows PowerShell COM Automation** 这条通道接入面**非常广**，比 MCP 通用、比 Playwright 稳定。这是 v2.5 用来覆盖"没 MCP 的国产 / 国际娱乐 / 工作 app"的主要替代方案。
+
+#### 4.12.1 用户愿景驱动
+
+1. 用户 2026-05-12：MCP 不够，希望接入娱乐工作 app；除了 MCP 还有什么方法（如公开 skill / CLI）。
+2. PM 评估：纯 CLI 接入面有限（§4.4.8 已说明）；真正能覆盖**大量桌面 app** 的合规通道是**OS Scripting Bridge**（osascript / AppleScript on macOS + PowerShell COM Automation on Windows）。
+3. 这条通道是 OS 厂商提供 + app 厂商主动暴露的"app 间通信脚本接口"，与"hook 进程内存"性质完全不同。
+
+#### 4.12.2 接入面（实际可访问的 app 示例）
+
+| 类别 | macOS（osascript / AppleScript） | Windows（PowerShell COM） | 桌宠用途 |
+|---|---|---|---|
+| **音乐** | Spotify / Apple Music / Music.app | Spotify desktop（部分 COM） | "现在听什么 / 上一首" |
+| **视频** | QuickTime / VLC / IINA | Windows Media Player / VLC | "现在看什么文件 / 进度" |
+| **笔记** | Notes / Bear / Things / Reminders | OneNote（COM） | "你最近在 Notes 里写了 N 篇" |
+| **办公** | Pages / Numbers / Keynote | Word / Excel / PowerPoint / Outlook（COM） | "你在写什么类型的文档" |
+| **邮件** | Mail.app | Outlook（COM） | "你有 X 封未读" |
+| **日历** | Calendar.app（与 EventKit 互补） | Outlook（COM） | "下一项日程" |
+| **浏览器** | Safari / Chrome / Firefox（with permission） | Edge / IE（COM） | tab URL / 标题（与 §4.4.7 浏览器扩展互补） |
+| **iMessage / WhatsApp** | iMessage / WhatsApp（with permission） | — | ❌ **不接入**（消息内容敏感） |
+| **Slack / Discord** | 部分支持（with permission） | 部分支持 | ⚠️ 仅元数据（频道 / 未读数），**不读消息内容** |
+
+#### 4.12.3 期望字段
+
+| 编号 | 字段 | 形态 | 桌宠侧用途 |
+|---|---|---|---|
+| 1 | `osa_now_playing.title` / `artist` / `app_source` | 实时状态 | 替代 §4.10 A1 标识，提供更多 app 覆盖 |
+| 2 | `osa_recent_documents[]`（app + 文件名 + 时间，最近 N 个） | 短期缓存 ≤ 1h | "你最近在 Notes 里写了 N 篇" |
+| 3 | `osa_app_state`（app 是否启动 / 前台 / 是否有 unsaved changes） | 实时状态 | 配合 §4.2 active_app，精度更高 |
+| 4 | `osa_unread_count`（邮件 / 通讯 / 通知未读数） | 实时数值 | "你有 X 封未读邮件 / Y 条通知" — 不读内容 |
+| 5 | `osa_browser_current_tab`（Safari / Chrome / Firefox 的当前 tab URL + redacted title） | 实时状态 | 与 §4.4.7 浏览器扩展互补；用户未装扩展时 fallback |
+
+#### 4.12.4 边界（v2.5 PM 立场）
+
+1. **走 OS 厂商提供的"app 间通信脚本接口"**：macOS osascript / AppleScript / OSA Scripting / NSAppleScript；Windows PowerShell COM Automation / Win+R `wscript`。
+2. **app 必须主动暴露脚本接口**才能接入；不绕过 app 私有 API。
+3. **macOS 授权机制**：每个 osascript → 目标 app 调用都需要用户在"系统设置 → 隐私与安全性 → 自动化"授权；这与 Accessibility / Screen Recording 是不同的权限类别。
+4. **Windows 授权机制**：COM 调用需要目标 app 启动并对应 COM 接口允许；某些 app（如 Office）默认允许，部分 app 需要"启用宏 / 启用 COM"。
+5. **不允许**：
+   1. 用 osascript / COM 调用**修改** app 状态（如 `spotify play` / `tell mail to send`）— 只读取，不写入。
+   2. 调用涉及消息正文 / 邮件正文 / 文档正文的接口（如 `tell mail to body of message X`） — 只读元数据。
+   3. 通过 osascript / COM 访问 app 私有数据库 / 文件系统。
+6. **用户在 Memory Center 单 app 开关**；启用 OSA 桥接时桌宠 UI 显示"正在通过系统脚本接口读 X app 元数据"。
+7. **短期缓存 ≤ 1h**；长期记忆仅保留聚合摘要（"用户最近常用 Notes"），不保留每条 OSA 返回。
+8. **同款全局暂停**：用户可一键暂停所有 OSA 桥接，与暂停 VLM / Playwright / MCP 同款机制。
+
+#### 4.12.5 与其他通道的分工
+
+| 通道 | 主用场景 |
+|---|---|
+| §4.4 MCP | 工作类生态成熟 app（飞书 / 钉钉 / 滴答 / Steam） |
+| §4.4.6 OS 级 API | 系统级元数据（Now Playing / Recent Files / Notifications / Calendar / 设备状态） |
+| §4.4.7 浏览器扩展 | Web 端 app 的 tab 身份识别（视频 / 购物 / 阅读 / 学习 / 社交 / 工作） |
+| **§4.12 OS Scripting Bridge** | **桌面客户端 app 的元数据读取（Spotify / Apple Music / VLC / IINA / Notes / Bear / Things / Office / Outlook）** |
+| §4.4.8 CLI | 极小集合（Spotify CLI / VS Code CLI / 公开 skill） |
+| §4.4.9 IFTTT 桥接 | 用户高级配置 P2 探索 |
+| §4.11 Playwright | 用户主动触发的细节查询兜底 |
+
+#### 4.12.6 隐私边界 vs PRIVACY_BOUNDARY
+
+1. OSA / COM 走的是 OS 公开脚本接口 + 用户授权 + app 主动暴露三重保险，**不违反**既有 PRIVACY_BOUNDARY §2 任何硬约束。
+2. 与 v2.3 §4.10 A0 / A1 不同：A1 走 OS Now Playing API（系统级），OSA / COM 走 app 间脚本接口（app 级）。两者互补，不冲突。
+3. **必须**在 PRIVACY_BOUNDARY 修订提案（Deferred）中加注 v2.5 引入 OSA / COM 通道，等 voice-interaction 启动时合并审议。
+
 ## 5. 与既有 P0 边界关系审查
 
 | 编号 | 既有硬约束（来自 `PRIVACY_BOUNDARY_memory-system.md` §2） | 本分支的影响 | 结论 |
@@ -764,22 +988,24 @@ PM 决策（v2.2）：
 | 9 | 多游戏 profile 是否共享？ | 用户 + PM | Resolved 2026-05-11 | **不共享**；本分支讨论的"通用"是字段抽象 / 能力 schema 通用，不是数据池通用。详见 §4.5.3。 |
 | 10 | 跨数据源 mock 是否补？ | PM + Radar | Resolved 2026-05-11 | **文档内附 mock 格式**（详见 §11）；同时派 Radar 补一份完整可运行的跨数据源 mock（详见 `06-sync/dm/pm-to-radar/` 2026-05-11T17-10-08）。 |
 
-## 10. 键盘信号分级标准（v2 新增）
+## 10. 键盘信号分级标准（v2 新增，v2.5 扩展为 5 层含 L1.5）
 
 | 编号 | 层级 | 内容 | 是否允许 | 来源信号示例 | 桌宠侧用途 |
 |---|---|---|---|---|---|
-| 1 | **L0 派生指标** | 强度 / 节奏 / 桶化统计，不含任何键内容 | ✅ P0 默认 | `input_intensity_level: high`、`typing_rhythm_signal: bursty`、`app_switch_rate_per_min: 8` | "用户专注中"、"用户在快速切换" |
-| 2 | **L1 快捷键事件** | 仅 modifier + 命名键（cmd/ctrl/alt/shift + 字母 / 功能键），**不**采集普通字符 | ⚠️ P1 opt-in | `cmd+s`、`alt+tab`、`ctrl+c`、`cmd+space` | "刚保存"、"刚切 app"、"刚打开 Spotlight" |
-| 3 | **L2 字符级原始流** | 任何字符键的内容（含 hash 后） | ❌ 任何优先级都不允许 | `key: 'a'`、`hash('hello')` | 不适用 — 已排除 |
-| 4 | **L3 键盘时间戳序列** | 即使不含字符，完整毫秒级时间戳 | ❌ 不允许 | `timestamps: [1234567890, 1234567920, ...]` | 不适用 — 可通过 timing attack 反推字符 |
+| 1 | **L0 派生指标** | 强度 / 节奏 / 桶化统计 / 鼠标 region / 设备切换 / 多屏活动 / scroll 强度，**不含任何键 / 坐标内容** | ✅ P0 默认 | `input_intensity_level: high`、`mouse_region_heatmap_top3: [left, center, top-right]`、`input_device_switch_event: keyboard→trackpad`、`scroll_intensity_signal: heavy` | "用户专注中"、"用户切到触摸板做触控浏览" |
+| 2 | **L1 快捷键事件 + 操作语义事件**（v2.5 扩展） | modifier + 命名键 **+** OS 级"操作意图事件名"（save / copy_paste / undo_redo / fullscreen_toggle / lock_unlock / new_window / new_tab / app_install / window_arrangement） | ⚠️ P1 opt-in（默认开） | `cmd+s`、`semantic_event.save`、`semantic_event.fullscreen_toggle` | "刚保存"、"刚锁屏"、"刚新建 tab"、"分屏工作" |
+| 3 | **L1.5 编辑动作派生**（v2.5 新增） | 文本编辑动作类别 + Undo/Redo 频率 + IME 状态 + 编辑时长 + 编辑突发频率；**不含任何字符内容 / IME composition / 复制粘贴原文** | ⚠️ P1 opt-in | `text_edit_action_burst: [insert_chunk, cross_paragraph_jump]`、`undo_redo_rate_per_min: 5`、`ime_state: cn`、`editing_session_duration_min: 25` | "用户在大段重构"、"用户中文输入中"、"持续编辑 25min" |
+| 4 | **L2 字符级原始流** | 任何字符键的内容（含 hash 后 / 含 IME composition / 含剪贴板内容 / 含拖拽内容 / 含鼠标坐标流 / 含像素 heatmap） | ❌ 任何优先级都不允许 | `key: 'a'`、`hash('hello')`、`clipboard: '...'`、`mouse_xy: (100, 200)`、`pixel_heatmap: [[...]]` | 不适用 — 已排除 |
+| 5 | **L3 键盘 / 鼠标 / 编辑事件的完整时间戳序列** | 即使不含字符 / 坐标，完整毫秒级时间戳序列 | ❌ 不允许 | `timestamps: [1234567890, 1234567920, ...]` | 不适用 — 可通过 timing attack 反推字符 / 操作路径 |
 
 执行规则：
-1. 每个 L 级别在 Memory Center 必须可单独查看和关闭。
-2. L1 启用时必须在桌宠 UI 给出"已启用快捷键监听"的可见指示。
-3. 系统升级到新版本时，新增的快捷键不自动加入白名单；用户必须确认。
-4. PM 立场：L2 / L3 不进入"未来探索"清单，不留口子。
+1. 每个 L 级别在 Memory Center 必须可单独查看和关闭（L0 / L1 / L1.5 各自独立）。
+2. L1 / L1.5 启用时必须在桌宠 UI 给出"已启用快捷键 / 操作语义 / 编辑动作监听"的可见指示。
+3. 系统升级到新版本时，**新增的快捷键 / 操作语义事件名 / 编辑动作类别不自动加入白名单**；用户必须确认。
+4. PM 立场：**L2 / L3 不进入"未来探索"清单，不留口子**（v2.5 沿用）。
+5. **v2.5 新增**：L1.5 编辑动作派生与 L1 操作语义事件是**互补的两层** — L1 是"OS 级事件"（cmd+s / 新建窗口），L1.5 是"app 内编辑动作类别"（插入段落 / 撤销）。两层各自独立可关闭。
 
-### 10.1 研发自由度规则（v2.1 新增，回应用户反馈 2）
+### 10.1 研发自由度规则（v2.1 新增，回应用户反馈 2；v2.5 扩展到 L1.5）
 
 | 编号 | 维度 | 谁可以改 | 是否需 PM review | 边界 |
 |---|---|---|---|---|
@@ -1256,7 +1482,7 @@ PM 备注（v2）：
 
 ---
 
-## 13. 建议下一步（v2.4）
+## 13. 建议下一步（v2.5）
 
 1. **Radar 调研状态（v2.4 更新）**：✅ **两批共 7 项调研全部完成**：
    1. 第一批（2026-05-11T17-52-51 通告，3 项）：行为信号库 / 中国 app MCP / 跨数据源 mock。
@@ -1275,16 +1501,22 @@ PM 备注（v2）：
 2. 关键 PM 立场：profile 抽取强制本地 + 用户确认回路、VLM **三档混合架构**（CNN + 2-4B VLM + 云端兜底）、emotion_signal 规则起步不上分类器、interrupt_suitability 纯规则不让 LLM 决策、不进 MVP 五类（Agent / Fine-tuning / 推荐系统 / 跨实例迁移 / 行为预测）。
 3. 月成本上限 ≤¥3 / 用户。
 
-## 13.3 Engineering 接手（核心下一步）
+## 13.3 Engineering 接手（核心下一步，v2.5 大幅扩展）
 
 1. 基于行为信号库报告的"P0 配方 + P1 配方"做 Context Capture Adapter 设计起点（macOS：NSWorkspace + IOHIDIdleTime + CGEventTap listenOnly；Windows：SetWinEventHook + GetLastInputInfo + Raw Input；**严禁** `SetWindowsHookEx(WH_KEYBOARD_LL)` / Windows Recall）。
-2. 基于 MCP 报告 §9 推荐的统一 schema `{source, value, started_at, expires_at}` 设计 MCP connector 抽象。
-3. **基于 audio 库报告做 Context Capture Adapter v2**：macOS 14.2+ Tap / < 14.2 BlackHole / Win WASAPI loopback；aubio 必须 **IPC 子进程隔离**（GPL-3.0 传染风险）；同时准备 BeatNet + cpal 自实现 RMS 作为长期商业化路线。
-4. **基于 VLM 报告做 VLM 混合架构**：CNN 初筛（建议 MobileNet / EfficientNet 起步）+ MiniCPM-V 4.5 (int4) 主选 + Qwen2.5-VL-7B (Apache 2.0) 备选；onboarding 30s benchmark + 三选一兜底。
-5. **基于 Tab 检测报告做 Tab Detection Adapter**：扩展 + Native Messaging 主路径 + AX / UIA 兜底三 provider 架构；国产浏览器 beta 第一周验证。
-6. **基于 Now Playing API 报告做 A1 SourceAppUserModelId 白名单**：SMTC 仅采白名单（QQ 音乐 / 网易云 / Apple Music / Spotify / Bilibili / foobar2000 等）。
-7. **beta 阶段埋点验证**：腾讯视频 / 爱奇艺 / 优酷 / 抖音 PC SMTC 上报；QQ 音乐 / 网易云 macOS 国服 MPNowPlayingInfoCenter 上报；Steam 中国地区 GPU 分布。
-8. 回写遗留 OQ #8：查询接口 SLA 起点建议（实时 P99 ≤200ms、批量 ≤2s）。
+2. **v2.5 新增 §4.3.3 / §4.3.4 / §4.3.4.1 字段实现**：A1 派生（mouse_region_heatmap / mouse_event_type_burst / input_device_switch / multi_display_activity / scroll_intensity）+ A2 操作语义事件（save / copy_paste / undo_redo / fullscreen_toggle / lock_unlock / new_window / new_tab / app_install / window_arrangement）+ A3 编辑动作派生（text_edit_action_burst / undo_redo_rate / ime_state / editing_session_duration / text_edit_burst_frequency）；macOS 用 NSEvent global monitor + Accessibility events；Windows 用 EVENT_SYSTEM_* + EVENT_OBJECT_*。
+3. 基于 MCP 报告 §9 推荐的统一 schema `{source, value, started_at, expires_at}` 设计 MCP connector 抽象。
+4. **v2.5 新增 §4.4.6 OS API 6 通道**：UserActivity（macOS Handoff / Win Activity Feed）/ Recent Files（NSMetadataQuery / Win Recent Items）/ Notification Center / Calendar (EventKit / Outlook) / 设备状态环境 — 每通道用户独立开关，仅元数据。
+5. **v2.5 新增 §4.4.7 浏览器扩展全方位**：v2.4 §4.7.4 视频类扩展到 6 类（视频 / 购物 / 阅读 / 学习 / 社交浏览 / 工作）；同一扩展通道，按 tab 类别开关。
+6. **v2.5 新增 §4.12 OS Scripting Bridge**：macOS osascript / AppleScript + Windows PowerShell COM；接入 Spotify / Apple Music / VLC / IINA / Notes / Bear / Things / Office / Outlook / Reminders 等；**仅读取，不修改**；用户在系统设置授权 + Memory Center 单 app 开关。
+7. **v2.5 新增 §4.4.8 CLI 工具调用**：Spotify CLI / VS Code CLI / 公开 skill / 系统只读 CLI；不调用修改状态类 CLI；P1 子集，P2 探索。
+8. **v2.5 新增 §4.4.9 IFTTT / Zapier webhook 桥接**：P2 探索；用户自配 webhook + 签名验证 + 仅接受元数据 payload。
+9. **基于 audio 库报告做 Context Capture Adapter v2**：macOS 14.2+ Tap / < 14.2 BlackHole / Win WASAPI loopback；aubio 必须 **IPC 子进程隔离**（GPL-3.0 传染风险）；同时准备 BeatNet + cpal 自实现 RMS 作为长期商业化路线。
+10. **基于 VLM 报告做 VLM 混合架构**：CNN 初筛（建议 MobileNet / EfficientNet 起步）+ MiniCPM-V 4.5 (int4) 主选 + Qwen2.5-VL-7B (Apache 2.0) 备选；onboarding 30s benchmark + 三选一兜底。**v2.5 VLM 视频类保留 v2.4 §4.7.4 不变**（用户决定保留剧情同步反应愿景）。
+11. **基于 Tab 检测报告做 Tab Detection Adapter**：扩展 + Native Messaging 主路径 + AX / UIA 兜底三 provider 架构；国产浏览器 beta 第一周验证；**v2.5 同一扩展通道还要支持购物 / 阅读 / 学习 / 社交浏览 / 工作 5 类 tab 识别**。
+12. **基于 Now Playing API 报告做 A1 SourceAppUserModelId 白名单**：SMTC 仅采白名单（QQ 音乐 / 网易云 / Apple Music / Spotify / Bilibili / foobar2000 等）。
+13. **beta 阶段埋点验证**：腾讯视频 / 爱奇艺 / 优酷 / 抖音 PC SMTC 上报；QQ 音乐 / 网易云 macOS 国服 MPNowPlayingInfoCenter 上报；Steam 中国地区 GPU 分布；**v2.5 新增**：OS Scripting Bridge 在 macOS / Win 上对各 app 的实际可用性 + 授权流程友好度。
+14. 回写遗留 OQ #8：查询接口 SLA 起点建议（实时 P99 ≤200ms、批量 ≤2s）。
 
 ## 13.4 Design 跟进
 
@@ -1293,9 +1525,15 @@ Memory Center / 桌宠设置面板需求点：
 2. VLM 该 app 实例整体开关（游戏 + 视频白名单）。
 3. MCP 自选启停面板（首批 dida / feishu / steam）。
 4. 键盘 L1 快捷键查看 / 关闭。
-5. **audio A0 节拍监听开关 + UI 状态指示**（v2.4 新增）。
-6. **Onboarding VLM 硬件检测 + 三选一选择**（v2.4 新增；文案 "①仅文本对话 / ②本地轻量识别 / ③启用云端兜底（需授权）"）。
-7. **浏览器扩展安装引导**（v2.4 新增；首启时引导用户为 Chrome / Edge / Safari 等安装扩展）。
+5. audio A0 节拍监听开关 + UI 状态指示。
+6. Onboarding VLM 硬件检测 + 三选一选择（"①仅文本对话 / ②本地轻量识别 / ③启用云端兜底（需授权）"）。
+7. 浏览器扩展安装引导（首启时引导用户为 Chrome / Edge / Safari 等安装扩展）。
+8. **v2.5 新增 — 键盘 L1.5 编辑动作监听开关**（与 L1 独立）。
+9. **v2.5 新增 — L1 操作语义事件类别管理**（save / copy_paste / fullscreen_toggle / lock_unlock / new_window / new_tab / app_install / window_arrangement 9 类，每类独立开关）。
+10. **v2.5 新增 — OS API 6 通道管理面板**：Now Playing / UserActivity / Recent Files / Notification Center / Calendar / 设备状态环境，每通道独立开关 + 状态指示。
+11. **v2.5 新增 — 浏览器扩展按类别管理**：视频 / 购物 / 阅读 / 学习 / 社交浏览 / 工作 6 类，按类别 + 按 app 双层开关。
+12. **v2.5 新增 — OS Scripting Bridge 单 app 授权面板**：Spotify / Apple Music / VLC / IINA / Notes / Bear / Things / Office / Outlook / Reminders 等，单 app 开关 + 桌宠 UI "正在通过系统脚本接口读 X app 元数据" 可见指示。
+13. **v2.5 新增 — 一键全局暂停**：暂停所有非 first-party game event 的采集（VLM / Playwright / OSA / OS API / 浏览器扩展），与现有 VLM 暂停同款。
 
 ## 13.5 Main Thread 收口（建议安排顺序）
 
@@ -1306,19 +1544,23 @@ Memory Center / 桌宠设置面板需求点：
    3. Accepted 后由 Main Thread 直接修改项目级文件并在 `decisions/DECISION_LOG.md` 留痕；Rejected 后 PM 同步收回 v2.3 中 §4.7 视频扩展 / §4.10 音频 / §4.11 Playwright。
 3. 视情况在 `decisions/DECISION_LOG.md` 留痕本批 PM 立场升项目级决策。
 
-### 13.5.1 项目级决策候选清单（v2.4 更新，11 条）
+### 13.5.1 项目级决策候选清单（v2.5 更新，15 条）
 
 1. 字符级键盘流任何形式都不允许（L2/L3 硬约束）。
 2. VLM P1 单 app 实例开关；类别含游戏 + 视频；不跨实例聚合。
 3. MCP 默认关 + 用户自选；MVP 首批锁 3 个（dida / feishu / steam），P1 后半段 office / dingtalk，**不接入清单**含番茄类与腾讯视频等。
 4. 多游戏 / 多视频 app 之间 profile 不共享。
 5. current_context 5min 滑窗 + 变化触发 + 30s 心跳。
-6. 键盘分级研发自由度边界（§10.1）。
-7. 音频信号 A0-A3 分级（§10.3）；A2 / A3 任何形式不允许；**A0 首拍稳定时间 5s warmup（v2.4 新增）**。
+6. 键盘分级研发自由度边界（§10.1）；**v2.5 扩展到 L1.5 编辑动作派生层**。
+7. 音频信号 A0-A3 分级（§10.3）；A2 / A3 任何形式不允许；**A0 首拍稳定时间 5s warmup**。
 8. Playwright 受限放行 7 条边界（§4.11.3）；P2 仅用户主动触发。
 9. PM 字段命名 review 边界（§10.2）— PM 不逐字段过拼写，但守 4 类隐私边界。
-10. **VLM 三档混合架构（CNN 初筛 + 2-4B VLM 兜底 + 云端最终兜底）；本地推理可用率目标 ≥85%（v2.4 新增）**。
-11. **双轨分发立场：MAS 版砍 macOS A1 MediaRemote / Developer ID 版完整功能（v2.4 新增）**。
+10. VLM 三档混合架构（CNN 初筛 + 2-4B VLM 兜底 + 云端最终兜底）；本地推理可用率目标 ≥85%。
+11. 双轨分发立场：MAS 版砍 macOS A1 MediaRemote / Developer ID 版完整功能。
+12. **v2.5 新增**：MCP 不再是唯一通道；6 通道并存（MCP / OS API / 浏览器扩展全方位 / OS Scripting Bridge / CLI / IFTTT），每通道独立开关 + 默认关闭 + Memory Center 可见。
+13. **v2.5 新增**：行为数据采集扩展为档 A 完整集合（A1 派生 + A2 操作语义 + A3 编辑动作派生）；§10 键盘分级扩展到 L1.5；v2.5 §4.3.5 新增 4 条排除项（鼠标坐标流 / 像素 heatmap / 拖选选中内容 / 屏幕坐标完整时序）。
+14. **v2.5 新增**：OS Scripting Bridge（osascript / PowerShell COM）作为接入桌面客户端 app 元数据的合规通道；仅读不写；用户系统授权 + Memory Center 单 app 开关。
+15. **v2.5 新增**：浏览器扩展通用化到 6 类 tab 识别（视频 / 购物 / 阅读 / 学习 / 社交浏览 / 工作）；用户按类别 + 按 app 双层开关。
 
 ### 13.5.2 法务 / 合规需先解决的项（v2.4 新增）
 

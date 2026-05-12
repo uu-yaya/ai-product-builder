@@ -9,16 +9,22 @@
 
 ---
 
-## 0. 提案范围声明（v2.3.1 补充，2026-05-11 19:00）
+## 0. 提案范围声明（v2.3.1 补充，2026-05-11 19:00；v2.5 加注 2026-05-12）
 
-1. 本提案**只覆盖 memory-dataset 分支范围**内的边界变更，包括：
+1. 本提案**覆盖 memory-dataset 分支范围**内的边界变更，包括：
    1. 音频信号 A0 / A1 分级（听音乐场景，**不含**麦克风 / 语音识别）。
    2. VLM 白名单从单游戏扩展到游戏 + 视频 app。
    3. Playwright 受限放行 7 条边界。
+   4. **（v2.5 新增）** 行为信号档 A 扩展（A1 派生 / A2 操作语义事件 / A3 编辑动作派生）— §10 键盘分级扩展到 L1.5；§4.3.5 排除项加 4 条。
+   5. **（v2.5 新增）** OS 级 API 通道 6 类（UserActivity / Recent Files / Notification Center / Calendar / 设备状态 + Now Playing 已锁）。
+   6. **（v2.5 新增）** 浏览器扩展通用化到 6 类 tab 识别（视频 / 购物 / 阅读 / 学习 / 社交 / 工作）。
+   7. **（v2.5 新增）** OS Scripting Bridge（macOS osascript / AppleScript + Windows PowerShell COM Automation）— 接入桌面客户端 app 元数据；仅读不写；用户系统授权 + Memory Center 单 app 开关。
+   8. **（v2.5 新增）** CLI 工具调用 + IFTTT / Zapier webhook 桥接。
 2. 本提案**不包含**：
    1. 麦克风录音 / 语音识别（STT）/ TTS 输出 / 声纹 / 音色克隆 / 双向语音对话 — 这些归 `voice-interaction` 分支（待启动）；如未来需要修订项目级 PRIVACY_BOUNDARY，需**另起一份独立 amendment proposal**，不挤进本提案。
    2. 即使本提案 Accepted，A2 / A3 / 麦克风在 memory-dataset 范围内**仍然全部排除**（详见 §3.1 修订条款 #3 #4）。
 3. 跨分支约束：未来 `voice-interaction` 分支的边界变更**不得反向放宽**本提案锁定的 memory-dataset 范围内边界，除非项目级 `decisions/DECISION_LOG.md` 显式留痕同意。
+4. **当前状态：Deferred（2026-05-12 Main Thread 收口决策）** — 等 voice-interaction 分支启动后**合并审议**（届时 STT / 麦克风 / TTS 边界变更将走同一份 amendment）。v2.5 新增 5 项（行为档 A / OS API / 浏览器全方位 / OS Scripting Bridge / CLI+IFTTT）一并加入合并审议清单。
 
 ---
 
