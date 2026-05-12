@@ -101,6 +101,90 @@ voice-interaction.STT_output(text: str) → memory-dataset.chat(text)
 
 ---
 
+## 0.9 A / B 数据来源分类架构原则（v2.6 新增，2026-05-12 — 消费方接入驱动）
+
+> 此节是给所有读者的"数据来源链路"通用速查。本分支所有字段在被实现 / 消费时都必须落到 A 或 B 之一；性质不清时按本节末尾 4 个判断问题归类。
+
+### 0.9.1 A / B 两类定义
+
+| 类别 | 含义 | 是否进 memory schema | 消费方使用方式 |
+|---|---|---|---|
+| **A 类** | 记忆系统**直接产出** | ✅ 是 | query API 直接拿，无需二次加工 |
+| **B 类** | memory 提供**前置数据**，消费方用 LLM / 代码**二次转换** | ❌ 否 | 拿前置数据 + 当下场景 → 动态生成 |
+
+A 类包括 memory **采集层** + memory **派生层**（含 AI 派生，但**结果 stored**）。
+B 类受**桌宠 IP / 当下场景 / 用户偏好**影响，每次按需生成，**stored 会失效**。
+
+### 0.9.2 三层数据架构
+
+```
+┌────────────────────────────────────────────────────────┐
+│ Memory 采集层（A）                                       │
+│ active_app / chat_text / game_event / behavior_*       │
+│ idip_snapshot / audio_derived / mcp_* / os_api / 等等  │
+└────────────────────────────────────────────────────────┘
+                        ↓
+┌────────────────────────────────────────────────────────┐
+│ Memory 派生层（A，含 AI 派生结果 stored）                  │
+│ atomic_facts / episode / profile / emotion_signal      │
+│ current_context / highlight_event / persona_assessment │
+│ profile_meta / relationship_stats / 等等                │
+└────────────────────────────────────────────────────────┘
+                        ↓
+┌────────────────────────────────────────────────────────┐
+│ 消费侧动态生成（B，不进 memory schema）                   │
+│ 日记正文 / 一句话画像卡片 / pet_observation             │
+│ 桌宠对话回复 / 分享图文 / 人格结果页解释 / 等等          │
+└────────────────────────────────────────────────────────┘
+```
+
+### 0.9.3 A 类内部派生方式细分
+
+| 派生方式 | 例子 | 谁实现 |
+|---|---|---|
+| **采集层 - 直接** | active_app / chat_text / idip_snapshot | OS / 游戏 SDK / chat runtime |
+| **派生层 - 规则代码** | episode.highlight_score / atomic_facts.quote_eligible / relationship_stats.companion_days | Engineering 规则加权 / PII 检测正则 + NER / 计数 SQL |
+| **派生层 - AI（已在 AI Eval §3 锁定）** | atomic_facts / episode / profile / emotion_signal / event_emotion_tag / highlight_event.* / current_context.mood_estimate / VLM tags / persona similarity（外部平台） | AI Agent（本地 / 云端兜底，按 AI Eval 立场） |
+| **派生层 - 用户输入** | user_preferences.* / profile.gameplay_motivation[] (已确认) / profile_meta.user_corrected | Memory Center UI 写入 |
+| **派生视图 - 实时计算**（不持久化原子存储） | relationship_stats.* | Engineering 决定缓存策略 |
+
+### 0.9.4 B 类消费侧生成内容清单（详见 §4.18）
+
+| 内容 | 触发 | 数据源（从 memory 拿什么前置） | 实现 |
+|---|---|---|---|
+| **日记正文** | 用户查看 / 定时 | episode (highlight_score) + atomic_facts (quote_eligible) + event_emotion_tag + idip_milestone | 日记生成器 LLM agent |
+| **一句话画像卡片 / 总览页标语** | 画像页加载 | profile.summary + relationship_stats + 桌宠 IP | UI Composer |
+| **高光记忆"宠物视角观察"** | 高光页加载 / 分享 | highlight_event.* + 桌宠 IP | 消费侧 LLM |
+| **桌宠实时对话回复** | 实时交互 | memory 全套 + current_context + 桌宠 IP | 桌宠 agent |
+| **高光分享卡片图文** | 用户分享 | highlight_event + 分享模板 + 桌宠 IP | 分享服务 |
+| **人格测定结果页解释文案**（"为什么像 TA"） | 测定完成 / 查看 | game_persona_assessment.similarity_breakdown[] + 反查证据 + 桌宠 IP | UI Composer |
+| **关系等级 / 里程碑卡片文案** | 升级时 / 查看时 | relationship_stats + 桌宠 IP | UI Composer |
+
+### 0.9.5 PM 架构红线
+
+| # | 红线 | 理由 |
+|---|---|---|
+| 1 | **memory 不存"桌宠语气"内容** | pet_observation / 对话 / 日记正文 / 分享文案受 IP 影响；存了换 IP 失效 |
+| 2 | **memory schema 字段必须 >1 消费方复用** | 单消费方一次性用的内容进 B 类（消费侧生成），避免 memory schema 膨胀 |
+| 3 | **AI 派生层级（A vs B）以 AI Eval §3 各候选点为准** | atomic_facts / episode / profile / emotion / persona 进 A；对话回复 / 日记正文 / 卡片文案进 B |
+| 4 | **B 类生成不写回 memory** | 例外：profile.summary 用户点"重新总结"由消费侧 LLM 生成后写回 memory（A 常驻 + B 触发更新混合） |
+| 5 | **persona 不作为陪伴策略的直接驱动信号 / 不反向污染采集层** | 沿用 §4.16 红线，防过拟合 |
+
+### 0.9.6 性质模糊时的默认归类
+
+未来如果出现新字段 / 新数据需求，归类问 4 个问题：
+
+| 问题 | 答 "是" → | 答 "否" → |
+|---|---|---|
+| Q1：≥2 个消费方使用同一份结果？ | A 候选 | B 候选（一次性使用） |
+| Q2：结果不受桌宠 IP 影响？ | A 候选 | B（受 IP，每次按 IP 生成） |
+| Q3：结果不受当下场景 / 用户偏好影响？ | A 候选 | B（动态） |
+| Q4：结果在 AI Eval §3 已有派生候选点？ | A（沿用 AI Eval 立场） | 看 Q1-Q3 综合判断 |
+
+四问全 "是" → A；任一 "否" → B；不确定 → 默认 B（避免 memory schema 误膨胀）。
+
+---
+
 ## 0.8 v2.5.1 文档一致性修复摘要（2026-05-12 — Codex 两轮评审 + PM 自查 共 15 条全部修）
 
 ### 0.8.1 第一轮（9 条，commit 8160a95）
@@ -129,6 +213,31 @@ voice-interaction.STT_output(text: str) → memory-dataset.chat(text)
 1. **不引入新功能 / 不改字段定义 / 不改 mock 字段 / 不动 AI 立场**：纯文档内部一致性修复。
 2. **不锁版本号**：所有撤回 / Defer / Accepted 条款均使用"当前版本"中性措辞，跟未来 v2.6+ 演化。
 3. **状态语义清晰**：Accepted / Rejected / Deferred 三状态下 v2.3 三项 + v2.5 五项的处理方式分别明确，详见 PRIVACY_BOUNDARY 提案 §5 状态语义对照表。
+
+### 0.8.4 v2.6 消费方扩展（2026-05-12 — 日记 + 用户画像页接入需求）
+
+1. **背景**：v2.5.1 完成 PM 层数据来源（脑 vs 嘴和耳 + 6 通道并存）后，消费方（日记模块 + 用户画像页 15 模块）评审落地需求；PM 用严格标准评审 + 区分真数据需求 vs 偏好类 / 派生类 / 伪需求；与公司既有人格测定能力对齐。
+2. **新增 §0.9 A/B 数据来源分类架构原则**：A 类 = memory 直接产出（schema 定义字段）；B 类 = memory 提供前置数据，消费方 LLM / 代码二次转换（不进 schema）；附三层数据架构图 + PM 红线 5 条 + 性质模糊时 4 问归类。
+3. **日记 3 字段补**（A 类，进现有数据类）：
+   1. `episode.highlight_score`（派生层规则代码） — 区分值得日记化的情节 vs 普通对话情节。
+   2. `event_emotion_tag`（派生层 AI，扩 §3.4 emotion_signal 到事件级）— 日记需要事件级情绪锚点。
+   3. `atomic_facts.quote_eligible`（派生层 PII 检测）— 日记引用原话的隐私安全开关。
+4. **新增 4 个数据类 / 1 个派生视图**（全 A 类）：
+   1. **§4.13 / §11.15 `highlight_event{}`** — 画像模块 7/8 高光记忆；不含 `game` / `pet_observation` 字段。
+   2. **§4.14 / §11.16 `user_preferences{}`** — 画像模块 4/5/6/9/14 偏好持久层；5 子对象（companion_style / emotion_response / content_type / diary_style / privacy_grants）；除 content_type 反馈学习外 LLM 禁止自动写入；privacy_grants 默认全 false 强制用户主动。
+   3. **§4.15 profile 扩展** — gameplay_motivation[] + gameplay_motivation_candidates[] + gameplay_style_tags[]（画像模块 2/3）。
+   4. **§4.16 / §11.17 `game_persona_assessment{}`** — 画像模块 10/11；P1 候选（待 4 条前置确认）；接入公司既有外部平台；不含 `game_id`；evidence_strength ≥ 3 红线；persona 不驱动陪伴 / 不污染采集。
+   5. **§4.17 / §11.18 `relationship_stats{}`** — 画像模块 12 关系成长；纯派生视图；纪念性非任务压力。
+5. **新增 §4.18 B 类消费侧动态生成内容清单**（不进 memory schema）：8 项 — 日记正文 / 一句话画像卡片 / pet_observation / 桌宠对话 / 分享图文 / persona 解释 / 里程碑文案 / profile.summary 重写（B 触发更新例外）。
+6. **§4.1 / §4.6 字段表加 A/B 标注列**：现有字段不动，加注 A/B 归属与派生方式。
+7. **PM 红线汇总**（v2.6）：
+   1. memory 不存"桌宠语气"内容（pet_observation / 对话 / 日记正文 / 卡片文案受 IP 影响走 B 类）。
+   2. memory schema 字段必须 >1 消费方复用（单消费方一次性进 B）。
+   3. AI 派生层级（A vs B）以 AI Eval §3 各候选点为准。
+   4. B 类生成不写回 memory（例外：profile.summary 重写）。
+   5. Persona 不驱动陪伴 / 不污染采集 / 不含 game_id（桌宠绑定单游戏前提）。
+8. **未引入 PRIVACY_BOUNDARY 修订**：所有新增字段都在既有硬约束内运行；user_preferences.privacy_grants 是 PRIVACY_BOUNDARY 的二级开关，不放宽硬约束。
+9. **不在本批范围**：模块 1 总览 / 模块 13 记忆管理 UI / 模块 14 隐私授权 UI（属 Memory Center Design 范畴）/ 模块 11 角色相似度页（属桌宠功能页 + AI Eval）— 仅数据层补充，UI 设计归 02-design。
 
 ## 0.7 v2.5.1 修订摘要（2026-05-12 — Mock §11 同步 v2.5 主体）
 
@@ -340,16 +449,17 @@ voice-interaction.STT_output(text: str) → memory-dataset.chat(text)
 
 #### 4.1.1 期望字段
 
-| 编号 | 字段 | 来自记忆系统的层 | 桌宠侧用途 |
-|---|---|---|---|
-| 1 | `atomic_facts[]` | 原子事实层 | 短期对话引用："你刚说过 …" |
-| 2 | `episode.title` + `episode.time_range` | 情节摘要层 | 跨日 / 跨 session 召回："昨天聊到的那个秒杀模块" |
-| 3 | `profile.summary` | 用户画像层 | 风格定调："这个用户偏好稳定策略 / 喜欢副本挑战" |
-| 4 | `profile.interests[]` + `profile.preferences[]` | 用户画像层 | 主动话题选取 |
-| 5 | `profile.behavior_patterns[]` | 用户画像层 | 时机判断（如"晨会摸鱼时间"是已知行为模式） |
-| 6 | `profile.key_facts[]` | 用户画像层 | 重要事实优先注入对话上下文 |
-| 7 | `profile_meta`（新增建议） | 元字段层 | 每条 profile 的置信度 / 来源 / 时间，避免假记忆 |
-| 8 | `emotion_signal`（**v2 锁定进 MVP**） | 推导层 | 情绪倾向：紧张 / 兴奋 / 沮丧 / 平静；MVP 初版可先用规则 + 关键词，逐步引入轻量分类器 |
+| 编号 | 字段 | A/B | 来自记忆系统的层 | 桌宠侧用途 |
+|---|---|---|---|---|
+| 1 | `atomic_facts[]` | A | 原子事实层（AI 派生） | 短期对话引用："你刚说过 …" |
+| 2 | `episode.title` + `episode.time_range` | A | 情节摘要层（AI 派生） | 跨日 / 跨 session 召回："昨天聊到的那个秒杀模块" |
+| 3 | `profile.summary` | A（常驻）+ B（重写触发） | 用户画像层（AI 派生） | 风格定调；用户点"重新总结一下我"由消费侧 LLM 生成后写回 memory |
+| 4 | `profile.interests[]` + `profile.preferences[]` | A | 用户画像层 | 主动话题选取 |
+| 5 | `profile.behavior_patterns[]` | A | 用户画像层 | 时机判断（如"晨会摸鱼时间"是已知行为模式） |
+| 6 | `profile.key_facts[]` | A（LLM 候选 + 用户确认） | 用户画像层 | 重要事实优先注入对话上下文；未确认 → 不进对话引用 |
+| 7 | `profile_meta`（新增建议） | A | 元字段层 | 每条 profile 的置信度 / 来源 / 时间，避免假记忆 |
+| 8 | `emotion_signal`（**v2 锁定进 MVP**） | A | 推导层（AI Eval §3.4） | 情绪倾向：紧张 / 兴奋 / 沮丧 / 平静 |
+| 9 | **`atomic_facts.quote_eligible`**（v2.6 新增 — 日记原话引用） | A | 派生层（规则代码 / PII 检测） | 日记会引用用户原话，部分原话含 PII（真名 / 同事抱怨 / 财务等）；本字段标记"哪些原话可引用"；正则 + NER 在生产 atomic_facts 时同步标记 |
 
 #### 4.1.2 需要的原因（"知心好友 + 游戏搭子"映射）
 
@@ -657,18 +767,22 @@ PM 边界：
 
 #### 4.6.1 期望字段
 
-| 编号 | 字段 | 形态 | 桌宠侧用途 |
-|---|---|---|---|
-| 1 | `game_session.start` / `game_session.end` | 事件 | 知道一局开始结束 |
-| 2 | `game_session.in_game_time` | 实时推送 | 游戏内时间（早 / 晚、第几日等，部分游戏） |
-| 3 | `game_event.stream`（open / death / revive / settlement 等） | 事件流 | 桌宠按事件做反应 |
-| 4 | `game_session.duration_signal`（>30min / >1h / >3h 分级） | 衍生信号 | 健康提示触发点 |
+| 编号 | 字段 | A/B | 形态 | 桌宠侧用途 |
+|---|---|---|---|---|
+| 1 | `game_session.start` / `game_session.end` | A | 事件 | 知道一局开始结束 |
+| 2 | `game_session.in_game_time` | A | 实时推送 | 游戏内时间（早 / 晚、第几日等，部分游戏） |
+| 3 | `game_event.stream`（open / death / revive / settlement 等） | A | 事件流 | 桌宠按事件做反应 |
+| 4 | `game_session.duration_signal`（>30min / >1h / >3h 分级） | A | 衍生信号 | 健康提示触发点 |
+| 5 | **`event_emotion_tag`**（v2.6 新增 — 事件级情绪标签） | A | 派生层（AI，复用 AI Eval §3.4 emotion_signal 扩到事件级） | 取值：joy / frustrate / satisfy / sadness / neutral；日记 / 高光 / 复盘需要"某一局结束时"的情绪锚点（与 §4.8 current_context.mood_estimate 滑窗级互补） |
+| 6 | **`episode.highlight_score`**（v2.6 新增 — 派生到 §4.1 episode） | A | 派生层（规则代码） | 0-1 浮点；从 idip_milestone × emotion_strength × user_action 加权派生；日记筛选阈值 + 高光候选输入；多消费方复用 |
 
 #### 4.6.2 需要的原因
 
 1. "游戏搭子"的灵魂是**对时刻有感**：你刚死，我才说"啊这把可惜了"；你刚通关，我才能祝贺。**事件流缺一不可**。
 2. 没有 `duration_signal` → 健康提示无法做（这是商业化与合规双重要素）。
 3. 推送式（pub/sub）优于轮询；记忆系统应做去重 + 时序整理后再交付桌宠。
+4. **v2.6 新增 #5 `event_emotion_tag`**：现有 emotion_signal 是对话级 / `current_context.mood_estimate` 是 5min 滑窗级，**事件粒度的情绪锚点缺失**。日记需要"这一局结束时用户是开心还是沮丧"才能写出对的回顾内容；不补则日记流于事件流水账。
+5. **v2.6 新增 #6 `episode.highlight_score`**：现有 episode 不区分"值得日记化的情节"和"普通对话情节"。日记不区分则流水账；高光候选无输入；多个下游（日记 / 高光 / 关系成长）都需要这条派生分数，必须 stored 一份多方复用。
 
 ### 4.7 VLM 视觉理解（3.7）— v2.3 扩展为"单 app 实例开关，类别含游戏 + 视频"
 
@@ -977,6 +1091,290 @@ PM 边界：
 1. OSA / COM 走的是 OS 公开脚本接口 + 用户授权 + app 主动暴露三重保险，**不违反**既有 PRIVACY_BOUNDARY §2 任何硬约束。
 2. 与 v2.3 §4.10 A0 / A1 不同：A1 走 OS Now Playing API（系统级），OSA / COM 走 app 间脚本接口（app 级）。两者互补，不冲突。
 3. **必须**在 PRIVACY_BOUNDARY 修订提案（Deferred）中加注 v2.5 引入 OSA / COM 通道，等 voice-interaction 启动时合并审议。
+
+---
+
+### 4.13 高光事件 highlight_event（v2.6 新增 — 画像模块 7/8 + 日记沉淀）
+
+> **来源驱动**：日记模块需要"值得记的事件"输入；用户画像页"高光记忆"模块直接消费此数据类；多消费方（日记 + 画像 + 分享）复用 → 必须 stored 在 memory 而非每次重算。
+
+#### 4.13.1 PM 立场
+
+1. 现有 `episode`（情节摘要）+ `idip_milestone`（成就突破）+ `game_event` 各自有用，但**没有显式"高光"数据类**，导致日记 / 画像 / 分享各自重算分类标准、口径不一致。
+2. **`highlight_event{}` 是 §4.1 / §4.5 / §4.6 / §4.7 / §4.8 上层的合成抽象**：从底层数据中**选 + 归类 + 加 PII 检测 + 标可分享性**，一次合成多方复用。
+3. **A 类全字段**（含 LLM 派生字段），由 memory 派生层一次性合成 + stored；用户可在 Memory Center 编辑（user_corrected 锁定）。
+4. **桌宠 IP 语气的"宠物观察视角文本"不在本数据类**（B 类，消费侧每次按 IP 生成；见 §4.18 #3）。
+
+#### 4.13.2 期望字段（全部 A 类）
+
+| 编号 | 字段 | A/B | 派生方式 | 桌宠 / Memory Center 用途 |
+|---|---|---|---|---|
+| 1 | `highlight_id` | A | 系统生成 | 主键，多消费方引用 |
+| 2 | `title` | A | LLM 候选 + ✅ 用户可编辑 | 标题（短，≤20 字） |
+| 3 | `time` | A | 系统直接 | 事件时间戳 |
+| 4 | `scene` | A | LLM 派生（合成 `active_app` + `window_title_redacted` + `game_vlm.semantic_tags`） | 场景描述（如"王者荣耀 BOSS 战翻盘"） |
+| 5 | `event_summary` | A | LLM 生成 + ✅ 用户可编辑 | 事件摘要（≤80 字；引用 `atomic_facts` 时必须 `quote_eligible=true`） |
+| 6 | `category` | A | LLM 推荐 + ✅ 用户可改 | 枚举：`achievement` / `growth` / `emotion` / `social` / `collection` / `relationship` |
+| 7 | `tags[]` | A | LLM 候选 + ✅ 用户可改 | 自由标签（≤5 条，去重） |
+| 8 | `source` | A | 系统直接 | 枚举：`idip_milestone` / `episode_highlight_score` / `user_starred` / `persona_result` |
+| 9 | `privacy_level` | A | 用户默认（来自 `user_preferences.privacy_grants`）+ ✅ 可改 | 枚举：`private` / `shareable`；私有不允许进分享卡片生成 |
+| 10 | `pinned` | A | 用户输入直接 | 置顶 bool |
+| 11 | `evidence_ids[]` | A | 系统直接 | 指向底层 `episode` / `game_event` / `idip_milestone` 的 ID（用于回溯，分享卡片 / 复盘） |
+
+> **不含字段**：`game`（桌宠绑定单游戏前提）/ `pet_observation`（B 类，§4.18 处理）。
+
+#### 4.13.3 派生触发时机（memory 侧）
+
+| 触发 | 派生策略 |
+|---|---|
+| `idip_milestone` 命中 | 立即生成 highlight_event（`source = idip_milestone`） |
+| `episode.highlight_score ≥ 阈值`（默认 0.7） | 立即生成 highlight_event（`source = episode_highlight_score`） |
+| `game_persona_assessment` 完成 | 生成一条 highlight_event 标记此次测定（`source = persona_result`，`category = growth`） |
+| 用户在 Memory Center 主动收藏 | 立即写入（`source = user_starred`） |
+
+#### 4.13.4 用户编辑规则（沿用 §4.9 profile_meta 锁定）
+
+1. 用户编辑 title / event_summary / category / tags / privacy_level 后 → `user_corrected = true`（每条 highlight_event 同样使用 profile_meta 同套机制）；LLM **不再自动覆盖**。
+2. 用户删除 → 软删除，标记 `deleted_at`；不进入消费方查询结果，但保留可恢复 ≤30 天。
+3. 用户"不要记类似事件" → 写回 `user_preferences.content_type` 降权，**不**自动连删历史条目（避免误伤）。
+
+#### 4.13.5 边界
+
+1. PII 检测：`event_summary` 引用 atomic_facts 时必须使用 `quote_eligible = true` 的子集。
+2. 不持久化原图 / 原音频；scene 字段只是文本描述。
+3. 跨桌宠 IP：highlight_event 是数据层，**不受 IP 影响**；展示文案（pet_observation）才受 IP，在 B 类。
+
+---
+
+### 4.14 用户偏好 user_preferences（v2.6 新增 — 画像模块 4/5/6/9/14）
+
+> **范围澄清**：用户清单模块 4 / 5 / 6 / 9 / 14 是"用户偏好设置"，**不是采集数据**。但偏好设置需要**持久化 + 与画像数据互通 + 受 PRIVACY_BOUNDARY 管控**，因此放在 memory 层（与 profile 并列），由 Memory Center UI 写入。
+
+#### 4.14.1 PM 立场
+
+1. 这是**用户主动设置**，**全字段 A 类**（用户输入直接存）；个别字段（content_type）可由用户反馈学习推荐，但**显式开关永远优先**。
+2. **禁止 LLM 自动猜测**：companion_style / emotion_response / diary_style / privacy_grants 任何字段 LLM 都不可主动写入（这是产品傲慢的来源）。
+3. **隐私授权强制用户主动勾选**：privacy_grants 不可推断、不可默认开启（默认全关）。
+4. 与 `profile` 并列（不嵌入 profile）：便于 Memory Center 一键清空 user_preferences 时不影响 profile 数据。
+
+#### 4.14.2 期望字段（5 子对象，全部 A 类）
+
+##### 4.14.2.1 `companion_style{}` — 陪伴节奏（模块 4）
+
+| 字段 | 类型 | LLM/用户 | 说明 |
+|---|---|---|---|
+| `disturb_intensity` | enum (none / low / mid / high) | ❌ ✅ 用户 | 打扰强度 |
+| `post_game_summary_freq` | enum (never / streak / every) | ❌ ✅ | 赛后总结频率 |
+| `streak_loss_strategy` | enum (comfort_first / reflect_first / silent) | ❌ ✅ | 连败后先安慰 / 先复盘 / 保持沉默 |
+| `streak_win_strategy` | enum (celebrate / chill / silent) | ❌ ✅ | 连胜后庆祝 / 平淡 / 沉默 |
+| `idle_interact_freq` | enum (none / low / mid / high) | ❌ ✅ | 空闲桌面互动频率 |
+| `activity_remind_freq` | enum (none / low / mid / high) | ❌ ✅ | 活动提醒频率 |
+| `reflection_granularity` | enum (none / brief / detailed) | ❌ ✅ | 复盘颗粒度 |
+
+##### 4.14.2.2 `emotion_response{}` — 情绪响应偏好（模块 5）
+
+| 字段 | 类型 | LLM/用户 | 说明 |
+|---|---|---|---|
+| `streak_loss_react` | enum | ❌ ✅ | 连败时希望被怎么回应 |
+| `team_mate_impact_react` | enum | ❌ ✅ | 被队友影响后的反应偏好 |
+| `want_reflection_on_loss` | bool | ❌ ✅ | 失败后是否想复盘 |
+| `accept_jokes` | bool | ❌ ✅ | 是否接受玩笑 |
+| `want_quiet_companion` | bool | ❌ ✅ | 是否希望安静陪伴 |
+| `love_encouragement` | bool | ❌ ✅ | 是否喜欢被鼓励 |
+
+##### 4.14.2.3 `content_type{}` — 内容偏好（模块 6）
+
+| 字段 | 类型 | LLM/用户 | 说明 |
+|---|---|---|---|
+| `enabled[]` | enum 多选（light_reflection / tactical_advice / emotion_companion / achievement_celebrate / activity_remind / squad_fun / worldview_skit / diary） | ⚠️ **反馈学习** + ✅ 显式开关优先 | 启用的内容类型 |
+| `priority[]` | ordered enum | ⚠️ ✅ | 启用项的优先级 |
+| `feedback_signal[]` | [{type, action: like / dislike, at}] | 系统自动写 | 点赞 / 点踩反馈记录，用于权重学习；反馈不直接覆盖 enabled，**用户显式开关永远优先** |
+
+##### 4.14.2.4 `diary_style{}` — 日记偏好（模块 9）
+
+| 字段 | 类型 | LLM/用户 | 说明 |
+|---|---|---|---|
+| `frequency` | enum (daily / weekly / event_driven / off) | ❌ ✅ | 日记频率 |
+| `length` | enum (short / medium / long) | ❌ ✅ | 日记长度 |
+| `focus` | enum (events / emotion / growth / mixed) | ❌ ✅ | 日记重点 |
+| `perspective` | enum (pet_third_person / pet_first_person) | ❌ ✅ | 日记视角（受桌宠 IP 约束） |
+| `quote_user_original` | bool | ❌ ✅ | 是否引用用户原话（受 `atomic_facts.quote_eligible` 约束） |
+| `record_failure` | bool | ❌ ✅ | 是否记录失败 |
+| `shareable_version` | bool | ❌ ✅ | 是否生成可分享版（受 highlight_event.privacy_level 约束） |
+
+##### 4.14.2.5 `privacy_grants{}` — 隐私授权（模块 14）
+
+| 字段 | 类型 | LLM/用户 | 说明 |
+|---|---|---|---|
+| `behavior_data` | bool + granted_at | ❌ **严格禁自动** ✅ **强制用户主动** | 是否允许行为数据采集 |
+| `chat_content` | bool + granted_at | ❌ ✅ | 是否允许聊天内容入 memory |
+| `diary` | bool + granted_at | ❌ ✅ | 是否生成日记 |
+| `highlight` | bool + granted_at | ❌ ✅ | 是否生成高光记忆 |
+| `persona_assessment` | bool + granted_at | ❌ ✅ | 是否允许人格测定（含外部平台调用） |
+| `cloud_sync` | bool + granted_at | ❌ ✅ | 是否允许云端同步 |
+
+> 所有 privacy_grants 默认 `false`；用户在 Memory Center 隐私页主动勾选才开启。撤回时 granted_at 改为 `null` + `revoked_at = now`；撤回不删历史数据（用户可单独删）。
+
+#### 4.14.3 与 PRIVACY_BOUNDARY 关系
+
+1. `user_preferences.privacy_grants` 是**用户对项目级 PRIVACY_BOUNDARY 的 UI 落地**；硬约束（如 #2 不默认麦克风）由 PRIVACY_BOUNDARY 保证不可越界，user_preferences 是**硬约束内的二级开关**。
+2. user_preferences 任何字段都**不能放宽**项目级 PRIVACY_BOUNDARY 的硬约束（如不能通过 user_preferences 开启麦克风录制 — 麦克风归 voice-interaction）。
+3. 如未来 PRIVACY_BOUNDARY 修订提案（Deferred）转 Accepted，可能新增 privacy_grants 子字段（音频 A0 / VLM 视频 / Playwright 受限放行等）；统一在 voice-interaction 合并审议时定。
+
+---
+
+### 4.15 用户画像 profile 扩展（v2.6 — 画像模块 2/3）
+
+> **来源驱动**：画像页模块 2"我的游戏习惯"+ 模块 3"我的游戏目标"需要枚举级标签，但现有 `profile.interests` / `preferences` 是自由文本，没有枚举约束 → 画像页无法做"标签开关 / 多选 / 反馈"交互。
+
+#### 4.15.1 新增字段（profile 扩展）
+
+| 编号 | 字段 | A/B | 派生方式 | 桌宠 / 画像页用途 |
+|---|---|---|---|---|
+| 1 | `profile.gameplay_motivation[]` | A（已确认结果） | ✅ 用户多选确认 | 模块 3"我的游戏目标"；枚举：`rank` / `chill` / `social` / `collect` / `story` / `practice_char` / `play_with_friends`；多选 |
+| 2 | `profile.gameplay_motivation_candidates[]` | A（派生层 AI） | LLM 从 chat + behavior_patterns 推断候选 | UI 展示候选给用户勾选；**与 #1 字段独立**（候选可能比已确认多） |
+| 3 | `profile.gameplay_style_tags[]` | A（派生层 AI + 规则） | LLM 推断 + behavior + idip 规则派生 + ✅ 用户可改 | 模块 2"我的游戏习惯"；枚举：`outcome_sensitive_high/mid/low` / `solo_lean` / `squad_lean` / `growth_stage_early/mid/late` |
+
+#### 4.15.2 派生触发时机
+
+| 字段 | 触发 |
+|---|---|
+| `gameplay_motivation_candidates[]` | 每 7 天 / chat 累计 ≥ N 条新对话 / 用户进画像页 |
+| `gameplay_style_tags[]` | 每 N 局后增量更新；标签变化时通知 Memory Center 显示"画像更新了" |
+
+#### 4.15.3 用户操作
+
+1. **模块 3 流程**：UI 展示 `gameplay_motivation_candidates[]` → 用户多选 → 写回 `gameplay_motivation[]`（`user_corrected = true`）。
+2. **模块 2 流程**：UI 展示 `gameplay_style_tags[]` → 用户编辑覆盖 → `user_corrected = true`，LLM 不再自动覆盖（沿用 §4.9 锁定机制）。
+3. 用户标"不准" → 该 tag 进入 negative_list（profile_meta.feedback_history），LLM 下次推断时降权。
+
+---
+
+### 4.16 游戏人格测定 game_persona_assessment（v2.6 — 画像模块 10/11）
+
+> **背景**：公司既有平台已有每游戏定制的人格测定能力（不是通用 MBTI），桌宠侧消费此能力作为画像加分项；本节定义 memory 侧的接入字段。
+
+#### 4.16.1 PM 立场（前置 4 条件 + 4 条红线）
+
+##### 前置 4 条件（升 P1 前必须满足）
+
+| # | 条件 | 责任方 | 不通过 |
+|---|---|---|---|
+| 1 | 公司既有能力**输入字段清单**与 memory schema 对账 | Engineering + 公司平台对接 | 缺字段补字段（必须过 PRIVACY_BOUNDARY） |
+| 2 | 公司既有能力**最少数据量门槛** + **当前线上准确率**（用户反馈"像我"率 ≥70%） | 公司平台 + Engineering | 低于阈值不显示 / 准确率不达标 Beta 不上 |
+| 3 | **重测策略**：游戏版本更新（meta 漂移）后旧结果如何处置 | 公司平台 | 需要 `persona_schema_version` 字段，旧版本结果标过期 |
+| 4 | **法务 / 合规**：跨产品平台调用 + 账号体系打通 | 法务 + 公司平台 | 跨边界需用户显式同意（onboarding 一次同意 + 隐私页可关）|
+
+##### 4 条 PM 红线（任何情况下守住）
+
+1. **persona 不作为陪伴策略的直接驱动信号** — 桌宠陪伴策略只看 `user_preferences.companion_style{}` + `current_context` + `emotion_signal`，**不**读 `persona_label` 调语气。避免过拟合。
+2. **persona 不反向污染采集层** — Persona 是消费层，不影响 memory 写入逻辑。
+3. **桌宠绑定单游戏前提，schema 不带 `game_id` 字段** — 跨游戏 persona 聚合不存在。
+4. **`evidence_strength ≥ 3` 红线** — 必须 ≥3 条 game_event / idip_milestone 数据点支持，否则不展示结果。
+
+#### 4.16.2 期望字段（全部 A 类）
+
+| 编号 | 字段 | A/B | 派生方式 | 桌宠 / 画像页用途 |
+|---|---|---|---|---|
+| 1 | `assessment_id` | A | 系统生成 | 主键 |
+| 2 | `persona_label` | A | 公司既有平台 → memory 存结果 | 该游戏人格标签（如"团战指挥型"） |
+| 3 | `persona_schema_version` | A | 公司平台 | 分类体系版本（防 meta 漂移；版本升级时旧结果标过期） |
+| 4 | `similarity_breakdown[]` | A | 公司平台 | `[{candidate, score (0-1), evidence_ids[]}]`；候选人格相似度 + 证据 ID 指向 game_event / idip_milestone（用于"为什么像 TA"页面展开） |
+| 5 | `assessment_at` | A | 系统直接 | 测定时间 |
+| 6 | `data_window` | A | 系统直接 | `{from, to, session_count}`；测定基于的数据窗口（"最近 30 天 60 局"） |
+| 7 | `user_feedback` | A | ✅ 用户 | enum：`accepted` / `rejected` / `not_like_me`；反哺下次测定权重 |
+| 8 | `evidence_strength` | A | 系统直接 | 支持证据条数（**≥3 红线**） |
+| 9 | `is_expired` | A | 派生（基于 `persona_schema_version` 与当前版本对比） | bool；版本升级后旧结果标过期（UI 提示"旧版本测定，是否重测"） |
+
+#### 4.16.3 接入流程（数据双向）
+
+```
+memory.game_event[] + memory.idip_milestone[] + memory.chat (部分)
+                  │
+                  ▼
+        [ 公司既有人格测定平台 ]（外部，跨边界）
+                  │
+                  ▼
+memory.game_persona_assessment{} (stored 结果)
+                  │
+                  ▼
+画像页模块 10 / 11 UI 展示（B 类消费侧 LLM 生成"为什么像 TA"文案）
+```
+
+#### 4.16.4 测定触发时机
+
+| 触发 | 策略 |
+|---|---|
+| 用户主动点"测定我的游戏人格" | 立即触发（前提：`evidence_strength ≥ 3`） |
+| 数据量首次达标 | Memory Center 推荐"画像可以测定了"（不强制） |
+| 重大游戏版本更新后 | 标 `is_expired = true`，UI 推荐重测 |
+| 用户反馈 `not_like_me` 后 | UI 提示"是否重测，下次会避开 X 人格" |
+
+#### 4.16.5 失败处理
+
+1. 数据量不足（< 红线）→ UI 显示"测定中（继续陪你玩更多游戏后再测）"，**不强行给结果**。
+2. 公司平台调用失败 → 重试 ≤3 次 / 自动降级显示"测定服务繁忙"；**不**用 LLM 编造测定结果。
+3. 用户反馈 `not_like_me` 率 > 30% → Engineering 告警 + 数据上报；不达标 Beta 下架。
+
+---
+
+### 4.17 关系成长派生视图 relationship_stats（v2.6 — 画像模块 12）
+
+> **范围澄清**：模块 12"关系成长系统"是**纯派生计数**，不是新原子数据。memory 只需提供派生视图 API，消费方查询时实时算（或缓存）。
+
+#### 4.17.1 PM 立场
+
+1. **A 类（对消费方）**：消费方 query memory 视图 API 直接拿；**实现是派生**（不持久化原子存储）。
+2. **PM 边界**（沿用用户清单）：纯纪念性，**不做强压力任务**；不出现"未完成任务 / 必须达成 X 才能解锁"压力 UI。
+3. 关系等级的计算公式由 Engineering 决（PM 不锁数字），但 PM 守住"加权指标都来自数据层 + 不掺非数据指标"原则。
+
+#### 4.17.2 期望字段（派生视图，全部 A 类）
+
+| 字段 | 类型 | A/B | 派生源 |
+|---|---|---|---|
+| `companion_days` | int | A | first_install_at → now（按日历日） |
+| `co_game_session_count` | int | A | count(game_event.session) |
+| `diary_count` | int | A | count(episode where highlight_score ≥ diary_threshold) |
+| `highlight_count` | int | A | count(highlight_event WHERE deleted_at IS NULL) |
+| `persona_assessment_count` | int | A | count(game_persona_assessment) |
+| `relationship_level` | int | A | 上述指标加权派生（公式 Engineering 决） |
+| `milestone_unlocked[]` | string[] | A | 派生：陪伴 7 / 30 / 100 / 365 天；首条高光；首次测定；首条日记 等等 |
+
+#### 4.17.3 派生触发 / 性能
+
+1. 实时算 vs 缓存：PM 不锁；Engineering 决（建议每日 0:00 全量重算 + 关键事件后增量更新）。
+2. relationship_level 公式建议**指数衰减**（首 30 天涨快，后续递减），避免老用户卡级。
+3. milestone_unlocked 触发时通知 Memory Center 显示纪念卡片（不强制弹窗）。
+
+---
+
+### 4.18 B 类消费侧动态生成内容清单（v2.6 — 不进 memory schema）
+
+> 此节列出**所有不进 memory schema 但需要 memory 前置数据**的消费侧生成内容。Engineering / Design 接手时按本表实现各消费侧服务，**不要把这些写回 memory**。
+
+#### 4.18.1 B 类生成内容总表
+
+| # | 内容 | 触发时机 | 前置数据（从 memory 拿什么） | 实现责任方 | 生成约束 |
+|---|---|---|---|---|---|
+| 1 | **日记正文** | 用户查看 / 定时 | `episode` (highlight_score) + `atomic_facts` (quote_eligible) + `event_emotion_tag` + `game_event` + `idip_milestone` + 桌宠 IP | 日记生成器 LLM agent | 受 `user_preferences.diary_style` 约束；引用原话必须 quote_eligible=true |
+| 2 | **一句话画像卡片 / 总览页标语** | 画像页加载 | `profile.summary` + `relationship_stats` + 桌宠 IP | UI Composer（LLM 或模板） | ≤30 字 |
+| 3 | **高光记忆"宠物视角观察" `pet_observation`** | 高光页加载 / 分享时 | `highlight_event.*`（含 evidence_ids 反查）+ 桌宠 IP | 消费侧 LLM | 不写回 memory；不同 IP 输出不同；每次按 IP 重新生成 |
+| 4 | **桌宠实时对话回复** | 实时交互 | memory 全套（profile / current_context / episode / atomic_facts / emotion / persona_label / highlight_event ）+ 桌宠 IP | 桌宠 agent LLM | 受 PRIVACY_BOUNDARY 全部硬约束 + user_preferences 约束 |
+| 5 | **高光分享卡片图文** | 用户分享 | `highlight_event` (privacy_level = shareable) + 分享模板 + 桌宠 IP | 分享服务 | privacy_level = private 的不可分享 |
+| 6 | **人格测定结果页解释文案**（"为什么像 TA"） | 测定完成 / 查看 | `game_persona_assessment.similarity_breakdown[]` + 反查 `evidence_ids` → `game_event` / `idip_milestone` + 桌宠 IP | UI Composer | 必须基于 evidence_ids 实证；禁止 LLM 编造证据 |
+| 7 | **关系等级 / 里程碑卡片文案** | 升级时 / 查看时 | `relationship_stats.milestone_unlocked[]` + 桌宠 IP | UI Composer | 纪念语气，非任务压力 |
+| 8 | **profile.summary 重写**（用户点"重新总结一下我"） | 用户点击按钮 / 周期性 | profile 全字段 + 最近 episode + highlight_event | LLM agent | **例外**：写回 memory.profile.summary（A 常驻 + B 触发更新） |
+
+#### 4.18.2 PM 红线（消费侧 B 类生成）
+
+| # | 红线 | 理由 |
+|---|---|---|
+| 1 | **B 类生成默认不写回 memory**（例外见 #8） | 受 IP / 场景影响，写回失效 |
+| 2 | **桌宠 IP 语气内容只走 B 类** | pet_observation / 对话 / 日记正文 / 分享文案 / 卡片文案 全部按 IP 实时生成 |
+| 3 | **必须基于 memory 实证，禁止 LLM 编造** | 引用 highlight_event 时必须用 evidence_ids 回溯实证；人格"为什么像"必须基于 similarity_breakdown.evidence_ids；日记记录必须基于 atomic_facts (quote_eligible) |
+| 4 | **B 类生成失败不静默兜底** | LLM 推理失败 → UI 显示"内容生成中"或"暂时不可用"；不允许"假装生成成功" |
+
+---
 
 ## 5. 与既有 P0 边界关系审查
 
@@ -1781,6 +2179,213 @@ v2.5 补充说明：
 5. 短期缓存 ≤ 1h（`ttl_until`）；长期记忆仅保留聚合摘要（"用户最近常用 Notes / Spotify"）。
 6. `ui_indicator_shown_per_app` 是合规检查项：启用 OSA 桥接时桌宠 UI 必须显示对应可见提示。
 7. 与 §11.5 MCP / §11.10 audio A1 / §11.12 OS API 互补；分工见 §4.12.5。
+
+---
+
+### 11.15 高光事件 highlight_event（v2.6 新增，对应 §4.13；A 类全字段）
+
+```json
+{
+  "data_source": "highlight_event",
+  "player_id": "player_a1c93f01",
+  "highlight_id": "hl_2026042100001",
+  "title": "首次单杀王者打野",
+  "time": "2026-04-20T22:15:33Z",
+  "scene": "王者荣耀 - 河道遭遇战",
+  "event_summary": "在野区被对方打野针对 3 次后，第 4 次反蹲成功完成单杀；用户语音：\"终于把这个铠抓住了！\"",
+  "category": "achievement",
+  "tags": ["反蹲", "单杀", "首次"],
+  "source": "idip_milestone",
+  "privacy_level": "shareable",
+  "pinned": true,
+  "evidence_ids": [
+    "game_event_2026042100872",
+    "idip_milestone_2026042100015",
+    "atomic_fact_2026042100123"
+  ],
+  "meta": {
+    "confidence": 0.95,
+    "source_category": "game_event",
+    "first_seen_at": "2026-04-20T22:15:33Z",
+    "last_confirmed_at": "2026-04-21T09:00:00Z",
+    "user_corrected": false,
+    "decay_score": 1.0
+  }
+}
+```
+
+v2.6 说明：
+1. `highlight_id` 主键，全局唯一；多消费方（日记 / 画像 / 分享）以 id 引用同一条 highlight_event。
+2. `title` / `event_summary` 由 memory 派生层 LLM 一次性合成；用户编辑后 `meta.user_corrected = true`，LLM 不再覆盖。
+3. `category` 枚举：`achievement` / `growth` / `emotion` / `social` / `collection` / `relationship`（对应画像模块 8 分类）。
+4. `source` 枚举：`idip_milestone` / `episode_highlight_score` / `user_starred` / `persona_result`。
+5. `privacy_level`：`private` 不进入分享卡片生成；`shareable` 可走 §4.18 #5 高光分享卡片。
+6. `evidence_ids[]` 指向底层 episode / game_event / idip_milestone / atomic_facts ID；分享 / 复盘时反查实证。
+7. **不含字段**：`game`（桌宠绑定单游戏前提）/ `pet_observation`（B 类，§4.18 #3 消费侧每次按 IP 生成）。
+8. `event_summary` 引用 atomic_facts 时必须使用 `quote_eligible = true` 子集（PII 检测）。
+
+---
+
+### 11.16 用户偏好 user_preferences（v2.6 新增，对应 §4.14；A 类全字段，5 子对象）
+
+```json
+{
+  "data_source": "user_preferences",
+  "player_id": "player_a1c93f01",
+  "schema_version": "0.1.0",
+  "last_updated_at": "2026-05-12T14:30:00Z",
+  "companion_style": {
+    "disturb_intensity": "low",
+    "post_game_summary_freq": "streak",
+    "streak_loss_strategy": "comfort_first",
+    "streak_win_strategy": "celebrate",
+    "idle_interact_freq": "mid",
+    "activity_remind_freq": "low",
+    "reflection_granularity": "brief"
+  },
+  "emotion_response": {
+    "streak_loss_react": "gentle_encourage",
+    "team_mate_impact_react": "validate_user_feel",
+    "want_reflection_on_loss": false,
+    "accept_jokes": true,
+    "want_quiet_companion": false,
+    "love_encouragement": true
+  },
+  "content_type": {
+    "enabled": ["light_reflection", "emotion_companion", "achievement_celebrate", "diary"],
+    "priority": ["emotion_companion", "achievement_celebrate", "light_reflection", "diary"],
+    "feedback_signal": [
+      {"type": "tactical_advice", "action": "dislike", "at": "2026-05-10T20:01:00Z"},
+      {"type": "tactical_advice", "action": "dislike", "at": "2026-05-11T21:33:00Z"}
+    ]
+  },
+  "diary_style": {
+    "frequency": "event_driven",
+    "length": "medium",
+    "focus": "emotion",
+    "perspective": "pet_third_person",
+    "quote_user_original": true,
+    "record_failure": false,
+    "shareable_version": true
+  },
+  "privacy_grants": {
+    "behavior_data": {"granted": true, "granted_at": "2026-04-01T10:00:00Z", "revoked_at": null},
+    "chat_content": {"granted": true, "granted_at": "2026-04-01T10:00:00Z", "revoked_at": null},
+    "diary": {"granted": true, "granted_at": "2026-04-01T10:00:00Z", "revoked_at": null},
+    "highlight": {"granted": true, "granted_at": "2026-04-01T10:00:00Z", "revoked_at": null},
+    "persona_assessment": {"granted": false, "granted_at": null, "revoked_at": null},
+    "cloud_sync": {"granted": false, "granted_at": null, "revoked_at": null}
+  }
+}
+```
+
+v2.6 说明：
+1. **全 A 类用户输入**；除 `content_type.feedback_signal[]` 是系统自动写（用户对内容点赞 / 点踩反馈），其余字段全部用户主动设置。
+2. **`privacy_grants.*` 默认全 false**；用户在 Memory Center 隐私页主动勾选才开启；撤回时 `revoked_at = now`，不删历史数据（单独删需走专门删除路径）。
+3. `companion_style` / `emotion_response` / `diary_style` 任何字段 **LLM 严格禁止自动猜测 / 写入**（PM 红线，详见 §4.14.1 #2）。
+4. `content_type.enabled` 是用户显式开关；`feedback_signal` 仅用于权重学习推荐 + 反馈反哺，**不直接覆盖 enabled**（PM 红线，详见 §4.14.2.3）。
+5. `last_updated_at` 是 user_preferences 任一字段最后更新时间；用于 Memory Center 显示"上次更新于 X"。
+6. **与 PRIVACY_BOUNDARY 关系**：user_preferences 是项目级硬约束内的**二级开关**，**不能放宽**硬约束（详见 §4.14.3）。
+
+---
+
+### 11.17 游戏人格测定 game_persona_assessment（v2.6 新增，对应 §4.16；P1 候选 — 待 4 条前置）
+
+```json
+{
+  "data_source": "game_persona_assessment",
+  "player_id": "player_a1c93f01",
+  "assessment_id": "persona_2026051200001",
+  "persona_label": "团战指挥型",
+  "persona_schema_version": "honor_of_kings_persona_v2.3",
+  "similarity_breakdown": [
+    {
+      "candidate": "团战指挥型",
+      "score": 0.87,
+      "evidence_ids": [
+        "game_event_2026050800123",
+        "idip_milestone_2026050900045",
+        "game_event_2026051001288",
+        "idip_milestone_2026051100210"
+      ]
+    },
+    {
+      "candidate": "野区入侵型",
+      "score": 0.42,
+      "evidence_ids": ["game_event_2026050900076"]
+    },
+    {
+      "candidate": "保守发育型",
+      "score": 0.18,
+      "evidence_ids": []
+    }
+  ],
+  "assessment_at": "2026-05-12T15:00:00Z",
+  "data_window": {
+    "from": "2026-04-12T00:00:00Z",
+    "to": "2026-05-12T00:00:00Z",
+    "session_count": 62
+  },
+  "user_feedback": null,
+  "evidence_strength": 4,
+  "is_expired": false,
+  "meta": {
+    "confidence": 0.87,
+    "source_category": "game_event",
+    "first_seen_at": "2026-05-12T15:00:00Z",
+    "last_confirmed_at": "2026-05-12T15:00:00Z",
+    "user_corrected": false,
+    "decay_score": 1.0
+  }
+}
+```
+
+v2.6 说明：
+1. **不含 `game_id` 字段**（桌宠绑定单游戏前提，§4.7 / §4.9 已锁定）。
+2. `persona_label` / `similarity_breakdown[]` 由**公司既有外部人格测定平台**计算后写回 memory；memory 是结果存储方，不是计算方。
+3. `evidence_ids[]` 指向 memory 内的 game_event / idip_milestone / atomic_facts ID；**`evidence_strength ≥ 3` 是 PM 红线**（详见 §4.16.1 #4），不达标不展示结果。
+4. `persona_schema_version` 用于 meta 漂移检测；当公司平台升级分类体系时旧结果 `is_expired = true`，Memory Center UI 提示用户重测。
+5. `user_feedback` 枚举：`accepted` / `rejected` / `not_like_me` / null（未反馈）；反哺下次测定时降低对应人格权重。
+6. **PM 红线**：persona 不作为陪伴策略的直接驱动信号；不反向污染采集层；仅供画像页展示 / 分享 / 解释。
+
+---
+
+### 11.18 关系成长派生视图 relationship_stats（v2.6 新增，对应 §4.17；A 类派生视图）
+
+```json
+{
+  "data_source": "relationship_stats",
+  "player_id": "player_a1c93f01",
+  "computed_at": "2026-05-12T16:00:00Z",
+  "companion_days": 41,
+  "co_game_session_count": 62,
+  "diary_count": 18,
+  "highlight_count": 7,
+  "persona_assessment_count": 1,
+  "relationship_level": 12,
+  "milestone_unlocked": [
+    "first_install",
+    "companion_7d",
+    "first_highlight",
+    "companion_30d",
+    "first_persona_assessment"
+  ],
+  "milestone_pending": [
+    "companion_100d",
+    "highlight_count_10",
+    "diary_count_30"
+  ]
+}
+```
+
+v2.6 说明：
+1. **派生视图，不持久化原子存储**；memory 提供 query API，每次实时算（或缓存）。
+2. `companion_days` = `first_install_at` → `now`（按日历日计算）。
+3. `diary_count` 派生 = count(episode WHERE highlight_score ≥ diary_threshold)（与 §4.18 #1 日记生成器口径一致）。
+4. `highlight_count` 排除 deleted_at NOT NULL 的软删除条目。
+5. `relationship_level` 计算公式由 Engineering 决，建议**指数衰减**（首 30 天涨快，后续递减）；PM 不锁数字。
+6. `milestone_unlocked[]` / `milestone_pending[]` 用于 Memory Center 纪念卡片展示；**纯纪念，非任务压力**（沿用 §4.17.1 #2 PM 边界）。
+7. `computed_at` 是本次派生计算时间戳；缓存策略由 Engineering 决（建议每日 0:00 全量 + 关键事件后增量）。
 
 ---
 
