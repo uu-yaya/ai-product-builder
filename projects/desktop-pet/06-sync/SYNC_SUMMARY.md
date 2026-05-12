@@ -2,14 +2,20 @@
 
 > Main Thread 维护。其他线程启动时优先读取本文件，而不是回看所有 `group/` 与 `dm/` 历史。
 
-Last Updated: 2026-05-11
+Last Updated: 2026-05-12
 
 ## 1. Current Project State
 
 - 阶段：Discovery
-- 主线程持有人：uu via Codex
-- 当前焦点：收敛 desktop-pet MVP 路线、AI 必要性评估、内嵌游戏伴侣范围、记忆系统默认边界与低打扰机制
-- 当前状态：项目已完成基础上下文初始化。已有输入覆盖：陪伴类桌宠 / AI companion 市场功能调研、产品证据矩阵、最终功能点总结、性能调研、素材生成、PC 端上下文记忆框架、记忆系统 PM 需求澄清、Steam 桌宠流行游戏调研、用户实测补充、免费 / 开源桌宠扩展、游戏内嵌伴侣 / Steam 已发行游戏内伴侣对标。用户已把研究主场景澄清为“现有游戏内嵌桌宠 / 伴侣 / mascot / SDK 能力”，独立桌面桌宠应用降级为次要参考。`04-research/` 已按研究主题重组，并建立跨角色 `branches/<branch-slug>/` 支路规则。T-015 至 T-020 已收口为 Done。北极星指标、MVP 路线、AI 是否必要、SDK vs 单游戏内嵌能力边界、低打扰机制、商业模式、内部能力栈边界、记忆系统默认开关与云端边界仍需 PM Strategy Thread + 用户澄清。
+- 主线程持有人：uu via Claude (claude.ai/code) + 历史 Codex 阶段
+- 当前焦点：memory-dataset 分支 PM 立场升项目级（P0 6 条已 Accepted）；启动 Engineering Build Thread 接 schema；启动 Design Prototype Thread 接 Memory Center；PM 横向扩展（voice-interaction / companion-behavior 分支）；项目级 PRIVACY_BOUNDARY 修订（Deferred 等 voice-interaction 启动后合并审议）
+- 当前状态：
+  1. **memory-dataset 分支已完成 v2.4 + AI Eval v3**（详见 `01-pm/branches/memory-dataset/REQUIREMENT_CLARIFICATION_memory-dataset.md` v2.4 + `01-pm/branches/memory-dataset/AI_FEATURE_EVALUATION_memory-dataset.md` v3）；用户 2026-05-11 / 5-12 多轮反馈已全部收口；分支本质从"被动 vs 主动"演化为"脑 vs 嘴和耳"（数据感知层 vs I/O 通道）。
+  2. **Radar 已完成两批共 7 项调研**（5/11 三项：行为信号库 / 中国 app MCP / 跨数据源 mock；5/12 四项：音频派生库 / OS Now Playing API / 本地 VLM / 浏览器 tab 检测）；PM 答复 14 个 Radar 问题已就位。
+  3. **P0 决策已升项目级 6 条**（VLM 三档混合 / 双轨分发 / MiniCPM-V 法务核验 / aubio IPC 隔离 / MAS MediaRemote 风险 / settings.json 联网放行补登）。
+  4. **PRIVACY_BOUNDARY 修订提案 Deferred** — 等 voice-interaction 分支启动后合并审议（届时 STT / 麦克风边界变更需走同一份 amendment）。
+  5. **未升项目级（仍以 PM 分支立场为准）的 9 条**：键盘 L0-L3 分级 / VLM 单 app 实例开关 / MCP 默认关 + 自选 / 多游戏 profile 不共享 / current_context 5min 滑窗 / 键盘研发自由度 / 音频 A0-A3 分级（warmup 5s 含在 VLM 三档决策内的部分） / Playwright 受限放行 / PM 字段命名 review 边界。
+  6. **下一步阻塞**：T-001 MVP 整体澄清待 PM 横向扩展（仅 memory 一支不够）；T-011 Engineering / T-012 Design 待启动；19 条 §3 OQ 中至少 5 条已被 PM 分支立场解决但未升项目级（保留 Open 状态等用户授权统一升级）。
 
 ## 2. Latest Decisions
 
@@ -35,6 +41,14 @@ Last Updated: 2026-05-11
 | 2026-05-11 | Scope 决策：desktop-pet 主研究场景收紧为“现有游戏内嵌桌宠 / 伴侣 / mascot / SDK 能力”，独立桌面桌宠应用降级为次要参考 | `decisions/DECISION_LOG.md` + `04-research/steam-and-embedded-companion/TREND_RESEARCH_PART_in-game-embedded-companion-references.md` |
 | 2026-05-11 | Steam 内嵌伴侣对标完成：成功案例显示伴侣可承担装饰 / 任务 / UI / 旁白 / 工具五种职责；AI 伴侣上限可参考 inZOI / PUBG Ally，非 AI 底线可参考 Cult of the Lamb / FF14 Minions / Stardew Pet | `04-research/steam-and-embedded-companion/TREND_RESEARCH_PART_steam-games-with-embedded-companion.md` + `04-research/steam-and-embedded-companion/TREND_RESEARCH_PART_steam-games-with-embedded-companion-2.md` |
 | 2026-05-11 | 项目目录规则更新：`04-research/` 按研究主题归档；未来同一 project 的新问题支路统一使用各角色目录下的 `branches/<branch-slug>/`，同一支路跨 PM / Design / Engineering / Research 保持同名 | `PROJECT_RULES.md` + `04-research/README.md` |
+| 2026-05-11 | PM 启动 memory-dataset 分支：从 chat / 行为 / MCP / 游戏 / VLM / current_context / Playwright / audio A0 / profile_meta 等 11 类数据收敛桌宠对记忆系统的需求 | `01-pm/branches/memory-dataset/REQUIREMENT_CLARIFICATION_memory-dataset.md` v1 → v2.4 |
+| 2026-05-12 | Radar 完成两批共 7 项调研（5/11 三项：行为信号库 / 中国 app MCP / 跨数据源 mock；5/12 四项：音频派生库 / OS Now Playing API / 本地 VLM / 浏览器 tab 检测） | `06-sync/group/2026-05-11T17-52-51_radar_*.md` + `06-sync/group/2026-05-12T09-43-10_radar_*.md` + `04-research/branches/memory-dataset/*.{md,json}` |
+| 2026-05-12 | PM 答复两批 Radar 共 14 个问题；MCP 接入清单锁 MVP 首批 3 个（dida / feishu / steam）+ P1 后半段 2 个（office / dingtalk）；番茄类 / 腾讯视频 / QQ 音乐等列入"不接入清单" | `06-sync/group/2026-05-11T18-00-35_pm_*.md` + `06-sync/group/2026-05-12T09-52-06_pm_*.md` |
+| 2026-05-12 | **VLM §3.6 重写为三档混合架构**（CNN 初筛 + 2-4B VLM 兜底 + 云端最终兜底）；本地推理可用率目标从 70% 升 85%；MVP 首选 MiniCPM-V 4.5 + 备选 Qwen2.5-VL-7B | `decisions/DECISION_LOG.md` + `01-pm/branches/memory-dataset/AI_FEATURE_EVALUATION_memory-dataset.md` v3 §3.6 |
+| 2026-05-12 | **双轨分发立场**：MAS 版砍 macOS A1 MediaRemote、仅保留 MCP；Developer ID 自分发版完整功能 | `decisions/DECISION_LOG.md` |
+| 2026-05-12 | **MiniCPM-V 4.5 商用条款必须法务核验**（不过则 MVP 主线切 Qwen2.5-VL-7B Apache 2.0）；**aubio GPL-3.0 必须 IPC 子进程隔离**（避免传染整个二进制） | `decisions/DECISION_LOG.md` |
+| 2026-05-12 | `.claude/settings.json` 联网放行 1 + 28 域名白名单补登（之前已落地于 ai-weekly-radar-2026，本项目 DECISION_LOG 现补记） | `.claude/settings.json` + `decisions/DECISION_LOG.md` |
+| 2026-05-12 | PRIVACY_BOUNDARY 修订提案 **Deferred** — 等 voice-interaction 分支启动后合并审议（届时 STT / 麦克风边界变更将走同一份 amendment） | `01-pm/branches/memory-dataset/PRIVACY_BOUNDARY_AMENDMENT_PROPOSAL_audio-and-vlm-extension.md`（Status: Deferred） |
 
 ## 3. Open Questions
 
@@ -64,9 +78,10 @@ Last Updated: 2026-05-11
 
 | Task ID | Owner | Task | Status |
 |---|---|---|---|
-| T-001 | PM Strategy Thread | 基于 PROJECT_CONTEXT 输出 desktop-pet MVP 的需求澄清 + AI 必要性评估 | Backlog |
-| T-011 | Engineering Build Thread | 设计跨平台 `Context Capture Adapter` 技术方案 | Backlog |
-| T-012 | Design Prototype Thread | 设计 Memory Center 信息架构 | Backlog |
+| T-001 | PM Strategy Thread | 基于 PROJECT_CONTEXT 输出 desktop-pet MVP 的需求澄清 + AI 必要性评估 | **In Progress**（memory 分支已 v2.4，MVP 整体澄清待 PM 横向扩展） |
+| T-011 | Engineering Build Thread | 设计跨平台 `Context Capture Adapter` 技术方案（v2 含 audio + 多 OS 路径 + VLM 三档混合 + Tab Detection Adapter + A1 白名单） | Backlog（解锁 — P0 决策已升级，可启动） |
+| T-012 | Design Prototype Thread | 设计 Memory Center / 桌宠设置面板信息架构（含 VLM 状态指示 / MCP 启停面板 / 键盘 L1 / 音频 A0 开关 / Onboarding 三选一 / 浏览器扩展引导） | Backlog（解锁 — 需求已就位，可启动） |
+| T-028 | PM Strategy Thread | PM memory-dataset 分支需求澄清 + AI 必要性评估 + PRIVACY_BOUNDARY 修订提案 | **In Progress**（v2.4 + v3 已落盘，PRIVACY_BOUNDARY 提案 Deferred 等 voice-interaction 合并审议） |
 
 ## 5. Blockers
 
@@ -78,9 +93,9 @@ Last Updated: 2026-05-11
 
 | Next Action | Owner Thread | Input | Expected Output |
 |---|---|---|---|
-| 接手 T-001，结合项目上下文、功能总结、Steam 桌宠调研、内嵌游戏伴侣对标与记忆系统 PM 文档，收敛 MVP 路线、AI 必要性、低打扰机制、SDK vs 单游戏内嵌边界、内部能力栈边界 | PM Strategy Thread | `00-context/PROJECT_CONTEXT.md` + `04-research/companion-product-market/FEATURE_SUMMARY_ai-non-ai-desktop-pet.md` + `04-research/steam-and-embedded-companion/TREND_RESEARCH_steam-popular-desktop-pet-games.md` + `04-research/steam-and-embedded-companion/TREND_RESEARCH_PART_in-game-embedded-companion-references.md` + `04-research/steam-and-embedded-companion/TREND_RESEARCH_PART_steam-games-with-embedded-companion.md` + `04-research/steam-and-embedded-companion/TREND_RESEARCH_PART_steam-games-with-embedded-companion-2.md` + `01-pm/REQUIREMENT_CLARIFICATION_memory-system.md` + `01-pm/PRIVACY_BOUNDARY_memory-system.md` | `01-pm/REQUIREMENT_CLARIFICATION_desktop-pet-mvp.md` + `01-pm/AI_FEATURE_EVALUATION_desktop-pet-mvp.md` |
-| 接手 T-012，设计 Memory Center 的信息架构和用户控制路径 | Design Prototype Thread | `01-pm/REQUIREMENT_CLARIFICATION_memory-system.md` + `01-pm/PRIVACY_BOUNDARY_memory-system.md` | `02-design/DESIGN_BRIEF_memory-center.md` |
-| 接手 T-011，设计 `Context Capture Adapter` 与 game event ingest，避免业务直接绑定 AX / UIA / Recall，并评估 Inworld / Convai / NVIDIA ACE 作为 backend 候选边界 | Engineering Build Thread | `04-research/context-memory-frameworks/TREND_RESEARCH_desktop-context-memory-frameworks.md` 第 8-10 节 + PM 记忆系统文档 + 内嵌伴侣对标 PART | `03-engineering/TECHNICAL_DESIGN_context-capture-adapter.md` |
+| **Engineering Build Thread 接续 T-011**：基于 memory-dataset 分支 v2.4 + AI Eval v3 + Radar 两批 7 项调研，设计 Context Capture Adapter v2（macOS 14.2+ Tap / < 14.2 BlackHole / Win WASAPI；aubio IPC 隔离）+ VLM 混合架构（CNN 初筛 + MiniCPM-V 4.5 兜底 + 云端可选）+ Tab Detection Adapter（扩展 + Native Messaging + AX/UIA 兜底）+ A1 SourceAppUserModelId 白名单（QQ 音乐 / 网易云 / Apple Music / Spotify / Bilibili / foobar2000）+ 回写 OQ #8 SLA 起点（实时 P99 ≤200ms、批量 ≤2s） | Engineering Build Thread | `01-pm/branches/memory-dataset/REQUIREMENT_CLARIFICATION_memory-dataset.md` v2.4 + `01-pm/branches/memory-dataset/AI_FEATURE_EVALUATION_memory-dataset.md` v3 + `04-research/branches/memory-dataset/*.{md,json}`（7 份 Radar 产物） | `03-engineering/branches/memory-dataset/TECHNICAL_DESIGN_*.md` |
+| **Design Prototype Thread 接续 T-012**：基于 memory-dataset 分支 v2.4，设计 Memory Center + 桌宠设置面板信息架构（含 VLM 状态指示 / VLM 单 app 实例开关 / MCP 自选启停面板 / 键盘 L1 快捷键查看与关闭 / 音频 A0 节拍监听开关 / Onboarding VLM 硬件检测三选一 "①仅文本对话 / ②本地轻量识别 / ③启用云端兜底" / 浏览器扩展安装引导） | Design Prototype Thread | `01-pm/branches/memory-dataset/REQUIREMENT_CLARIFICATION_memory-dataset.md` v2.4 §13.4 + `01-pm/REQUIREMENT_CLARIFICATION_memory-system.md` + `01-pm/PRIVACY_BOUNDARY_memory-system.md` | `02-design/branches/memory-dataset/DESIGN_BRIEF_memory-center.md` |
+| **PM Strategy Thread 横向扩展 T-001**：从 memory 单分支扩展到 MVP 整体澄清；启动 voice-interaction 分支处理 TTS / STT / 麦克风 / 音色 / 双向对话；考虑 companion-behavior 分支处理桌宠如何把数据转成对话 / 动作 / 舞蹈编排；最终输出 desktop-pet MVP 整体需求澄清 + AI 必要性评估 | PM Strategy Thread | `00-context/PROJECT_CONTEXT.md` + memory-dataset 分支已有产物 + 用户产品愿景（陪看 / 舞动 + 后续语音功能） | `01-pm/REQUIREMENT_CLARIFICATION_desktop-pet-mvp.md` + `01-pm/AI_FEATURE_EVALUATION_desktop-pet-mvp.md` + `01-pm/branches/voice-interaction/` |
 
 ## 7. Links to Important Messages
 
@@ -106,6 +121,11 @@ Last Updated: 2026-05-11
 | Steam embedded companion research PART 2 completed | `06-sync/group/2026-05-09T_radar_steam-games-with-embedded-companion-2.md` | 2026-05-09 |
 | Main closeout for embedded companion research batch | `06-sync/group/2026-05-11T14-32-41_main_closeout-embedded-companion-research.md` | 2026-05-11 |
 | Main research folder reorganization | `06-sync/group/2026-05-11T14-44-19_main_research-folder-reorganization.md` | 2026-05-11 |
+| Radar 第一批三项调研完成（行为信号库 / 中国 app MCP / 跨数据源 mock） | `06-sync/group/2026-05-11T17-52-51_radar_memory-dataset-three-research-completed.md` | 2026-05-11 |
+| PM 答复 Radar 第一批 4 个问题（MCP 锁 3+2 / 番茄移除 / mock 5 处扩展 / 命名 review 边界） | `06-sync/group/2026-05-11T18-00-35_pm_memory-dataset-radar-ack.md` | 2026-05-11 |
+| Radar 第二批四项调研完成（音频派生库 / OS Now Playing API / 本地 VLM / 浏览器 tab 检测） | `06-sync/group/2026-05-12T09-43-10_radar_memory-dataset-four-research-completed.md` | 2026-05-12 |
+| PM 答复 Radar 第二批 10 个问题（VLM 三档混合 / 双轨分发 / 模型选型法务核验 / Tab 扩展锁定等） | `06-sync/group/2026-05-12T09-52-06_pm_memory-dataset-radar-batch2-ack.md` | 2026-05-12 |
+| PRIVACY_BOUNDARY 修订提案（Status: Deferred — 等 voice-interaction 分支启动后合并审议） | `01-pm/branches/memory-dataset/PRIVACY_BOUNDARY_AMENDMENT_PROPOSAL_audio-and-vlm-extension.md` | 2026-05-11 / Deferred 2026-05-12 |
 
 ## 维护规则
 

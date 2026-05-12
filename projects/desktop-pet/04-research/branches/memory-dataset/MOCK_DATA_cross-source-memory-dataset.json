@@ -1,0 +1,894 @@
+{
+  "mock_metadata": {
+    "schema_version": "mock-v1",
+    "reference_spec": "01-pm/branches/memory-dataset/REQUIREMENT_CLARIFICATION_memory-dataset.md §11",
+    "player_id": "player_a1c93f01",
+    "game_id": "<game_codename>",
+    "time_range": ["2026-04-21T09:00:00Z", "2026-04-21T10:00:00Z"],
+    "window_seconds_default": 300,
+    "vlm_whitelist": ["<game_codename>"],
+    "mcp_user_enabled_sources": ["qq_music", "netease_music", "wechat_calendar"],
+    "notes": [
+      "All player_id uses player_<8-hex>; game_id uses <game_codename> placeholder per PM rule.",
+      "No msdk_* IDs are used anywhere in this mock.",
+      "VLM section only carries semantic_tags + user_visible_summary; no image bytes / paths.",
+      "Field names follow §11 semantic naming; final SDK schema TBD by Engineering Build Thread."
+    ]
+  },
+
+  "chat": [
+    {
+      "data_source": "chat",
+      "segment_index": 0,
+      "segment_topic_summary": "讨论刺客隐刃流天赋分配与PVP策略优化",
+      "segment_messages": [
+        {
+          "player_id": "player_a1c93f01",
+          "message_uuid": "msg_000101",
+          "session_id": "sess_b41101",
+          "message_type": "user",
+          "content": "上了上了，晨会摸鱼时间到。刺客那个隐刃流好像又被砍了，新天赋树我加点是不是得改？",
+          "timestamp": "2026-04-21T09:08:00Z"
+        },
+        {
+          "player_id": "player_a1c93f01",
+          "message_uuid": "msg_000102",
+          "session_id": "sess_b41101",
+          "message_type": "assistant",
+          "content": "会议中要低调哦~ 我看了下数据，本次更新暗影流系数其实是上调的，PVE建议3-2-1分配，PVP保留破隐反打那一档，更稳。",
+          "timestamp": "2026-04-21T09:10:00Z"
+        }
+      ],
+      "atomic_facts": [
+        {"fact": "玩家表示刺客隐刃流似乎被削弱", "at": "2026-04-21T09:08:00Z", "source": "chat", "confidence_rule": 0.6},
+        {"fact": "玩家询问新天赋树加点是否需要调整", "at": "2026-04-21T09:08:00Z", "source": "chat", "confidence_rule": 0.6},
+        {"fact": "助手建议 PVE 3-2-1 天赋分配", "at": "2026-04-21T09:10:00Z", "source": "chat", "confidence_rule": 0.9},
+        {"fact": "助手建议 PVP 保留破隐反打一档", "at": "2026-04-21T09:10:00Z", "source": "chat", "confidence_rule": 0.9}
+      ],
+      "episode": {
+        "title": "玩家询问刺客天赋树调整",
+        "content": "玩家在晨会时间询问刺客的隐刃流是否需要重新加点；助手回应暗影流系数上调，建议 PVE 3-2-1 / PVP 保留破隐反打。",
+        "participants": ["player_a1c93f01"],
+        "time_range": ["2026-04-21T09:08:00Z", "2026-04-21T09:10:00Z"]
+      },
+      "emotion_signal": {
+        "primary": "curious",
+        "secondary": ["neutral"],
+        "confidence": 0.55
+      }
+    },
+    {
+      "data_source": "chat",
+      "segment_index": 1,
+      "segment_topic_summary": "桌宠协助处理 IDE 错误弹窗 + 用户主动委托会议提醒",
+      "segment_messages": [
+        {
+          "player_id": "player_a1c93f01",
+          "message_uuid": "msg_000201",
+          "session_id": "sess_b41102",
+          "message_type": "user",
+          "content": "弹窗烦死了 timeout 一直跳，先放着。你 9 点 30 提醒我开会，我先打一局。",
+          "timestamp": "2026-04-21T09:21:30Z"
+        },
+        {
+          "player_id": "player_a1c93f01",
+          "message_uuid": "msg_000202",
+          "session_id": "sess_b41102",
+          "message_type": "assistant",
+          "content": "好，到点我叫你。注意现在距离会议还有 8 分钟，要不要先把代码先存一下再去玩？",
+          "timestamp": "2026-04-21T09:22:00Z"
+        }
+      ],
+      "atomic_facts": [
+        {"fact": "玩家在 IDE 中遇到 timeout 弹窗并决定暂时搁置", "at": "2026-04-21T09:21:30Z", "source": "chat", "confidence_rule": 0.6},
+        {"fact": "玩家主动委托桌宠在 09:30 提醒开会", "at": "2026-04-21T09:21:30Z", "source": "user_confirmed", "confidence_rule": 1.0},
+        {"fact": "玩家计划在会议前打一局游戏", "at": "2026-04-21T09:21:30Z", "source": "chat", "confidence_rule": 0.6}
+      ],
+      "episode": {
+        "title": "玩家委托桌宠在会议前的短暂游戏间隙提醒",
+        "content": "玩家因 IDE timeout 弹窗暂时搁置工作，主动请求桌宠在 09:30 提醒会议；助手确认并提示先保存代码。",
+        "participants": ["player_a1c93f01"],
+        "time_range": ["2026-04-21T09:21:30Z", "2026-04-21T09:22:00Z"]
+      },
+      "emotion_signal": {
+        "primary": "slightly_frustrated",
+        "secondary": ["determined"],
+        "confidence": 0.6
+      }
+    },
+    {
+      "data_source": "chat",
+      "segment_index": 2,
+      "segment_topic_summary": "玩家通关 BOSS 后向桌宠分享胜利",
+      "segment_messages": [
+        {
+          "player_id": "player_a1c93f01",
+          "message_uuid": "msg_000301",
+          "session_id": "sess_b41103",
+          "message_type": "user",
+          "content": "通了！通了！终于把那个 BOSS 干掉了，刚才差点蒸发。",
+          "timestamp": "2026-04-21T09:42:30Z"
+        },
+        {
+          "player_id": "player_a1c93f01",
+          "message_uuid": "msg_000302",
+          "session_id": "sess_b41103",
+          "message_type": "assistant",
+          "content": "看你升到 56 级了，恭喜！刚才那一波重伤翻盘真是稳。要不要顺势冲下一个段位？还有 7 分钟开会。",
+          "timestamp": "2026-04-21T09:43:00Z"
+        },
+        {
+          "player_id": "player_a1c93f01",
+          "message_uuid": "msg_000303",
+          "session_id": "sess_b41103",
+          "message_type": "user",
+          "content": "算了今天先收，开会要紧。你帮我记一下这个 BOSS 我用的是暗影流套路。",
+          "timestamp": "2026-04-21T09:44:00Z"
+        }
+      ],
+      "atomic_facts": [
+        {"fact": "玩家在 09:42 前后击败 BOSS", "at": "2026-04-21T09:42:30Z", "source": "chat", "confidence_rule": 0.7},
+        {"fact": "玩家升到角色等级 56", "at": "2026-04-21T09:43:00Z", "source": "game_event", "confidence_rule": 0.9},
+        {"fact": "玩家在 BOSS 战中曾濒临死亡", "at": "2026-04-21T09:42:30Z", "source": "chat", "confidence_rule": 0.6},
+        {"fact": "玩家选择今天先收手，准备开会", "at": "2026-04-21T09:44:00Z", "source": "user_confirmed", "confidence_rule": 1.0},
+        {"fact": "玩家用暗影流套路通关该 BOSS", "at": "2026-04-21T09:44:00Z", "source": "user_confirmed", "confidence_rule": 1.0}
+      ],
+      "episode": {
+        "title": "玩家通关 BOSS 并主动停手准备开会",
+        "content": "玩家在 BOSS 战中重伤翻盘成功通关并升至 56 级；助手祝贺并提醒会议临近，玩家主动决定停手并要求记录使用暗影流套路。",
+        "participants": ["player_a1c93f01"],
+        "time_range": ["2026-04-21T09:42:30Z", "2026-04-21T09:44:00Z"]
+      },
+      "emotion_signal": {
+        "primary": "excited",
+        "secondary": ["relieved", "satisfied"],
+        "confidence": 0.85
+      }
+    },
+    {
+      "data_source": "chat",
+      "segment_index": 3,
+      "segment_topic_summary": "下班前轻量告别与会议前缓冲",
+      "segment_messages": [
+        {
+          "player_id": "player_a1c93f01",
+          "message_uuid": "msg_000401",
+          "session_id": "sess_b41104",
+          "message_type": "assistant",
+          "content": "距离 10:15 站会还有 17 分钟，要不要先把刚才那段 timeout 弹窗再看一眼？",
+          "timestamp": "2026-04-21T09:58:00Z"
+        },
+        {
+          "player_id": "player_a1c93f01",
+          "message_uuid": "msg_000402",
+          "session_id": "sess_b41104",
+          "message_type": "user",
+          "content": "好嘞我先去开会，回头你提醒我看那个 timeout。",
+          "timestamp": "2026-04-21T09:58:45Z"
+        }
+      ],
+      "atomic_facts": [
+        {"fact": "玩家计划在 10:15 参加站会", "at": "2026-04-21T09:58:00Z", "source": "mcp", "confidence_rule": 0.9},
+        {"fact": "玩家委托桌宠会后跟进 timeout 弹窗", "at": "2026-04-21T09:58:45Z", "source": "user_confirmed", "confidence_rule": 1.0}
+      ],
+      "episode": {
+        "title": "玩家会议前轻量告别并委托后续跟进",
+        "content": "助手在 09:58 提醒站会即将开始；玩家确认并请桌宠在会后跟进 timeout 弹窗。",
+        "participants": ["player_a1c93f01"],
+        "time_range": ["2026-04-21T09:58:00Z", "2026-04-21T09:58:45Z"]
+      },
+      "emotion_signal": {
+        "primary": "calm",
+        "secondary": ["focused"],
+        "confidence": 0.6
+      }
+    }
+  ],
+
+  "profile_evolution": [
+    {
+      "data_source": "profile",
+      "snapshot_at": "2026-04-21T09:10:00Z",
+      "player_id": "player_a1c93f01",
+      "summary": "用户关注游戏更新内容，尤其对刺客职业的天赋树调整表现出兴趣。",
+      "interests": [
+        {"value": "刺客职业", "meta": {"confidence": 0.85, "source_category": "chat", "first_seen_at": "2026-04-21T09:08:00Z", "last_confirmed_at": "2026-04-21T09:10:00Z", "user_corrected": false, "decay_score": 0.95}},
+        {"value": "PVE / PVP 平衡", "meta": {"confidence": 0.7, "source_category": "chat", "first_seen_at": "2026-04-21T09:08:00Z", "last_confirmed_at": "2026-04-21T09:10:00Z", "user_corrected": false, "decay_score": 0.95}}
+      ],
+      "preferences": [
+        {"value": "稳定策略", "meta": {"confidence": 0.65, "source_category": "chat", "first_seen_at": "2026-04-21T09:10:00Z", "last_confirmed_at": "2026-04-21T09:10:00Z", "user_corrected": false, "decay_score": 0.95}}
+      ],
+      "behavior_patterns": [
+        {"value": "晨会时间查询游戏信息", "meta": {"confidence": 0.5, "source_category": "chat", "first_seen_at": "2026-04-21T09:08:00Z", "last_confirmed_at": "2026-04-21T09:08:00Z", "user_corrected": false, "decay_score": 0.8}}
+      ],
+      "key_facts": [
+        {"value": "倾向暗影流套路", "meta": {"confidence": 0.45, "source_category": "llm_inferred", "first_seen_at": "2026-04-21T09:10:00Z", "last_confirmed_at": null, "user_corrected": false, "decay_score": 0.6}}
+      ]
+    },
+    {
+      "data_source": "profile",
+      "snapshot_at": "2026-04-21T09:45:00Z",
+      "player_id": "player_a1c93f01",
+      "summary": "用户活跃于刺客职业玩法，倾向暗影流套路；工作日上午常在会议间隙短时间开局，结束后主动停手；关注 PVE/PVP 平衡。",
+      "interests": [
+        {"value": "刺客职业", "meta": {"confidence": 0.9, "source_category": "chat", "first_seen_at": "2026-04-21T09:08:00Z", "last_confirmed_at": "2026-04-21T09:44:00Z", "user_corrected": false, "decay_score": 0.98}},
+        {"value": "PVE / PVP 平衡", "meta": {"confidence": 0.7, "source_category": "chat", "first_seen_at": "2026-04-21T09:08:00Z", "last_confirmed_at": "2026-04-21T09:10:00Z", "user_corrected": false, "decay_score": 0.9}},
+        {"value": "BOSS 副本攻略", "meta": {"confidence": 0.75, "source_category": "game_event", "first_seen_at": "2026-04-21T09:30:00Z", "last_confirmed_at": "2026-04-21T09:42:30Z", "user_corrected": false, "decay_score": 0.95}}
+      ],
+      "preferences": [
+        {"value": "稳定策略", "meta": {"confidence": 0.7, "source_category": "chat", "first_seen_at": "2026-04-21T09:10:00Z", "last_confirmed_at": "2026-04-21T09:10:00Z", "user_corrected": false, "decay_score": 0.9}},
+        {"value": "暗影流套路", "meta": {"confidence": 0.95, "source_category": "user_confirmed", "first_seen_at": "2026-04-21T09:44:00Z", "last_confirmed_at": "2026-04-21T09:44:00Z", "user_corrected": false, "decay_score": 1.0}}
+      ],
+      "behavior_patterns": [
+        {"value": "晨会时间查询游戏信息", "meta": {"confidence": 0.55, "source_category": "chat", "first_seen_at": "2026-04-21T09:08:00Z", "last_confirmed_at": "2026-04-21T09:08:00Z", "user_corrected": false, "decay_score": 0.78}},
+        {"value": "会议前短时间开局", "meta": {"confidence": 0.7, "source_category": "chat", "first_seen_at": "2026-04-21T09:21:30Z", "last_confirmed_at": "2026-04-21T09:44:00Z", "user_corrected": false, "decay_score": 0.95}},
+        {"value": "通关后主动停手准备工作", "meta": {"confidence": 0.65, "source_category": "user_confirmed", "first_seen_at": "2026-04-21T09:44:00Z", "last_confirmed_at": "2026-04-21T09:44:00Z", "user_corrected": false, "decay_score": 1.0}}
+      ],
+      "key_facts": [
+        {"value": "当前角色等级 56", "meta": {"confidence": 0.95, "source_category": "game_event", "first_seen_at": "2026-04-21T09:42:00Z", "last_confirmed_at": "2026-04-21T09:42:00Z", "user_corrected": false, "decay_score": 1.0}},
+        {"value": "用暗影流套路击败该 BOSS", "meta": {"confidence": 0.9, "source_category": "user_confirmed", "first_seen_at": "2026-04-21T09:44:00Z", "last_confirmed_at": "2026-04-21T09:44:00Z", "user_corrected": false, "decay_score": 1.0}}
+      ]
+    },
+    {
+      "data_source": "profile",
+      "snapshot_at": "2026-04-21T10:00:00Z",
+      "player_id": "player_a1c93f01",
+      "summary": "活跃刺客玩家，倾向暗影流套路；工作日上午常以会议间隙短时间开局并主动收手；常委托桌宠做日程提醒与会后跟进。",
+      "interests": [
+        {"value": "刺客职业", "meta": {"confidence": 0.9, "source_category": "chat", "first_seen_at": "2026-04-21T09:08:00Z", "last_confirmed_at": "2026-04-21T09:44:00Z", "user_corrected": false, "decay_score": 0.98}},
+        {"value": "PVE / PVP 平衡", "meta": {"confidence": 0.7, "source_category": "chat", "first_seen_at": "2026-04-21T09:08:00Z", "last_confirmed_at": "2026-04-21T09:10:00Z", "user_corrected": false, "decay_score": 0.88}},
+        {"value": "BOSS 副本攻略", "meta": {"confidence": 0.75, "source_category": "game_event", "first_seen_at": "2026-04-21T09:30:00Z", "last_confirmed_at": "2026-04-21T09:42:30Z", "user_corrected": false, "decay_score": 0.93}}
+      ],
+      "preferences": [
+        {"value": "稳定策略", "meta": {"confidence": 0.7, "source_category": "chat", "first_seen_at": "2026-04-21T09:10:00Z", "last_confirmed_at": "2026-04-21T09:10:00Z", "user_corrected": false, "decay_score": 0.88}},
+        {"value": "暗影流套路", "meta": {"confidence": 0.95, "source_category": "user_confirmed", "first_seen_at": "2026-04-21T09:44:00Z", "last_confirmed_at": "2026-04-21T09:44:00Z", "user_corrected": false, "decay_score": 0.98}},
+        {"value": "会议前先存代码再切游戏", "meta": {"confidence": 0.5, "source_category": "llm_inferred", "first_seen_at": "2026-04-21T09:22:00Z", "last_confirmed_at": null, "user_corrected": false, "decay_score": 0.7}}
+      ],
+      "behavior_patterns": [
+        {"value": "晨会时间查询游戏信息", "meta": {"confidence": 0.55, "source_category": "chat", "first_seen_at": "2026-04-21T09:08:00Z", "last_confirmed_at": "2026-04-21T09:08:00Z", "user_corrected": false, "decay_score": 0.75}},
+        {"value": "会议前短时间开局", "meta": {"confidence": 0.75, "source_category": "chat", "first_seen_at": "2026-04-21T09:21:30Z", "last_confirmed_at": "2026-04-21T09:44:00Z", "user_corrected": false, "decay_score": 0.95}},
+        {"value": "通关后主动停手准备工作", "meta": {"confidence": 0.7, "source_category": "user_confirmed", "first_seen_at": "2026-04-21T09:44:00Z", "last_confirmed_at": "2026-04-21T09:44:00Z", "user_corrected": false, "decay_score": 0.95}},
+        {"value": "委托桌宠做日程提醒", "meta": {"confidence": 0.8, "source_category": "user_confirmed", "first_seen_at": "2026-04-21T09:21:30Z", "last_confirmed_at": "2026-04-21T09:58:45Z", "user_corrected": false, "decay_score": 1.0}}
+      ],
+      "key_facts": [
+        {"value": "当前角色等级 56", "meta": {"confidence": 0.95, "source_category": "game_event", "first_seen_at": "2026-04-21T09:42:00Z", "last_confirmed_at": "2026-04-21T09:42:00Z", "user_corrected": false, "decay_score": 0.98}},
+        {"value": "用暗影流套路击败 BOSS（具体 BOSS 名待 game_event 元数据声明）", "meta": {"confidence": 0.9, "source_category": "user_confirmed", "first_seen_at": "2026-04-21T09:44:00Z", "last_confirmed_at": "2026-04-21T09:44:00Z", "user_corrected": false, "decay_score": 0.98}},
+        {"value": "10:15 有团队站会", "meta": {"confidence": 0.85, "source_category": "mcp", "first_seen_at": "2026-04-21T09:20:00Z", "last_confirmed_at": "2026-04-21T09:58:00Z", "user_corrected": false, "decay_score": 1.0}}
+      ]
+    }
+  ],
+
+  "behavior_pc": [
+    {
+      "data_source": "behavior_pc",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:00:00Z",
+      "active_app": {"name": "VS Code", "bundle_id": "com.microsoft.VSCode", "is_fullscreen": false},
+      "idle_signal": "active",
+      "input_indicators": {"input_intensity_level": "medium", "typing_rhythm_signal": "steady", "mouse_activity_burst": false, "app_switch_rate_per_min": 1},
+      "recent_apps_top3": [
+        {"name": "VS Code", "fg_duration_min": 22},
+        {"name": "Chrome", "fg_duration_min": 6},
+        {"name": "QQ Music", "fg_duration_min": 1}
+      ]
+    },
+    {
+      "data_source": "behavior_pc",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:05:00Z",
+      "active_app": {"name": "VS Code", "bundle_id": "com.microsoft.VSCode", "is_fullscreen": false},
+      "idle_signal": "active",
+      "input_indicators": {"input_intensity_level": "high", "typing_rhythm_signal": "steady", "mouse_activity_burst": false, "app_switch_rate_per_min": 0},
+      "recent_apps_top3": [
+        {"name": "VS Code", "fg_duration_min": 27},
+        {"name": "Chrome", "fg_duration_min": 6},
+        {"name": "Slack", "fg_duration_min": 2}
+      ]
+    },
+    {
+      "data_source": "behavior_pc",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:10:00Z",
+      "active_app": {"name": "Desktop Pet Window", "bundle_id": "com.example.desktoppet", "is_fullscreen": false},
+      "idle_signal": "active",
+      "input_indicators": {"input_intensity_level": "medium", "typing_rhythm_signal": "bursty", "mouse_activity_burst": false, "app_switch_rate_per_min": 2},
+      "recent_apps_top3": [
+        {"name": "VS Code", "fg_duration_min": 31},
+        {"name": "Desktop Pet Window", "fg_duration_min": 2},
+        {"name": "Chrome", "fg_duration_min": 6}
+      ]
+    },
+    {
+      "data_source": "behavior_pc",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:15:00Z",
+      "active_app": {"name": "VS Code", "bundle_id": "com.microsoft.VSCode", "is_fullscreen": false},
+      "idle_signal": "active",
+      "input_indicators": {"input_intensity_level": "high", "typing_rhythm_signal": "bursty", "mouse_activity_burst": true, "app_switch_rate_per_min": 6},
+      "recent_apps_top3": [
+        {"name": "VS Code", "fg_duration_min": 33},
+        {"name": "Chrome", "fg_duration_min": 9},
+        {"name": "Desktop Pet Window", "fg_duration_min": 3}
+      ]
+    },
+    {
+      "data_source": "behavior_pc",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:20:00Z",
+      "active_app": {"name": "Chrome", "bundle_id": "com.google.Chrome", "is_fullscreen": false},
+      "idle_signal": "active",
+      "input_indicators": {"input_intensity_level": "low", "typing_rhythm_signal": "idle", "mouse_activity_burst": true, "app_switch_rate_per_min": 4},
+      "recent_apps_top3": [
+        {"name": "VS Code", "fg_duration_min": 35},
+        {"name": "Chrome", "fg_duration_min": 12},
+        {"name": "Desktop Pet Window", "fg_duration_min": 3}
+      ]
+    },
+    {
+      "data_source": "behavior_pc",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:25:00Z",
+      "active_app": {"name": "<game_codename> Client", "bundle_id": "<game_codename_bundle>", "is_fullscreen": true},
+      "idle_signal": "active",
+      "input_indicators": {"input_intensity_level": "high", "typing_rhythm_signal": "bursty", "mouse_activity_burst": true, "app_switch_rate_per_min": 0},
+      "recent_apps_top3": [
+        {"name": "<game_codename> Client", "fg_duration_min": 2},
+        {"name": "VS Code", "fg_duration_min": 35},
+        {"name": "Chrome", "fg_duration_min": 12}
+      ]
+    },
+    {
+      "data_source": "behavior_pc",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:30:00Z",
+      "active_app": {"name": "<game_codename> Client", "bundle_id": "<game_codename_bundle>", "is_fullscreen": true},
+      "idle_signal": "active",
+      "input_indicators": {"input_intensity_level": "high", "typing_rhythm_signal": "bursty", "mouse_activity_burst": true, "app_switch_rate_per_min": 0},
+      "recent_apps_top3": [
+        {"name": "<game_codename> Client", "fg_duration_min": 7},
+        {"name": "VS Code", "fg_duration_min": 35},
+        {"name": "Chrome", "fg_duration_min": 12}
+      ]
+    },
+    {
+      "data_source": "behavior_pc",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:35:00Z",
+      "active_app": {"name": "<game_codename> Client", "bundle_id": "<game_codename_bundle>", "is_fullscreen": true},
+      "idle_signal": "active",
+      "input_indicators": {"input_intensity_level": "high", "typing_rhythm_signal": "bursty", "mouse_activity_burst": true, "app_switch_rate_per_min": 0},
+      "recent_apps_top3": [
+        {"name": "<game_codename> Client", "fg_duration_min": 12},
+        {"name": "VS Code", "fg_duration_min": 35},
+        {"name": "Chrome", "fg_duration_min": 12}
+      ]
+    },
+    {
+      "data_source": "behavior_pc",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:40:00Z",
+      "active_app": {"name": "<game_codename> Client", "bundle_id": "<game_codename_bundle>", "is_fullscreen": true},
+      "idle_signal": "active",
+      "input_indicators": {"input_intensity_level": "high", "typing_rhythm_signal": "bursty", "mouse_activity_burst": true, "app_switch_rate_per_min": 0},
+      "recent_apps_top3": [
+        {"name": "<game_codename> Client", "fg_duration_min": 17},
+        {"name": "VS Code", "fg_duration_min": 35},
+        {"name": "Chrome", "fg_duration_min": 12}
+      ]
+    },
+    {
+      "data_source": "behavior_pc",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:45:00Z",
+      "active_app": {"name": "Desktop Pet Window", "bundle_id": "com.example.desktoppet", "is_fullscreen": false},
+      "idle_signal": "active",
+      "input_indicators": {"input_intensity_level": "medium", "typing_rhythm_signal": "bursty", "mouse_activity_burst": false, "app_switch_rate_per_min": 3},
+      "recent_apps_top3": [
+        {"name": "<game_codename> Client", "fg_duration_min": 20},
+        {"name": "Desktop Pet Window", "fg_duration_min": 4},
+        {"name": "VS Code", "fg_duration_min": 35}
+      ]
+    },
+    {
+      "data_source": "behavior_pc",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:50:00Z",
+      "active_app": {"name": "Notion", "bundle_id": "notion.id", "is_fullscreen": false},
+      "idle_signal": "active",
+      "input_indicators": {"input_intensity_level": "medium", "typing_rhythm_signal": "steady", "mouse_activity_burst": false, "app_switch_rate_per_min": 2},
+      "recent_apps_top3": [
+        {"name": "Notion", "fg_duration_min": 3},
+        {"name": "<game_codename> Client", "fg_duration_min": 20},
+        {"name": "VS Code", "fg_duration_min": 35}
+      ]
+    },
+    {
+      "data_source": "behavior_pc",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:55:00Z",
+      "active_app": {"name": "VS Code", "bundle_id": "com.microsoft.VSCode", "is_fullscreen": false},
+      "idle_signal": "active",
+      "input_indicators": {"input_intensity_level": "low", "typing_rhythm_signal": "idle", "mouse_activity_burst": false, "app_switch_rate_per_min": 1},
+      "recent_apps_top3": [
+        {"name": "VS Code", "fg_duration_min": 38},
+        {"name": "Notion", "fg_duration_min": 6},
+        {"name": "<game_codename> Client", "fg_duration_min": 20}
+      ]
+    }
+  ],
+
+  "behavior_ui": [
+    {
+      "data_source": "behavior_ui",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:05:00Z",
+      "window_title_redacted": "在 IDE 编辑代码文件",
+      "is_fullscreen_game": false,
+      "focused_element_role": "text_editor",
+      "ui_text_snapshot": null,
+      "shortcut_events": [
+        {"combo": "cmd+s", "at": "2026-04-21T09:03:12Z"},
+        {"combo": "cmd+f", "at": "2026-04-21T09:04:01Z"},
+        {"combo": "cmd+s", "at": "2026-04-21T09:04:55Z"}
+      ]
+    },
+    {
+      "data_source": "behavior_ui",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:16:30Z",
+      "window_title_redacted": "在 IDE 编辑代码文件",
+      "is_fullscreen_game": false,
+      "focused_element_role": "error_dialog",
+      "ui_text_snapshot": {
+        "app_whitelisted": true,
+        "summary": "屏幕上有错误弹窗，提示 timeout",
+        "buffer_expiry_at": "2026-04-21T09:21:30Z"
+      },
+      "shortcut_events": [
+        {"combo": "cmd+s", "at": "2026-04-21T09:16:12Z"},
+        {"combo": "alt+tab", "at": "2026-04-21T09:16:25Z"}
+      ]
+    },
+    {
+      "data_source": "behavior_ui",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:22:30Z",
+      "window_title_redacted": "在游戏 launcher 中（脱敏：游戏启动器）",
+      "is_fullscreen_game": false,
+      "focused_element_role": "button",
+      "ui_text_snapshot": null,
+      "shortcut_events": [
+        {"combo": "cmd+s", "at": "2026-04-21T09:22:05Z"},
+        {"combo": "cmd+space", "at": "2026-04-21T09:22:25Z"}
+      ]
+    },
+    {
+      "data_source": "behavior_ui",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:30:00Z",
+      "window_title_redacted": "<game_codename>（全屏游戏中）",
+      "is_fullscreen_game": true,
+      "focused_element_role": null,
+      "ui_text_snapshot": null,
+      "shortcut_events": [],
+      "note": "全屏游戏期间 ui_text_snapshot 关闭；focused_element 不采集（OS 通常也无法暴露游戏内 UI 树）。"
+    },
+    {
+      "data_source": "behavior_ui",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:45:00Z",
+      "window_title_redacted": "桌宠对话窗口",
+      "is_fullscreen_game": false,
+      "focused_element_role": "text_input",
+      "ui_text_snapshot": null,
+      "shortcut_events": [
+        {"combo": "alt+tab", "at": "2026-04-21T09:44:55Z"}
+      ]
+    },
+    {
+      "data_source": "behavior_ui",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:52:00Z",
+      "window_title_redacted": "在 Notion 编辑笔记页面",
+      "is_fullscreen_game": false,
+      "focused_element_role": "text_editor",
+      "ui_text_snapshot": null,
+      "shortcut_events": [
+        {"combo": "cmd+k", "at": "2026-04-21T09:51:33Z"},
+        {"combo": "cmd+s", "at": "2026-04-21T09:51:50Z"}
+      ]
+    }
+  ],
+
+  "mcp": [
+    {
+      "data_source": "mcp",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:02:00Z",
+      "user_enabled_sources": ["qq_music", "netease_music", "wechat_calendar"],
+      "media_now_playing": {
+        "source": "qq_music",
+        "title": "<曲名_A>",
+        "artist": "<歌手_A>",
+        "started_at": "2026-04-21T08:58:30Z"
+      },
+      "calendar_next_event": {
+        "source": "wechat_calendar",
+        "title": "<日程：团队站会>",
+        "starts_at": "2026-04-21T10:15:00Z",
+        "minutes_until_start": 73
+      }
+    },
+    {
+      "data_source": "mcp",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:20:00Z",
+      "user_enabled_sources": ["qq_music", "netease_music", "wechat_calendar"],
+      "media_now_playing": {
+        "source": "qq_music",
+        "title": "<曲名_C>",
+        "artist": "<歌手_A>",
+        "started_at": "2026-04-21T09:17:10Z"
+      },
+      "calendar_next_event": {
+        "source": "wechat_calendar",
+        "title": "<日程：团队站会>",
+        "starts_at": "2026-04-21T10:15:00Z",
+        "minutes_until_start": 55
+      }
+    },
+    {
+      "data_source": "mcp",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:25:00Z",
+      "user_enabled_sources": ["qq_music", "netease_music", "wechat_calendar"],
+      "media_now_playing": null,
+      "calendar_next_event": {
+        "source": "wechat_calendar",
+        "title": "<日程：团队站会>",
+        "starts_at": "2026-04-21T10:15:00Z",
+        "minutes_until_start": 50
+      },
+      "note": "玩家切到全屏游戏后 QQ 音乐被暂停；media_now_playing 显式为 null，而非缺字段。"
+    },
+    {
+      "data_source": "mcp",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:50:00Z",
+      "user_enabled_sources": ["qq_music", "netease_music", "wechat_calendar"],
+      "media_now_playing": {
+        "source": "netease_music",
+        "title": "<曲名_D>",
+        "artist": "<歌手_B>",
+        "started_at": "2026-04-21T09:48:40Z"
+      },
+      "calendar_next_event": {
+        "source": "wechat_calendar",
+        "title": "<日程：团队站会>",
+        "starts_at": "2026-04-21T10:15:00Z",
+        "minutes_until_start": 25
+      }
+    },
+    {
+      "data_source": "mcp",
+      "player_id": "player_a1c93f01",
+      "snapshot_at": "2026-04-21T09:58:00Z",
+      "user_enabled_sources": ["qq_music", "netease_music", "wechat_calendar"],
+      "media_now_playing": {
+        "source": "netease_music",
+        "title": "<曲名_E>",
+        "artist": "<歌手_B>",
+        "started_at": "2026-04-21T09:55:20Z"
+      },
+      "calendar_next_event": {
+        "source": "wechat_calendar",
+        "title": "<日程：团队站会>",
+        "starts_at": "2026-04-21T10:15:00Z",
+        "minutes_until_start": 17
+      }
+    }
+  ],
+
+  "game_idip": [
+    {
+      "data_source": "game_idip",
+      "player_id": "player_a1c93f01",
+      "game_id": "<game_codename>",
+      "snapshot_at": "2026-04-21T09:25:30Z",
+      "idip_snapshot": {
+        "char_level": 55,
+        "rank_tier": "diamond_3",
+        "current_quest": "<quest_codename_boss_chapter_3>",
+        "current_class": "<class_codename_assassin>",
+        "current_loadout_tag": "<loadout_codename_shadowflow>"
+      },
+      "idip_delta": [],
+      "idip_anomaly": [],
+      "idip_milestone": [],
+      "idip_field_metadata": {
+        "char_level": {"type": "int", "semantic": "character level"},
+        "rank_tier": {"type": "enum", "semantic": "competitive rank tier"},
+        "current_quest": {"type": "codename", "semantic": "active quest codename (anonymized)"},
+        "current_class": {"type": "codename", "semantic": "active class codename"},
+        "current_loadout_tag": {"type": "codename", "semantic": "current build / loadout tag"}
+      }
+    },
+    {
+      "data_source": "game_idip",
+      "player_id": "player_a1c93f01",
+      "game_id": "<game_codename>",
+      "snapshot_at": "2026-04-21T09:35:00Z",
+      "idip_snapshot": {"char_level": 55, "rank_tier": "diamond_3", "current_quest": "<quest_codename_boss_chapter_3>", "current_class": "<class_codename_assassin>", "current_loadout_tag": "<loadout_codename_shadowflow>"},
+      "idip_delta": [
+        {"field": "hp_pct_low_water", "from": 100, "to": 12, "at": "2026-04-21T09:34:48Z"}
+      ],
+      "idip_anomaly": [
+        {"signal": "near_death_recovery", "at": "2026-04-21T09:34:50Z", "context": "hp 12% but recovered within 6s"}
+      ],
+      "idip_milestone": [],
+      "idip_field_metadata": {
+        "hp_pct_low_water": {"type": "int", "semantic": "session-window minimum HP percent observed"}
+      }
+    },
+    {
+      "data_source": "game_idip",
+      "player_id": "player_a1c93f01",
+      "game_id": "<game_codename>",
+      "snapshot_at": "2026-04-21T09:42:00Z",
+      "idip_snapshot": {"char_level": 56, "rank_tier": "diamond_3", "current_quest": "<quest_codename_post_boss>", "current_class": "<class_codename_assassin>", "current_loadout_tag": "<loadout_codename_shadowflow>"},
+      "idip_delta": [
+        {"field": "char_level", "from": 55, "to": 56, "at": "2026-04-21T09:42:00Z"},
+        {"field": "current_quest", "from": "<quest_codename_boss_chapter_3>", "to": "<quest_codename_post_boss>", "at": "2026-04-21T09:42:00Z"}
+      ],
+      "idip_anomaly": [],
+      "idip_milestone": [
+        {"event": "level_up_to_56", "at": "2026-04-21T09:42:00Z"},
+        {"event": "boss_chapter_3_cleared", "at": "2026-04-21T09:42:10Z"}
+      ],
+      "idip_field_metadata": {
+        "char_level": {"type": "int", "semantic": "character level"},
+        "current_quest": {"type": "codename", "semantic": "active quest codename (anonymized)"}
+      }
+    },
+    {
+      "data_source": "game_idip",
+      "player_id": "player_a1c93f01",
+      "game_id": "<game_codename>",
+      "snapshot_at": "2026-04-21T09:48:00Z",
+      "idip_snapshot": {"char_level": 56, "rank_tier": "diamond_3", "current_quest": "<quest_codename_post_boss>", "current_class": "<class_codename_assassin>", "current_loadout_tag": "<loadout_codename_shadowflow>"},
+      "idip_delta": [],
+      "idip_anomaly": [],
+      "idip_milestone": [
+        {"event": "session_end_voluntary", "at": "2026-04-21T09:48:00Z"}
+      ],
+      "idip_field_metadata": {}
+    }
+  ],
+
+  "game_event": [
+    {
+      "data_source": "game_event",
+      "player_id": "player_a1c93f01",
+      "game_id": "<game_codename>",
+      "session": {
+        "session_id": "gs_2026042109",
+        "started_at": "2026-04-21T09:25:30Z",
+        "ended_at": "2026-04-21T09:48:00Z",
+        "in_game_time": "in_game_day_3_evening"
+      },
+      "event_stream": [
+        {"event": "session_start", "at": "2026-04-21T09:25:30Z"},
+        {"event": "load_complete", "at": "2026-04-21T09:26:40Z"},
+        {"event": "match_open", "at": "2026-04-21T09:28:00Z"},
+        {"event": "zone_enter:boss_arena_3", "at": "2026-04-21T09:30:00Z"},
+        {"event": "boss_engaged", "at": "2026-04-21T09:30:45Z"},
+        {"event": "boss_phase_2", "at": "2026-04-21T09:33:30Z"},
+        {"event": "near_death", "at": "2026-04-21T09:34:48Z"},
+        {"event": "near_death_recovered", "at": "2026-04-21T09:34:54Z"},
+        {"event": "boss_phase_3", "at": "2026-04-21T09:37:15Z"},
+        {"event": "death", "at": "2026-04-21T09:38:20Z"},
+        {"event": "respawn", "at": "2026-04-21T09:38:35Z"},
+        {"event": "boss_engaged_retry", "at": "2026-04-21T09:39:10Z"},
+        {"event": "boss_defeated", "at": "2026-04-21T09:41:55Z"},
+        {"event": "level_up", "at": "2026-04-21T09:42:00Z"},
+        {"event": "settlement", "at": "2026-04-21T09:42:20Z"},
+        {"event": "session_end", "at": "2026-04-21T09:48:00Z"}
+      ],
+      "duration_signal": "under_30min"
+    }
+  ],
+
+  "game_vlm": [
+    {
+      "data_source": "game_vlm",
+      "player_id": "player_a1c93f01",
+      "game_id": "<game_codename>",
+      "snapshot_at": "2026-04-21T09:30:30Z",
+      "whitelist_enabled": true,
+      "frame_buffer_policy": {"max_seconds": 60, "persisted_image": false},
+      "semantic_tags": ["boss_arena", "boss_visible", "full_hp", "inventory_closed"],
+      "user_visible_summary": "你刚进入 BOSS 战场，血量满，开始接敌。",
+      "ui_indicator_shown": true
+    },
+    {
+      "data_source": "game_vlm",
+      "player_id": "player_a1c93f01",
+      "game_id": "<game_codename>",
+      "snapshot_at": "2026-04-21T09:34:50Z",
+      "whitelist_enabled": true,
+      "frame_buffer_policy": {"max_seconds": 60, "persisted_image": false},
+      "semantic_tags": ["boss_fight", "low_hp", "skill_cooldown_visible", "inventory_closed"],
+      "user_visible_summary": "你血量很低但拉了回来，技能 CD 中。",
+      "ui_indicator_shown": true
+    },
+    {
+      "data_source": "game_vlm",
+      "player_id": "player_a1c93f01",
+      "game_id": "<game_codename>",
+      "snapshot_at": "2026-04-21T09:38:25Z",
+      "whitelist_enabled": true,
+      "frame_buffer_policy": {"max_seconds": 60, "persisted_image": false},
+      "semantic_tags": ["death_screen", "respawn_countdown"],
+      "user_visible_summary": "你刚倒下，正在等复活。",
+      "ui_indicator_shown": true
+    },
+    {
+      "data_source": "game_vlm",
+      "player_id": "player_a1c93f01",
+      "game_id": "<game_codename>",
+      "snapshot_at": "2026-04-21T09:42:10Z",
+      "whitelist_enabled": true,
+      "frame_buffer_policy": {"max_seconds": 60, "persisted_image": false},
+      "semantic_tags": ["victory_screen", "loot_visible", "level_up_animation"],
+      "user_visible_summary": "BOSS 已倒，你升级了，正在结算战利品。",
+      "ui_indicator_shown": true
+    }
+  ],
+
+  "current_context_timeline": [
+    {
+      "data_source": "current_context",
+      "player_id": "player_a1c93f01",
+      "computed_at": "2026-04-21T09:05:00Z",
+      "window_seconds": 300,
+      "activity_topic": "在 IDE 写代码",
+      "mood_estimate": "focused",
+      "interrupt_suitability": "low",
+      "attention_target": "ide",
+      "confidence": 0.72,
+      "trigger": "heartbeat_initial"
+    },
+    {
+      "data_source": "current_context",
+      "player_id": "player_a1c93f01",
+      "computed_at": "2026-04-21T09:08:30Z",
+      "window_seconds": 300,
+      "activity_topic": "与桌宠讨论游戏天赋树",
+      "mood_estimate": "curious",
+      "interrupt_suitability": "high",
+      "attention_target": "desktop_pet",
+      "confidence": 0.78,
+      "trigger": "activity_topic_change"
+    },
+    {
+      "data_source": "current_context",
+      "player_id": "player_a1c93f01",
+      "computed_at": "2026-04-21T09:15:00Z",
+      "window_seconds": 300,
+      "activity_topic": "在 IDE 写代码 + 短暂查 wiki",
+      "mood_estimate": "focused",
+      "interrupt_suitability": "low",
+      "attention_target": "ide",
+      "confidence": 0.74,
+      "trigger": "heartbeat"
+    },
+    {
+      "data_source": "current_context",
+      "player_id": "player_a1c93f01",
+      "computed_at": "2026-04-21T09:17:00Z",
+      "window_seconds": 300,
+      "activity_topic": "处理 IDE 错误弹窗",
+      "mood_estimate": "slightly_frustrated",
+      "interrupt_suitability": "medium",
+      "attention_target": "ide",
+      "confidence": 0.7,
+      "trigger": "ui_text_snapshot_change(error_dialog)"
+    },
+    {
+      "data_source": "current_context",
+      "player_id": "player_a1c93f01",
+      "computed_at": "2026-04-21T09:22:00Z",
+      "window_seconds": 300,
+      "activity_topic": "切到游戏 launcher，准备开局",
+      "mood_estimate": "determined",
+      "interrupt_suitability": "high",
+      "attention_target": "game_launcher",
+      "confidence": 0.8,
+      "trigger": "active_app_change(launcher) + user_message"
+    },
+    {
+      "data_source": "current_context",
+      "player_id": "player_a1c93f01",
+      "computed_at": "2026-04-21T09:30:30Z",
+      "window_seconds": 300,
+      "activity_topic": "BOSS 战开始",
+      "mood_estimate": "focused",
+      "interrupt_suitability": "low",
+      "attention_target": "game",
+      "confidence": 0.85,
+      "trigger": "game_event(boss_engaged) + is_fullscreen_game=true"
+    },
+    {
+      "data_source": "current_context",
+      "player_id": "player_a1c93f01",
+      "computed_at": "2026-04-21T09:34:54Z",
+      "window_seconds": 300,
+      "activity_topic": "BOSS 战中濒死回拉",
+      "mood_estimate": "frustrated",
+      "interrupt_suitability": "low",
+      "attention_target": "game",
+      "confidence": 0.82,
+      "trigger": "idip_anomaly(near_death_recovery) + vlm_tag(low_hp)"
+    },
+    {
+      "data_source": "current_context",
+      "player_id": "player_a1c93f01",
+      "computed_at": "2026-04-21T09:38:35Z",
+      "window_seconds": 300,
+      "activity_topic": "刚倒下并复活",
+      "mood_estimate": "frustrated",
+      "interrupt_suitability": "low",
+      "attention_target": "game",
+      "confidence": 0.86,
+      "trigger": "game_event(death) → game_event(respawn)"
+    },
+    {
+      "data_source": "current_context",
+      "player_id": "player_a1c93f01",
+      "computed_at": "2026-04-21T09:42:10Z",
+      "window_seconds": 300,
+      "activity_topic": "BOSS 通关 + 升级到 56",
+      "mood_estimate": "excited",
+      "interrupt_suitability": "high",
+      "attention_target": "game",
+      "confidence": 0.88,
+      "trigger": "idip_milestone(boss_chapter_3_cleared, level_up_to_56) + vlm_tag(victory_screen)"
+    },
+    {
+      "data_source": "current_context",
+      "player_id": "player_a1c93f01",
+      "computed_at": "2026-04-21T09:45:00Z",
+      "window_seconds": 300,
+      "activity_topic": "与桌宠分享胜利",
+      "mood_estimate": "satisfied",
+      "interrupt_suitability": "high",
+      "attention_target": "desktop_pet",
+      "confidence": 0.82,
+      "trigger": "active_app_change(desktop_pet) + chat segment 2"
+    },
+    {
+      "data_source": "current_context",
+      "player_id": "player_a1c93f01",
+      "computed_at": "2026-04-21T09:52:00Z",
+      "window_seconds": 300,
+      "activity_topic": "记录复盘 + 缓冲",
+      "mood_estimate": "calm",
+      "interrupt_suitability": "medium",
+      "attention_target": "notion",
+      "confidence": 0.7,
+      "trigger": "active_app_change(notion)"
+    },
+    {
+      "data_source": "current_context",
+      "player_id": "player_a1c93f01",
+      "computed_at": "2026-04-21T09:58:00Z",
+      "window_seconds": 300,
+      "activity_topic": "会议即将开始",
+      "mood_estimate": "calm",
+      "interrupt_suitability": "medium",
+      "attention_target": "calendar_reminder",
+      "confidence": 0.85,
+      "trigger": "mcp.calendar_next_event(minutes_until_start<=20)"
+    }
+  ]
+}
