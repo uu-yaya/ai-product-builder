@@ -4,7 +4,7 @@
 > Branch: `memory-dataset`
 > Thread: PM Strategy Thread
 > Date: 2026-05-11
-> Status: **Proposal**（待 Main Thread 收口 / 决议）
+> Status: **Deferred**（2026-05-12 Main Thread 已收口；等 voice-interaction 启动后合并审议；详见 §0 #4 + §5 状态语义对照表）
 > Scope: 本文件不直接修改项目级 `01-pm/PRIVACY_BOUNDARY_memory-system.md`；仅给出**修订提案**，由 Main Thread 在 `decisions/DECISION_LOG.md` 收口后再应用。
 
 ---
@@ -141,13 +141,28 @@
 
 ---
 
-## 5. 收口请求
+## 5. 收口请求 + 状态语义对照表（v2.5.1 修订：拆 Rejected / Deferred 两条独立路径）
 
 请 **Main Thread**：
 
 1. 在 `decisions/DECISION_LOG.md` 留痕本提案（Status: Accepted / Rejected / Deferred）。
-2. 若 Accepted：把 §3.1 / §3.2 / §3.3 / §3.4 应用到 `01-pm/PRIVACY_BOUNDARY_memory-system.md`，并在 `06-sync/SYNC_SUMMARY.md` 标注。
-3. 若 Rejected / Deferred：在 `06-sync/group/` 写一条消息说明理由，PM 同步收回本分支 `REQUIREMENT_CLARIFICATION_memory-dataset.md` v2.3 与 `AI_FEATURE_EVALUATION_memory-dataset.md` v2 中的相关章节（§4.7 视频扩展 / §4.10 音频 / §4.11 Playwright）。
+2. **若 Accepted**：把 §3.1 / §3.2 / §3.3 / §3.4 应用到 `01-pm/PRIVACY_BOUNDARY_memory-system.md`，并在 `06-sync/SYNC_SUMMARY.md` 标注。
+3. **若 Rejected**：
+   1. 在 `06-sync/group/` 写一条消息说明拒绝理由。
+   2. PM 同步收回本分支 `REQUIREMENT_CLARIFICATION_memory-dataset.md` **当前版本**与 `AI_FEATURE_EVALUATION_memory-dataset.md` **当前版本**中的相关章节（§4.7 视频扩展 / §4.10 音频 / §4.11 Playwright）。**不锁版本号**（v2.5.1 / 后续 v2.6+ 均适用）。
+   3. PM 同步收回 v2.5 新增的相关通道章节（§4.4.6 OS API 6 类 / §4.4.7 浏览器扩展全方位 / §4.12 OS Scripting Bridge）— 因为这些与本提案 §0 #1 #4-#7 范围一并合并审议。
+4. **若 Deferred**（当前状态，2026-05-12 起）：
+   1. **不撤回任何章节** — PM 分支级立场保持不变；Engineering / Design 接手时按分支立场实现。
+   2. 状态由 voice-interaction 分支启动时合并审议决议；届时 STT / 麦克风 / TTS 边界变更将走同一份合并 amendment。
+   3. 与"Rejected"的关键区别：Deferred = "暂不在项目级文件落地，但分支级有效"；Rejected = "PM 必须撤回分支级章节"。
+
+### 状态语义对照表
+
+| 状态 | 项目级 PRIVACY_BOUNDARY 文件 | 分支 §4.7 视频 / §4.10 音频 / §4.11 Playwright | v2.5 新增 §4.4.6 / §4.4.7 / §4.12 | Engineering / Design 接手 |
+|---|---|---|---|---|
+| **Accepted** | 应用 §3.1-§3.4 修订 | 保留 + 项目级背书 | 保留 + 项目级背书 | 按分支立场 + 项目级双重生效实现 |
+| **Rejected** | 不修改 | **PM 必须撤回** | **PM 必须同步撤回** | 不实现这些章节 |
+| **Deferred**（当前） | 不修改 | **保留分支级立场** | **保留分支级立场** | **按分支立场实现**（不撤回） |
 
 ---
 

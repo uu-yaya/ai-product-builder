@@ -5,7 +5,7 @@
 1. Branch Slug：`memory-dataset`
 2. Owner Thread：PM Strategy Thread
 3. Started：2026-05-11
-4. Status：Draft v2.5.1 + AI Eval v3（v2.5 全量修订 + mock §11 同步 v2.5：§11.0 加 6 通道开关字段；§11.3 加 A1 5 字段；§11.4 加 A2 9 操作语义事件；§11.4.1 新增 A3 编辑动作派生；§11.12 / §11.13 / §11.14 新增 OS API / 浏览器扩展全方位 / OS Scripting Bridge mock）
+4. Status：Draft v2.5.1 + AI Eval v3（v2.5 全量修订 + mock §11 同步 + **2026-05-12 文档一致性修复** 9 条：Proposal/Deferred 口径统一 / VLM 优先级全局 P1 / A1-A3 命名空间澄清 / 70%-7B 残留消除 / source_category 边界澄清 / MCP MVP 措辞澄清 / v2.4 残留批量改）
 5. Cross-role Mirror：`02-design/branches/memory-dataset/` / `03-engineering/branches/memory-dataset/` / `04-research/branches/memory-dataset/`（按需自然生长，本轮 PM 只建本目录）
 
 ## 1.5 分支本质（v2.3.3 框架精确化，2026-05-11 19:30）
@@ -14,6 +14,7 @@
 2. 本分支实质 = 桌宠的"**脑**" = 全部数据感知层（用户内容 + 环境状态 + 长期记忆 + 实时上下文）。
 3. 平行分支 `voice-interaction`（待启动）= 桌宠的"**嘴和耳**" = 语音 I/O 通道（麦克风 / TTS / STT 引擎 / 唤醒词 / 音色管理）。
 4. **关键原则**：memory 层是**内容层**，不关心数据怎么拿到的。所有数据（VLM / audio A0 / chat / game event / active_app 等）在 memory 层都**不携带采集通道元数据**。chat 文本"来自键盘"和"来自 STT"也不区分。
+   - **v2.5.1 澄清 — "采集技术通道" vs "数据来源域" 不同**：上句说的"不携带采集通道"指 **input_modality**（键盘 vs STT）/ tab 通过扩展还是 AppleScript 检测 / 同款 **runtime 实现细节**；**不**等同于 `profile_meta.source_category`（chat / user_confirmed / game_event / behavior / mcp / vlm / llm_inferred）—— 后者是**数据来源域分类**，用于 Memory Center "这条记忆来自哪里" 解释 + confidence 计算，是**内容层**字段，**必须传**。两个概念不冲突。
 5. **两分支接口 = 干净文本边界**：voice-interaction 输出**干净文本** → memory-dataset §4.1 chat 通道。无 input_modality 标记 / 无 STT confidence 透传 / 无原始音频引用。
 6. **性质模糊时**默认归 voice-interaction（向 memory-dataset 加新数据类别门槛更高）。
 7. 详细字段归属速查 + "脑 vs 嘴和耳"类比 见主文档 [`REQUIREMENT_CLARIFICATION_memory-dataset.md`](REQUIREMENT_CLARIFICATION_memory-dataset.md) §0.0。
@@ -35,7 +36,7 @@
 
 ## 4. Deliverables
 
-1. `REQUIREMENT_CLARIFICATION_memory-dataset.md` v2.4 — 桌宠对记忆系统的数据需求文档（文字 + 表格，全条目编号）
+1. `REQUIREMENT_CLARIFICATION_memory-dataset.md` v2.5.1 — 桌宠对记忆系统的数据需求文档（文字 + 表格，全条目编号；含档 A + 6 通道并存 + OS Scripting Bridge + L1.5 + mock §11 同步）
 2. `AI_FEATURE_EVALUATION_memory-dataset.md` v3 — 桌宠对记忆系统数据消费的 AI 必要性 / 编排 / 部署立场（含 VLM 三档混合架构）
 3. `PRIVACY_BOUNDARY_AMENDMENT_PROPOSAL_audio-and-vlm-extension.md` — 项目级 PRIVACY_BOUNDARY 修订提案（待 Main Thread 审议）
 4. 本 README
