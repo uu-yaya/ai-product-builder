@@ -9,6 +9,7 @@
 - 项目默认主线：`支路：none`
 - 同一 project 下的新问题 / 新方向 / 平行验证：填写同一个 `<branch-slug>`
 - Radar 如果属于已有 research 主题，优先写入主题文件夹；如果是新方向，写入 `04-research/branches/<branch-slug>/`
+- 每个线程必须读取对应 `workspaces/<role>/AGENTS.md` 并应用其中的 Brainstorming First / Local Skill Reuse Rules
 - 每个线程开始仍必须输出 Will read / Will write / Will not modify
 - 每个线程结束仍必须写 `06-sync/group/` 完成消息，并提示 Main Thread 是否需要收口
 
@@ -23,11 +24,12 @@ APB 模式：你是 <Main / PM Strategy / Design Prototype / Engineering Build /
 
 请按以下规则执行：
 1. 读取根 `AGENTS.md`、`docs/APB_MULTI_THREAD_PROTOCOL.md`、项目 `PROJECT_RULES.md`、`00-context/PROJECT_CONTEXT.md`、`06-sync/SYNC_SUMMARY.md`。
-2. 读取本角色目录 README；如果 `支路` 不是 `none`，读取对应 `branches/README.md`。
-3. 开始前输出 Will read / Will write / Will not modify / Output route。
-4. 如果是主线任务，写入本角色根目录；如果是新支路，写入本角色 `branches/<branch-slug>/`。
-5. 完成后写一条 `06-sync/group/YYYY-MM-DDTHH-MM-SS_<thread>_<topic-slug>.md`。
-6. 完成输出包含 Files created / updated、Open questions、Archive route、Whether Main Thread needs to update SYNC_SUMMARY.md、Suggested next thread。
+2. 读取对应 `workspaces/<role>/AGENTS.md`，并应用其中的 Brainstorming First / Local Skill Reuse Rules。
+3. 读取本角色目录 README；如果 `支路` 不是 `none`，读取对应 `branches/README.md`。
+4. 开始前输出 Will read / Will write / Will not modify / Output route。
+5. 如果是主线任务，写入本角色根目录；如果是新支路，写入本角色 `branches/<branch-slug>/`。
+6. 完成后写一条 `06-sync/group/YYYY-MM-DDTHH-MM-SS_<thread>_<topic-slug>.md`。
+7. 完成输出包含 Files created / updated、Open questions、Archive route、Whether Main Thread needs to update SYNC_SUMMARY.md、Suggested next thread。
 ```
 
 ## 3. Radar Existing Topic

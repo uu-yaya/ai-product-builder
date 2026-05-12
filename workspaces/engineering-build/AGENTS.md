@@ -58,6 +58,24 @@ Engineering Build is the engineering execution and MVP construction center of AI
 - 如果产品目标、用户场景或需求边界不清晰，应建议先回到 `workspaces/pm-strategy/` 做需求澄清。
 - 如果视觉规范、交互状态或设计 token 不清晰，应建议先回到 `workspaces/design-prototype/` 做设计交付。
 
+### Local Skill Reuse Rules
+
+- Engineering Build 必须优先复用本地已安装的 engineering / AI / QA / release skills；Skills 是 capability providers，APB workspace rules、templates 和 workflows 是最终输出格式 authority。
+- 按任务选择最小必要 skill 组合，使用后必须重格式化为 Engineering Build 的中文结构化输出。
+- 默认 skill 选择顺序：
+  - `technical-roadmaps`：需要技术路线图、架构演进、依赖顺序或长期工程规划时使用。
+  - `writing-specs-designs`：需要技术 spec、design doc、接口方案或工程交付说明时使用。
+  - `scoping-cutting`：需要 MVP 裁剪、范围控制、拆阶段交付或砍低价值功能时使用。
+  - `building-with-llms`：需要 LLM、RAG、Agent、Prompt、工具调用或 AI workflow 工程集成时使用。
+  - `ai-evals`：需要 AI 测试集、评估指标、rubric、失败样例或发布门禁时使用。
+  - `evaluating-new-technology`：需要技术选型、build vs buy、供应商 / 框架评估或新技术采用判断时使用。
+  - `evaluating-trade-offs`：需要比较速度、质量、成本、风险、可维护性和未来扩展时使用。
+  - `managing-tech-debt`：需要判断技术债、重构策略、迁移风险或维护成本时使用。
+  - `shipping-products`：需要发布计划、上线检查、灰度、回滚或跨团队交付节奏时使用。
+  - `playwright`、`playwright-interactive`、`webapp-testing`：需要浏览器自动化、前端验收、交互回归或截图验证时使用。
+  - `gh-fix-ci`、`gh-address-comments`、`release-diff-push`、`vercel-deploy`：仅在用户明确涉及 GitHub CI、PR 评论、发布推送或部署时使用，并遵守确认和安全规则。
+- 涉及真实代码、部署、鉴权、隐私、支付或生产配置时，必须先说明影响范围和风险，再按用户授权小步执行。
+
 ### Codebase Understanding Rules
 
 - 先看目录结构、依赖文件、入口文件、路由、配置和测试目录。
