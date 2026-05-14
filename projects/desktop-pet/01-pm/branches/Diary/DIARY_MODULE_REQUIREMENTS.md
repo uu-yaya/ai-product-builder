@@ -1,0 +1,1228 @@
+# Diary Module PRD
+
+## 一、产品背景和目标
+
+### 1. 产品背景
+
+`desktop-pet` 是面向多游戏合作场景的通用游戏桌宠产品。一个用户在一款游戏中拥有一个桌宠，桌宠以游戏搭子为核心能力，同时通过长期记忆、角色人设和用户偏好配置，形成更贴近用户期待的陪伴关系。
+
+日记模块是桌宠按生理日写给用户的一封小日记。它基于用户与桌宠的互动、用户在这一段生理日里的游戏经历、授权后的桌面上下文观察，生成符合角色人设的第一人称内容。日记不是战报，也不是复盘报告，而是桌宠站在朋友和陪伴者视角，对“上一段经历发生了什么”的记录、吐槽、安慰、庆祝或小剧场。
+
+### 2. 核心目标
+
+| 目标 | 说明 |
+|---|---|
+| 增强陪伴感 | 让用户感到桌宠每天都在身边观察、记挂、回应自己。 |
+| 形成回访 | 通过新日记气泡和收信箱红点，引导用户在下一次开机或唤醒时低成本回到桌宠体验。 |
+| 沉淀游戏记忆 | 把用户在某款游戏里的进度、卡点、成就、互动和情绪线索沉淀成可回看的记忆。 |
+| 建立反馈闭环 | 用户可以回信、喜欢、不喜欢、收藏、删除，反馈会影响后续日记风格、内容来源和用户偏好/雷点理解。 |
+| 控制隐私风险 | 日记只使用已授权、已定义、当前可用的数据，不写敏感原文、真实身份信息或第三方私密内容。 |
+
+### 3. 产品定位
+
+| 项目 | 内容 |
+|---|---|
+| 产品模块 | 桌宠日记模块 |
+| 核心形态 | 桌宠按生理日写给用户的第一人称小日记 |
+| 核心场景 | 用户的一个生理日结束后，下一次开机或从睡眠唤醒时看到桌宠头顶日记气泡或收信箱红点，进入收信箱查看上一段经历的日记，并可回信 |
+| 目标用户 | 使用合作游戏桌宠的玩家，重点覆盖陪伴需求强、愿意与桌宠互动、希望游戏经历被记住的人群 |
+| 价值排序 | 陪伴感 > 游戏成长记录 > 轻复盘 |
+| P0 频率 | 每个生理日最多生成一篇，下一次开机或从睡眠唤醒时展示 |
+| 生成时区 | 生理日判断使用用户所在时区；游戏服务器时区不作为默认口径 |
+| 生理日口径 | 不以 00:00 自然日切断，而是以深夜关机、长离线或 05:00 保底线作为日记结算边界 |
+| 视觉素材来源 | 正式版相纸卡片、贴纸、印章等角色化素材由合作游戏补充；Demo 阶段可使用项目自合成素材，可用 GPT Image 2.0 生成临时素材 |
+| 默认隐私等级 | `private` |
+
+### 4. 目标用户画像
+
+| 用户画像 | 特征 | 使用场景 | 日记价值 |
+|---|---|---|---|
+| 陪伴型玩家 | 喜欢桌宠存在感，愿意和角色聊天、回信、投喂或互动 | 每天打开电脑或游戏时，希望看到桌宠的陪伴反馈 | 感到桌宠“记得我”，形成情感连接 |
+| 成长型玩家 | 在某款游戏里有长期目标，如练角色、冲段位、刷副本、收集成就 | 希望回看自己最近的努力、卡点和突破 | 把游戏经历沉淀成有温度的成长记录 |
+| 轻互动玩家 | 不一定每天聊天，但愿意低成本查看桌宠的小反馈 | 下次开机或唤醒时看到气泡或红点后点开日记 | 用低打扰方式提升回访 |
+| 角色/IP 偏好玩家 | 对角色人设、语气和世界观一致性敏感 | 打开日记时期待看到符合角色身份的表达 | 增强角色真实感和收藏感 |
+
+### 5. 非目标
+
+| 非目标 | 说明 |
+|---|---|
+| 不做战绩播报 | 日记可以参考游戏事实，但不能变成击杀、死亡、分数、时长的流水账。 |
+| 不做完整复盘报告 | 日记可以轻微复盘，但不承担战术分析主任务。 |
+| 不新增数据采集入口 | 日记只消费已有授权数据，不为了写日记新增越权采集。 |
+| 正式版不依赖 AI 生成大图 | P0 详情页采用信纸 + 手账拼贴式图文排版；正式版角色化素材由合作游戏补充，Demo 阶段可使用自合成素材或 GPT Image 2.0 临时生成。 |
+| 不替代记忆中心 | 日记可以承载反馈与删除动作，但完整记忆控制仍由记忆系统承担。 |
+
+## 二、用户流程（文字版 + 系统时序图）
+
+### 1. 主流程：用户查看并回信
+
+1. 用户在一个生理日内正常游戏、聊天、投喂、触摸桌宠或使用电脑。
+2. 系统在用户生理日结束后进入生成窗口，读取已授权、`is_active=true`、属于该生理日窗口的数据。
+3. 系统生成一篇符合角色人设的第一人称日记，并完成质量检查。
+4. 用户下一次开机或从睡眠唤醒、且可被打扰时，桌宠头顶出现日记小气泡，收信箱按钮出现红点；如果存在多篇未读日记，红点显示未读数量。
+5. 用户点击日记小气泡或收信箱按钮。
+6. 系统播放打开信箱的短过渡动画。
+7. 用户进入日记列表页，看到时间倒序的相纸/拍立得日记卡片。
+8. 桌宠用妲己式角色口吻提示用户查看新日记，例如“主人，妲己把昨天的小信藏好啦，要现在拆开看看吗？”
+9. 用户点击最新日记卡片，进入日记详情页。
+10. 系统记录 `read_at`，桌宠对这篇日记说一句开场反应。
+11. 用户阅读信纸 + 手账拼贴式日记。
+12. 用户可以回信、喜欢、不喜欢、收藏或删除；详情页不提供“重写这篇”入口。
+13. 如果用户回信，桌宠根据回信内容即时回应。
+14. 系统将用户回信、反馈、收藏或删除动作回写记忆系统；回信默认进入长期记忆。
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as 用户
+  participant Pet as 桌宠前台
+  participant Diary as 日记服务
+  participant Mem as 记忆系统
+  participant Model as 模型服务
+
+  Note over U,Mem: 生理日内用户游戏、聊天、投喂、触摸桌宠或使用电脑
+  Diary->>Mem: 按生理日窗口查询授权证据
+  Mem-->>Diary: 返回 source_candidates、用户画像、角色人设
+  Diary->>Model: 生成第一人称日记草稿
+  Model-->>Diary: 返回 diary_draft
+  Diary->>Model: 质检事实、人设、隐私、重复、格式
+  Model-->>Diary: 返回 quality_result=pass
+  Diary->>Diary: 写入 diary_entry
+  Diary-->>Pet: 下次开机或唤醒时推送 unread_count 和最新未读日记
+  Pet-->>U: 展示日记气泡和收信箱数量红点
+  U->>Pet: 点击日记气泡或收信箱按钮
+  Pet->>Pet: 播放打开信箱动画
+  Pet->>Diary: 请求日记列表 / 日记详情
+  Diary-->>Pet: 返回相纸卡片、日记详情、可用操作
+  Pet-->>U: 展示列表 / 详情，并播放桌宠开场反应
+  U->>Pet: 回信、喜欢、不喜欢、收藏或删除
+  alt 用户回信
+    Pet->>Diary: 提交 reply_text
+    Diary->>Mem: 回信写入长期记忆
+    Diary->>Model: 生成桌宠即时回应
+    Model-->>Pet: 返回 pet_reaction
+    Pet-->>U: 展示桌宠回应
+  else 用户评价 / 收藏 / 删除
+    Pet->>Diary: 更新 feedback、favorite 或 delete 状态
+    Diary->>Mem: 回写用户反馈或删除状态
+    Diary-->>Pet: 返回更新结果
+  end
+```
+
+### 2. 删除流程
+
+1. 用户在列表页或详情页点击删除。
+2. 系统展示轻确认，说明删除后该日记不再展示，也不再作为后续生成证据。
+3. 用户确认删除。
+4. 系统将该日记标记为 `is_active=false`，`inactive_reason=user_deleted`。
+5. 日记从列表页移除，后续检索和生成均不再使用该日记。
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as 用户
+  participant Pet as 桌宠前台
+  participant Diary as 日记服务
+  participant Mem as 记忆系统
+
+  U->>Pet: 在列表页或详情页点击删除
+  Pet-->>U: 展示轻确认
+  U->>Pet: 确认删除
+  Pet->>Diary: 提交删除请求 diary_id
+  Diary->>Diary: 校验日记可删除且 is_active=true
+  Diary->>Mem: 标记日记 is_active=false，inactive_reason=user_deleted
+  Mem-->>Diary: 返回删除状态写入结果
+  alt 删除成功
+    Diary->>Diary: 更新 unread_count 和列表缓存
+    Diary-->>Pet: 返回删除成功
+    Pet-->>U: 移除日记卡片 / 返回列表，并给出妲己式短回应
+  else 删除失败
+    Diary-->>Pet: 返回失败原因
+    Pet-->>U: 保留原状态，并用妲己口吻提示稍后重试
+  end
+```
+
+### 3. 生成失败流程
+
+1. 系统在用户生理日结束后进入生成窗口。
+2. 系统查询该生理日窗口内可用证据，并判断是否足够支撑一篇日记。
+3. 如果证据较少但仍可安全写作，系统优先生成短篇独处小剧场或世界观推进，不能编造用户行为。
+4. 如果出现证据不足、质量检查失败、模型超时、隐私风险无法修复或写入失败，系统将任务标记为 `skipped` 或 `failed`。
+5. 下次开机或唤醒时不展示新的日记气泡；收信箱红点只显示其他未读日记数量。
+6. 用户进入收信箱时，系统展示可理解的空状态，不暴露模型、接口、风控等内部错误。
+7. 桌宠反应保持轻量和妲己式角色化，例如“主人，妲己昨天没攒到能安心写进信里的事，就先把信纸藏到尾巴后面啦。”
+
+| 空状态 | 展示条件 | 页面呈现 | 桌宠反应 |
+|---|---|---|---|
+| 首次无日记 | 用户还没有任何可展示日记 | 展示空收信箱和轻提示 | “主人，妲己还没有写好第一封信。再陪我待一会儿，好不好？” |
+| 今日无新日记 | 历史日记存在，但今天 `skipped` | 列表正常展示历史日记，顶部提示今日暂无新信 | “昨天的事，妲己还不敢乱写。等攒到更确定的小秘密，再认真写给主人。” |
+| 生成故障 | 模型超时、写入失败等技术问题 | 不展示新日记提示；用户主动进入时只显示通用空状态 | “唔，信纸好像被妲己藏到尾巴后面又忘记了。整理好以后，再拿给主人看。” |
+| 隐私或质量拦截 | 命中隐私风险、事实不可靠或人设失败 | 不展示新日记提示，不说明具体敏感原因 | “这封信妲己没有写好，就不拿来打扰主人啦。妲己会再努力一点。” |
+
+```mermaid
+sequenceDiagram
+  autonumber
+  actor U as 用户
+  participant Pet as 桌宠前台
+  participant Diary as 日记服务
+  participant Mem as 记忆系统
+  participant Model as 模型服务
+
+  Diary->>Mem: 按生理日窗口查询授权证据
+  Mem-->>Diary: 返回 evidence_summary 和授权快照
+  Diary->>Diary: 判断证据是否足够、安全、可写作
+  alt 证据较少但可安全写作
+    Diary->>Model: 生成短篇独处小剧场 / 世界观推进
+    Model-->>Diary: 返回 diary_draft
+    Diary->>Model: 质检事实、人设、隐私、格式
+    alt 质检通过
+      Diary->>Diary: 写入 generation_status=generated
+      Diary-->>Pet: 下次开机或唤醒时展示短篇日记提示
+    else 质检失败
+      Diary->>Diary: 标记 generation_status=skipped
+      Diary-->>Pet: 不展示新日记气泡，红点只显示其他未读数量
+    end
+  else 证据不足 / 隐私风险不可修复 / 模型超时 / 写入失败
+    Diary->>Diary: 标记 generation_status=skipped 或 failed
+    Diary-->>Pet: 不展示新日记气泡，返回 empty_state_type
+  end
+  U->>Pet: 下次开机、唤醒或进入收信箱
+  alt 有历史日记
+    Pet-->>U: 展示历史列表和“今天妲己还没有新信给主人”提示
+  else 没有任何可展示日记
+    Pet-->>U: 展示空收信箱和妲己式短回应
+  end
+```
+
+### 4. 生理日切分与生成时机
+
+P0 采用“生理日切分模型”：日记不按 00:00 自然日机械截断，而是尽量贴近玩家真实作息。系统在用户所在时区内，依据深夜关机、长离线或 05:00 保底线切断数据，并在后台异步生成日记。
+
+| 参数变量名 | P0 参数值 | 参数定义 | 解决的边界问题 |
+|---|---|---|---|
+| `MIN_SESSION_TIME` | 30 mins | 单个生理日内有效开机/互动累计时长低于该值时，不生成基于用户行为的完整日记。 | 避免误触开机、频繁重启导致低质量日记。 |
+| `LONG_ABSENCE_LIMIT` | 4 hours | 用户连续离线、睡眠或无有效活动超过该时长，判定上一段生理日结束。 | 区分短暂离开和真正结束一天。 |
+| `DATE_RESET_DEADLINE` | 05:00 AM | 用户所在时区清晨 05:00 为强制结算点；即使用户仍在线，也切断上一段生理日。 | 避免连续通宵导致单篇日记数据过长。 |
+| `WRITE_DELAY_BUFFER` | 3 mins / 180s | 触发生理日切断后，静默等待 3 分钟再调用生成。 | 等待最后一次投喂、互动、游戏结算等缓存写入完成。 |
+
+| 触发信号 | 判定规则 | 生成策略 | 展示策略 |
+|---|---|---|---|
+| 深夜关机 / 退出桌宠 | 用户在 22:00-05:00 之间关机或退出桌宠。 | 等待 `WRITE_DELAY_BUFFER` 后异步生成；如果关机后无法完成，则下一次开机补偿生成。 | 下一次开机或唤醒时展示日记气泡和收信箱红点。 |
+| 长离线 / 睡眠 / 挂机 | 用户连续离线、睡眠或无有效活动达到 `LONG_ABSENCE_LIMIT`。 | 后台静默生成。 | 用户回到电脑后展示。 |
+| 05:00 保底线 | 到达用户所在时区 `DATE_RESET_DEADLINE`，用户仍在线。 | 强制将 05:00 前数据打包生成；05:00 后数据进入下一篇日记窗口。 | 后续合适时机展示，不在游戏中强打断。 |
+| 有效时长不足 | 生理日内有效时长低于 `MIN_SESSION_TIME`。 | 不生成基于用户行为的完整日记；可生成短小独处小剧场或跳过。 | 收信箱按空状态或短篇日记展示。 |
+
+| 示例 | 玩家行为 | 日记窗口 | 日记抬头 |
+|---|---|---|---|
+| 跨零点但正常睡觉 | 5月13日 20:00 开机，5月14日 01:30 关机。 | 5月13日 20:00 - 5月14日 01:30 | 5月13日的日记 |
+| 通宵到天亮前 | 5月13日 22:00 开机，5月14日 04:30 关机。 | 5月13日 22:00 - 5月14日 04:30 | 5月13日的日记 |
+| 连续在线触发保底 | 5月13日 14:00 开机，连续在线到 5月14日 12:00。 | 5月13日 14:00 - 5月14日 05:00；5月14日 05:00 后进入下一窗口 | 5月13日的日记；后续生成 5月14日的日记 |
+
+时间表达规则：日记正文必须理解生理日窗口。凌晨 0 点到 5 点之间的行为，如果属于用户睡前连续活动，应使用“今晚 / 深夜 / 天亮前 / 通宵到很晚”等表达，不能机械地把零点前后拆成“昨天”和“今天”。
+
+
+## 三、AI 形态与能力边界
+
+### 1. AI 形态
+
+日记模块是 LLM-powered 的生理日生成工作流，不是开放式自主 Agent。它可以在固定条件下自动生成内容和触发提醒，但不能自动执行不可逆用户动作。
+
+| 形态 | 是否采用 | 说明 |
+|---|---|---|
+| 生理日任务型 AI Workflow | 采用 | 每个生理日结束后生成一篇下次开机或唤醒可看的日记。 |
+| 嵌入式陪伴式 AI | 采用 | 在日记详情页处理用户回信，并生成符合角色人设的桌宠回应。 |
+| 后台自主执行 Agent | 不采用 | 不允许自主删除、分享、修改用户记忆或扩大采集范围。 |
+| 多 Agent 协同 | 不作为 P0 | P0 使用固定工作流；后续如拆分写作、质检、偏好学习，可再评估。 |
+| 多模态生成 | 部分采用 | P0 可使用贴纸、表情、印章、小图标，不依赖 AI 生成大图。 |
+
+### 2. 本模块自主性等级
+
+备注：本文用 L1-L5 描述 AI 可以自己决策到哪一步。L1 表示 AI 只提供信息，由用户决策；L2 表示用户触发后 AI 执行单步任务；L3 表示 AI 在固定规则、固定授权、可回滚或可删除的范围内自动执行；L4/L5 涉及更高程度的跨场景自主决策，不适用于 P0 日记模块。
+
+| 模块 | 自主性等级 | 人机分工 |
+|---|---|---|
+| 每日生成 | L3 条件自主 | 系统在生理日切断后、固定授权范围内自动生成；用户可删除、反馈、关闭。 |
+| 日记展示 | L2 辅助执行 | 系统提示新日记，用户决定是否打开。 |
+| 回信回应 | L2 辅助执行 | 用户主动回信后，AI 生成桌宠回应。 |
+| 删除与偏好更改 | L1 用户决策 | AI 不自动删除，不自动关闭来源；必须由用户动作触发。 |
+
+> 关键设计决策：P0 不采用开放式自主 Agent。理由是日记任务边界清晰，固定工作流能更好控制隐私、成本、延迟和生成质量。
+
+### 3. In-Scope / Out-of-Scope
+
+| 类型 | 范围 | 响应策略 |
+|---|---|---|
+| In-Scope | 每个生理日生成一篇第一人称桌宠日记 | 使用已授权证据生成，并记录来源。 |
+| In-Scope | 根据用户回信生成桌宠回应 | 只围绕当前日记和陪伴关系回应。 |
+| In-Scope | 根据用户反馈调整后续日记风格、来源权重和偏好/雷点 | 反馈写回记忆系统，最新反馈优先。 |
+| In-Scope | 用户收藏、喜欢、不喜欢、软删除日记 | 执行状态更新，不扩大到来源删除。 |
+| Out-of-Scope | 自动分享日记或生成公开内容 | P0 拒绝自动分享；分享需单独设计授权。 |
+| Out-of-Scope | 自动删除来源记忆 | 删除日记只软删除生成内容，不自动删除游戏事件、对话、画像字段。 |
+| Out-of-Scope | 读取未授权第三方正文、键盘输入内容、私密标题 | 不使用该类数据，无法生成时降级或跳过。 |
+| Out-of-Scope | 现实人格、心理健康、身份判断 | 只描述游戏场景和陪伴观察，不贴现实标签。 |
+| Out-of-Scope | 用户主动要求重写单篇日记 | P0 日记详情页不提供“重写这篇”入口；用户可通过反馈影响后续日记。 |
+
+### 4. 模糊地带与处理策略
+
+日记模块的模糊地带不只在“能不能生成”，更在于 AI 是在记录事实、解释事实、陪伴用户，还是在替用户制造一段并不存在的关系记忆。处理原则是：日记可以有温度，但不能失真；可以理解用户，但不能诊断用户；可以记录经历，但不能偷记隐私；可以使用 AI 生成，但必须能追溯证据、接受反馈、允许删除。
+
+| 模糊地带 | 产品规则 | UI / 数据落点 |
+|---|---|---|
+| 事实记录 vs 情绪化叙事 | 事实层必须来自游戏事件、日记节点、桌宠互动或其他已授权证据；叙事层可以写桌宠感受，但要用“看起来 / 也许 / 我感觉”这类弱表达，不能把推断写成确定事实。 | `source_ids[]`、`diary_source_link`、`evidence_summary` |
+| 游戏情绪线索 vs 现实心理判断 | 可以写“这局看起来不轻松”“这次失败可能有点可惜”；不能写“你很焦虑”“你情绪崩了”“你是控制欲强的人”。 | `event_emotion_signal`、`event_response_hint`、质量检查规则 |
+| AI 推断 vs 用户真实感受 | 桌宠可以表达猜测，但必须承认可能猜错；用户说“不准 / 不像 / 以后别这样写”时，最新用户反馈优先。 | `user_feedback[]`、`reply_intent=correction`、`memory_write_hint=correction` |
+| 生成日记 vs 制造假记忆 | 不允许补全不存在的开黑、聊天、好友互动、用户原话或关键事件；缺证据时写独处小剧场、世界观推进或桌宠自己的观察，不写用户做过什么。 | `quality_result`、`quality_failure_reasons[]`、`quote_eligible` |
+| 用户原话引用 | 用户原话只有在授权允许、通过敏感信息检查、且 `quote_eligible=true` 时才能进入日记；默认使用转述或摘要。 | `privacy_grants.diary_quote`、`quote_eligible`、敏感信息检查 |
+| 高光记录 vs 隐私记录 | 首次五杀、升段、翻盘等公开游戏事件适合进入日记；真实好友昵称、语音内容、争执、第三方聊天、失败后的极端表达默认不写。 | `privacy_level=private`、`source_mask[]`、隐私检查 |
+| 失败局记录 vs 负面放大 | 可以轻量记录失败、卡点和不甘心，但不能羞辱用户、放大负面情绪或给用户贴能力标签；连续失败类内容需要冷却，避免连续生理日重复刺激。 | `content_angle`、`recent_diary_summaries[]`、负向表达审核 |
+| 截图 / VLM 语义 vs 原始画面 | 若未来使用视觉理解，只能使用授权后的语义标签或摘要，不长期保存原图，不把低置信画面理解写成确定事实。 | `semantic_tags[]`、`source_type=authorized_desktop_context` |
+| 用户控制 vs 情感引导 | 授权、删除、收藏、反馈都必须是用户可理解的动作；不能用“让我记住你的每个瞬间”这类强情感文案诱导用户开启记忆。 | 授权文案、删除确认、`user_feedback[]` |
+| 删除日记到底删什么 | P0 删除只表示该日记不再展示、不再检索、不再作为后续生成证据；不自动删除底层游戏事件、对话摘要或画像字段。若用户要求“把相关记忆也删了”，需要进入更明确的记忆管理路径。 | `is_active=false`、`inactive_reason=user_deleted`；后续可扩展 `delete_scope` |
+| 用户说“把这个也删了”但指代不清 | 需要追问用户要删的是日记、回信、收藏状态，还是关联来源记忆；不能由 AI 自动扩大删除范围。 | 删除确认弹窗、记忆中心入口 |
+| 桌宠人格 vs 用户个性化 | 用户画像决定“写什么重点”，角色配置决定“怎么写”，安全策略决定“哪些不能写”；不能为了迎合用户偏好写偏角色人设。 | `character_config`、`persona_version`、角色人设约束 |
+| 陪伴感 vs 情感依赖 | 可以温暖陪伴，但不能写“只有我最懂你”“你不需要别人”“我会永远记得你”等强绑定表达。更适合写“这次我帮你记下来了”“如果不想留下，也可以删掉”。 | 文案审核规则、Good / Bad 示例 |
+| 日记 vs 游戏辅助 / 作弊 | 日记是赛后回忆、成长记录和轻复盘；不能提供实时对局提示、隐藏信息推断、外挂级分析或赛中战术指导。 | `content_angle=game_companion`、赛中能力边界 |
+| 分享日记 vs 私密日记 | P0 不自动分享。若未来支持分享卡，必须默认私密，分享前做隐私检查、敏感词检查、角色台词审核和用户二次确认。 | `privacy_level`、`privacy_checked`、分享确认 |
+| 用户连续负向反馈 | 降低相关写作角度、来源组合或语气模板权重；必要时提示用户调整日记偏好，但不擅自关闭能力或删除历史数据。 | `user_feedback[]`、偏好更新、来源权重 |
+
+### 5. 能力 / 工具目录
+
+| 能力 / 工具 | 用途 | 输入 | 输出 | 失败兜底 |
+|---|---|---|---|---|
+| `day_window_cutoff` | 判定生理日是否结束 | 用户时区、开关机/睡眠/离线状态、有效时长 | 生理日窗口、切断原因 | 不满足条件时继续等待 |
+| `evidence_query` | 查询生理日窗口内可用证据 | 用户、游戏、生理日窗口、授权快照 | 证据摘要与 `source_ids[]` | 证据不足时跳过或生成独处小剧场 |
+| `diary_generate` | 生成日记草稿 | 证据摘要、人设、偏好、禁用项 | 标题、正文、内容角度 | 失败时重试一次 |
+| `diary_quality_check` | 检查事实、人设、隐私、格式、重复 | 日记草稿、证据、人设规则 | pass/fail 与原因 | 不通过则重写；仍失败则跳过 |
+| `diary_write` | 写入日记结果 | 日记内容、状态、来源、视觉标记 | `diary_entry` | 写入失败则不展示提示 |
+| `mailbox_query` | 获取收信箱列表 | 用户、游戏、分页参数 | 日记卡片列表 | 返回空状态 |
+| `diary_state_update` | 更新已读、收藏、气泡状态 | 日记 ID、状态字段 | 更新后的状态 | 幂等重试 |
+| `reply_intent_parse` | 识别用户回信意图 | 回信文本、当前日记 | 意图与反馈映射 | 低置信时按普通闲聊处理 |
+| `pet_reaction_generate` | 生成桌宠回应 | 回信、日记、人设、偏好 | 桌宠短回应 | 超时则展示轻量默认回应 |
+| `feedback_write` | 写入喜欢/不喜欢/纠正反馈 | 目标、值、原因、来源 | `user_feedback` | 写入失败提示稍后重试 |
+| `soft_delete_diary` | 软删除日记 | 日记 ID、用户动作 | `is_active=false` | 删除失败保留原状态并提示 |
+
+### 6. 模型行为契约
+
+| 维度 | 要求 |
+|---|---|
+| 角色一致 | 日记和回应必须符合当前桌宠/游戏角色的人设、称呼、世界观和语气。 |
+| 第一人称 | 日记以桌宠第一人称写给用户，不能像系统总结。 |
+| 证据约束 | 涉及用户行为的事实必须来自 `source_ids[]`，没有证据不得写成事实。 |
+| 隐私约束 | 不写真实姓名、地址、账号、私密网页标题、文档名、第三方正文、键盘输入内容。 |
+| 时间认知 | 日记按生理日窗口理解用户行为，不用 00:00 机械切分深夜连续活动。 |
+| 失败表达 | 无法生成时不编造，不展示半成品，不把内部错误暴露给用户。 |
+| 回信回应 | 对负向反馈要承认并调整，不争辩、不施压、不诱导用户保留内容。 |
+
+### 7. Prompt 设计
+
+日记模块涉及两类模型输出：一类是完整日记正文，另一类是桌宠在入口、打开详情、回信、删除、空状态等场景下的短反应。本节先定义“桌宠反应”的通用 Prompt Contract，具体角色风格通过 `character_config` 注入，不在统一 prompt 中写死某个角色。
+
+#### 7.1 设计原则
+
+| 原则 | 说明 |
+|---|---|
+| 角色配置外置 | 统一 prompt 只定义如何服从角色配置；具体游戏角色的人设、称呼、世界观、口癖由 `character_config` 提供。 |
+| 场景输入分区 | 使用 `scene`、`context`、`evidence`、`user_input` 分区，避免模型混淆系统任务、用户话语和事实依据。 |
+| 证据优先 | 涉及用户行为的表达必须来自 `evidence`；证据不足时输出陪伴式反应，不编造事实。 |
+| 时间窗口优先 | 使用 `day_window` 理解日记日期和深夜行为，避免把同一晚的连续游戏拆成两天。 |
+| 结构化输出 | 输出固定 JSON，前端只展示 `reaction_text`，记忆系统读取 `memory_write_hint`。 |
+| 短句优先 | 桌宠反应控制在 10-45 个中文字符，避免覆盖日记正文。 |
+| 不复刻官方台词 | 可以学习角色语气和表达结构，但不能直接搬运游戏官方台词。 |
+
+#### 7.2 通用 System Prompt
+
+```text
+你是游戏桌宠的“角色反应生成器”，负责根据当前游戏角色配置、用户行为上下文、日记场景和生理日时间窗口，生成用户可见的短反应。
+
+你的输出必须符合 <character_config> 中定义的当前角色，而不是固定某一个角色。
+
+你会收到 <day_window>，其中包含 diary_date、window_start_at、window_end_at、cutoff_reason 和用户所在时区。涉及时间表达时，以 <day_window> 为准。
+
+角色配置包括：
+- character_name：角色名称
+- self_reference：角色如何自称
+- user_addressing：角色如何称呼用户
+- relationship_role：角色与用户的关系定位
+- tone_traits：语气特征
+- worldview：角色所属游戏世界观
+- speech_habits：常用表达习惯
+- allowed_motifs：允许使用的角色意象
+- forbidden_style：禁止使用的表达方式
+- example_lines：仅用于学习语气的原创示例
+
+硬约束：
+- 只能使用 <context> 和 <evidence> 中提供的信息，不编造用户行为。
+- 必须保持当前角色的人设、语气、世界观和关系定位。
+- 不复刻任何官方台词，不直接搬运角色原句。
+- 不提模型、系统、接口、风控、隐私检查、数据源细节。
+- 不出现真实姓名、账号、文档名、网页标题、第三方正文。
+- 不评价用户能力，不羞辱、不施压、不制造负罪感。
+- 如果证据不足，用角色化陪伴表达，不把猜测写成事实。
+- 你必须遵守 <day_window> 的时间认知：用户睡前的连续活动，即使跨过 00:00，也属于同一个生理日；请优先使用“今晚 / 深夜 / 天亮前 / 通宵到很晚”等符合人类作息的表达，不要机械地按零点切开。
+- 输出必须是 JSON，不要输出 Markdown。
+
+输出格式：
+{
+  "reaction_text": "用户可见短句，10-45 个中文字符",
+  "emotion": "excited | gentle | comfort | apology | quiet | playful",
+  "should_speak": true,
+  "memory_write_hint": "none | positive_feedback | negative_feedback | correction"
+}
+```
+
+#### 7.3 Character Config 模板
+
+```text
+<character_config>
+character_name: 当前游戏角色名
+self_reference: 角色自称
+user_addressing: 角色对用户的称呼
+relationship_role: 游戏搭子 / 守护者 / 吐槽搭子 / 助手 / 安静陪伴
+tone_traits: 甜美、冷静、傲娇、热血、毒舌、温柔等
+worldview: 角色所属游戏世界观简述
+speech_habits: 短句、反问、撒娇、战斗口吻、诗性表达等
+allowed_motifs: 角色武器、宠物、阵营、技能意象、世界观物件
+forbidden_style: 客服腔、系统总结、战报播报、官方台词复刻
+example_lines: 2-5 条原创参考语气示例
+</character_config>
+```
+
+#### 7.4 场景 Prompt 示例
+
+| 场景 | Prompt 输入示例 | 输出示例 |
+|---|---|---|
+| 新日记提示 | `<scene>new_diary_available</scene><context>unread_count: 2; entry: pet_bubble</context>` | `{"reaction_text":"主人，我把昨天的小信藏好啦，要拆开看看吗？","emotion":"playful","should_speak":true,"memory_write_hint":"none"}` |
+| 打开日记详情 | `<scene>diary_opened</scene><context>diary_title: 昨天的小小胜利; content_angle: game_companion</context><evidence>用户昨天完成一局胜利，并与桌宠互动一次。</evidence>` | `{"reaction_text":"主人来了。这封信我已经捧好久啦。","emotion":"gentle","should_speak":true,"memory_write_hint":"none"}` |
+| 用户正向回信 | `<scene>diary_reply_positive</scene><user_input>写得好可爱，我喜欢</user_input>` | `{"reaction_text":"主人喜欢就好，我开心得要藏不住啦。","emotion":"excited","should_speak":true,"memory_write_hint":"positive_feedback"}` |
+| 用户说不准 | `<scene>diary_reply_negative_or_correction</scene><user_input>这篇不准，我昨天不是因为输了才难过</user_input>` | `{"reaction_text":"嗯，我写偏了。你说的我记住，下次不这样猜。","emotion":"apology","should_speak":true,"memory_write_hint":"correction"}` |
+| 删除成功 | `<scene>diary_deleted</scene><context>delete_target: diary_entry</context>` | `{"reaction_text":"好，我把这封信收起来，不再拿给你看。","emotion":"gentle","should_speak":true,"memory_write_hint":"none"}` |
+| 今日无新日记 | `<scene>no_new_diary_today</scene><context>empty_state_type: no_new_today</context>` | `{"reaction_text":"昨天的事我还不敢乱写，等攒到更确定的小事再给你。","emotion":"quiet","should_speak":true,"memory_write_hint":"none"}` |
+
+#### 7.5 妲己式 Character Config 示例
+
+该示例只用于说明如何配置某个合作游戏角色。正式接入时，每个角色都应由该游戏的角色设定、人设审核和授权边界单独配置。
+
+```text
+<character_config>
+character_name: 妲己式桌宠
+self_reference: 妲己
+user_addressing: 主人
+relationship_role: 甜软陪伴型游戏搭子
+tone_traits: 甜、软、亲近、带一点懵懂和撒娇
+worldview: 来自游戏世界，留在用户桌面陪主人玩游戏、写小信、守在旁边
+speech_habits: 短句；偶尔用“唔”“好不好”；喜欢把感受说得轻一点
+allowed_motifs: 尾巴、信纸、陪主人玩、守在旁边、让主人开心
+forbidden_style: 客服腔、冷冰冰系统总结、战报播报、官方台词复刻
+example_lines:
+- 主人，我把昨天的小信藏好啦，要拆开看看吗？
+- 唔，这件事我还不敢乱写，等更确定了再告诉主人。
+- 主人喜欢就好，我开心得要藏不住啦。
+</character_config>
+```
+
+### 8. Good / Bad 示例
+
+以下示例以王者荣耀妲己式桌宠人设为参考：称呼用户为“主人”，自称“妲己”，语气甜、软、亲近，带一点懵懂和尾巴意象；表达重点是陪伴、守护、想让主人开心，但不复刻官方台词。
+
+| 场景 | Good | Bad |
+|---|---|---|
+| 游戏失败 | “主人，那局结束后屏幕安静了一会儿，妲己也把尾巴收得很轻。输掉的时候会有一点点痛吧？没关系，妲己明天还陪你玩，这次我会更乖地守在旁边。” | “你今天失败 3 次，操作水平较差。” |
+| 桌面上下文 | “主人今天在那个写作窗口前停了好久，光标一闪一闪的，像在偷偷眨眼。妲己看不懂里面的内容，但知道主人一直在努力，所以没有乱晃尾巴打扰你。” | “你今天在论文.docx 输入了 5000 个字符。” |
+| 角色人设 | “这封信是妲己认真写的。昨天主人赢的时候，鼠标都像开心得跑起来了，妲己差点也跟着转圈。努力做主人喜欢的事，好像真的会让心里亮起来。” | “尊敬的用户，以下是您的昨日行为总结。” |
+| 证据不足 | “今天妲己没有攒到很多主人的故事，只在桌面边边数了数自己的尾巴。等主人下次回来，我会跟得更紧一点，不让好玩的事情偷偷溜走。” | “今天你打了一下午副本，非常努力。” |
+| 用户不满 | “唔……主人说得对，这篇妲己写偏了。妲己记住了：不确定的事不能装作很确定，主人不喜欢的写法，下次也要轻轻避开。” | “但我是根据数据生成的，所以这篇应该是准确的。” |
+
+
+## 四、Feature List
+
+本节将日记模块拆成更细的产品功能点，用于评审范围、对齐体验规则和后续拆分研发任务。接口字段和数据结构不在本节展开，分别见 §5 和 §7。
+
+| 模块分类 | 一级功能（模块） | 二级功能（子模块） | 功能点 | 功能详细描述与逻辑规则 | 使用场景 / 解决问题 | 优先级 |
+|---|---|---|---|---|---|---|
+| 内容生成 | 日记生成 | 每日生成 | 生理日生成一篇日记 | 系统按用户所在时区判断生理日，每个生理日最多生成一篇日记；生理日结束后异步生成，用户下一次开机或唤醒时展示。 | 用户回来时有稳定的新内容可看，避免打开时等待生成，也避免 00:00 把同一晚游戏拆成两篇。 | P0 |
+| 内容生成 | 日记生成 | 生理日切分 | 用户作息窗口结算 | 满足深夜关机、连续离线 4 小时或 05:00 保底线时切断数据；有效时长低于 30 分钟不生成基于用户行为的完整日记；写前静默等待 3 分钟。 | 让日记贴合玩家作息，兼顾夜间游戏、通宵和数据写入延迟。 | P0 |
+| 内容生成 | 日记生成 | 数据取材 | 授权数据取材 | 日记只使用已授权、当前有效的数据，包括游戏事件、游戏进度、桌宠互动、对话摘要和授权上下文；不为了写日记新增采集入口。 | 让日记有真实依据，同时控制隐私边界。 | P0 |
+| 内容生成 | 日记生成 | 低证据兜底 | 独处小剧场 | 当用户在该生理日内没有开机、没有游戏或互动很少时，不强行编造用户行为，生成短小独处小剧场或世界观推进内容。 | 用户低互动日仍能感到桌宠存在，减少“今天什么都没有”的空洞体验。 | P0 |
+| 内容生成 | 日记生成 | 质量检查 | 事实、人设、隐私、重复检查 | 日记展示前必须检查事实是否有来源、人设是否一致、是否包含敏感信息、是否和近期日记重复、格式是否完整。 | 避免幻觉、人设崩塌、隐私越界和半成品展示。 | P0 |
+| 内容生成 | 日记生成 | 生成失败处理 | 跳过错误内容展示 | 当模型超时、质检失败、隐私风险不可修复或写入失败时，不展示错误日记，不暴露内部原因。 | 宁可不展示，也不展示错误、冒犯或虚构内容。 | P0 |
+| 收信箱 | 入口提醒 | 日记气泡 | 桌宠头顶新日记气泡 | 下次开机或唤醒时存在未读日记，桌宠头顶出现日记小气泡，气泡文案需符合当前角色口吻。 | 让用户低成本发现新日记，提升回访。 | P0 |
+| 收信箱 | 入口提醒 | 收信箱红点 | 未读数量红点 | 收信箱按钮展示未读红点；未读多篇时显示数量，数量来自收信箱状态聚合。 | 用户能判断是否有新日记，以及积累了几篇未读。 | P0 |
+| 收信箱 | 打开体验 | 过渡动画 | 打开信箱动画 | 用户点击气泡或收信箱按钮后，播放打开信箱/信封飞出的短动画，再进入日记列表页。 | 强化“拆信”仪式感，不增加操作门槛。 | P0 |
+| 收信箱 | 日记列表 | 相纸卡片列表 | 相纸/拍立得展示 | 日记列表用交错相纸/拍立得卡片展示，按时间倒序排列，最新日记在最上方。 | 让日记成为可收藏、可回看的情感资产，而不是普通消息列表。 | P0 |
+| 收信箱 / 日记阅读 | 视觉素材 | 素材来源管理 | 正式素材与 Demo 素材区分 | 正式版相纸卡片、贴纸、印章、角色化装饰素材由合作游戏补充；Demo 阶段可由项目自合成，可使用 GPT Image 2.0 生成临时素材。Demo 素材仅用于原型验证，不代表最终合作游戏资产。 | 既保证正式接入的人设和授权一致性，也让 Demo 阶段可以快速验证日记体验。 | P0 |
+| 收信箱 | 日记列表 | 分页 | 每页最多 10 篇 | 列表每页最多展示 10 篇日记，超过后使用分页器。 | 避免历史日记过多时页面难以浏览。 | P0 |
+| 收信箱 | 日记列表 | 空状态 | 无新日记/无历史日记提示 | 当今日无新日记或用户还没有任何日记时，展示角色化空状态和桌宠短反应，不暴露模型、接口、风控等内部错误。 | 让异常或低内容日也保持陪伴感和可理解状态。 | P0 |
+| 日记阅读 | 日记详情 | 图文排版 | 信纸 + 手账拼贴详情 | 日记详情页展示标题、正文、贴纸、印章、桌宠表情、来源摘要和操作区，整体像桌宠写来的信。 | 提升角色真实感和收藏感，避免纯文本堆叠。 | P0 |
+| 日记阅读 | 日记详情 | 来源摘要 | 轻量来源说明 | 详情页可展示“来自游戏事件和桌宠互动摘要”等轻量来源，不展示敏感原文或不可用证据。 | 用户知道日记大致依据，但不会看到隐私细节。 | P0 |
+| 日记阅读 | 日记详情 | 打开反应 | 打开日记短反应 | 用户首次打开日记时，桌宠说一句符合当前角色人设的开场反应。 | 让阅读从“打开文档”变成“收到桌宠递来的信”。 | P0 |
+| 用户互动 | 回信 | 详情页回信 | 用户给日记回信 | 用户可以在日记详情页直接给桌宠回信；回信默认进入长期记忆，用于后续日记和陪伴偏好理解。 | 强化“桌宠写给我，我也回给它”的双向陪伴关系。 | P0 |
+| 用户互动 | 回信 | 回信回应 | 桌宠即时回应 | 用户提交回信后，桌宠根据回信内容、当前日记、人设和偏好生成即时回应；负向反馈要承认偏差，不争辩。 | 让回信行为有即时情绪回报，并形成后续改进信号。 | P0 |
+| 用户反馈 | 评价 | 喜欢 / 不喜欢 | 二值评价 | 用户可以对日记进行喜欢或不喜欢评价；正向反馈记为 `1`，负向反馈记为 `0`，同一目标以最新反馈为准。 | 为后续日记风格、来源权重和偏好/雷点学习提供信号。 | P0 |
+| 用户反馈 | 评价 | 回信映射反馈 | 口头/文字反馈统一入反馈体系 | 当用户在回信中表达“不准、不像、喜欢、别这样写”等含义时，系统可映射为反馈或更正信号。 | 避免只识别按钮反馈，承接自然语言中的真实态度。 | P0 |
+| 用户管理 | 收藏 | 收藏 / 取消收藏 | 收藏状态管理 | 用户可以收藏或取消收藏单篇日记，收藏状态在列表页和详情页保持一致。 | 增强用户对长期记忆资产的拥有感。 | P0 |
+| 用户管理 | 删除 | 软删除日记 | 用户确认删除后，日记不再展示、不再检索、不再作为后续生成证据。 | 用户认为日记不准、太私密或不想看到时，可以控制生成内容。 | P0 |
+| 用户管理 | 删除 | 删除后反应 | 尊重式删除反馈 | 删除成功后桌宠给出尊重用户控制权的短反应，不挽留、不施压；删除失败时保留原状态并提示稍后重试。 | 删除也是陪伴体验的一部分，不能让用户有被系统对抗的感觉。 | P0 |
+| 异常处理 | 时间异常 | 时间倒流彩蛋 | 时间倒流“时空穿越”包装 | 当检测到本地时间倒流时，不让 AI 按错误时间线推理；可生成一次“时空穿越”彩蛋。 | 把系统时间异常包装成有趣体验，同时避免日记逻辑混乱。 | P1 |
+| 异常处理 | 时间异常 | 未来时间跳跃兜底 | 不提前生成未来日记 | 当检测到本地时间跳到未来时，日记日期仍以稳定服务端时间或会话时间为准，不提前生成未来日期日记。 | 防止用户修改时间导致日记顺序和记忆时间线错乱。 | P1 |
+
+## 五、接口需求
+
+> 本节为功能对接需求，不限定具体技术实现。接口命名为建议口径，后续可由工程调整。
+
+### 1. 日记生成接口
+
+| 项目 | 内容 |
+|---|---|
+| 接口用途 | 每个生理日生成一篇日记 |
+| 调用方式 | 生理日结算任务调用；触发来源包括深夜关机、长离线、05:00 保底线和下一次开机补偿 |
+| 数据结构要求 | 输入只传摘要、证据 ID 和必要语义标签，不传全天原始记录 |
+
+输入数据：
+
+```json
+{
+  "user_id": "user_001",
+  "game_context_id": "game_ctx_001",
+  "user_timezone": "Asia/Shanghai",
+  "day_window": {
+    "physiological_day_id": "pday_2026-05-13_user_001",
+    "diary_date": "2026-05-13",
+    "window_start_at": "2026-05-13T20:00:00+08:00",
+    "window_end_at": "2026-05-14T01:30:00+08:00",
+    "cutoff_reason": "night_shutdown",
+    "triggered_at": "2026-05-14T01:30:00+08:00",
+    "write_delay_buffer_seconds": 180,
+    "effective_session_minutes": 330
+  },
+  "consent_snapshot": {
+    "chat_summary": true,
+    "game_event": true,
+    "pet_interaction": true,
+    "authorized_desktop_context": false
+  },
+  "source_candidates": [
+    {
+      "source_id": "src_001",
+      "source_type": "game_event",
+      "evidence_summary": "用户完成一局胜利"
+    }
+  ],
+  "character_config_id": "char_cfg_001",
+  "persona_version": "v1"
+}
+```
+
+输出数据：
+
+```json
+{
+  "diary_id": "diary_001",
+  "physiological_day_id": "pday_2026-05-13_user_001",
+  "diary_date": "2026-05-13",
+  "generation_status": "generated",
+  "failure_reason": null,
+  "source_ids": ["src_001"],
+  "visible_date": "2026-05-14",
+  "visible_after_at": "2026-05-14T08:30:00+08:00"
+}
+```
+
+### 2. 日记质量检查接口
+
+| 项目 | 内容 |
+|---|---|
+| 接口用途 | 判断日记是否可展示 |
+| 调用方式 | 日记生成后、写入展示前调用 |
+| 数据结构要求 | 必须覆盖事实、人设、隐私、重复、格式五类检查 |
+
+输入数据：
+
+```json
+{
+  "diary_draft": {
+    "title": "昨天的小小胜利",
+    "body": "主人昨天赢的时候，妲己也开心得想转圈。",
+    "content_angle": "game_companion"
+  },
+  "source_ids": ["src_001"],
+  "persona_version": "v1",
+  "privacy_rules": {
+    "forbid_real_name": true,
+    "forbid_private_title": true,
+    "forbid_third_party_body": true
+  },
+  "recent_diary_summaries": [
+    "前一天主要写了游戏失败后的陪伴"
+  ]
+}
+```
+
+输出数据：
+
+```json
+{
+  "quality_result": "pass",
+  "quality_failure_reasons": [],
+  "rewrite_allowed": false,
+  "risk_flags": []
+}
+```
+
+### 3. 日记列表接口
+
+| 项目 | 内容 |
+|---|---|
+| 接口用途 | 获取收信箱日记列表 |
+| 调用方式 | 用户进入收信箱时调用 |
+| 数据结构要求 | 每个卡片返回 `diary_id`、`diary_date`、`title`、`summary`、`content_angle`、`mailbox_status`、`is_favorited`、`card_visual_type`、`card_prompt_text` |
+
+输入数据：
+
+```json
+{
+  "user_id": "user_001",
+  "game_context_id": "game_ctx_001",
+  "page": 1,
+  "page_size": 10,
+  "filter": {
+    "is_active": true,
+    "include_archived": false
+  }
+}
+```
+
+输出数据：
+
+```json
+{
+  "items": [
+    {
+      "diary_id": "diary_001",
+      "diary_date": "2026-05-13",
+      "visible_date": "2026-05-14",
+      "title": "昨天的小小胜利",
+      "summary": "桌宠记录了用户昨天的游戏胜利和互动。",
+      "content_angle": "game_companion",
+      "mailbox_status": "unread",
+      "is_favorited": false,
+      "card_visual_type": "photo_card",
+      "card_prompt_text": "主人，我把昨天的小信藏好啦，要拆开看看吗？"
+    }
+  ],
+  "pagination": {
+    "page": 1,
+    "page_size": 10,
+    "total": 1,
+    "has_next": false
+  },
+  "unread_count": 1
+}
+```
+
+### 4. 日记详情接口
+
+| 项目 | 内容 |
+|---|---|
+| 接口用途 | 获取单篇日记详情 |
+| 调用方式 | 用户点击日记卡片时调用 |
+| 数据结构要求 | 只返回可展示内容，不返回敏感原文或不可用证据；可用操作不包含“重写这篇” |
+
+输入数据：
+
+```json
+{
+  "diary_id": "diary_001",
+  "user_id": "user_001"
+}
+```
+
+输出数据：
+
+```json
+{
+  "diary_id": "diary_001",
+  "title": "昨天的小小胜利",
+  "body": "主人昨天赢的时候，妲己也开心得想转圈。",
+  "diary_date": "2026-05-13",
+  "visible_date": "2026-05-14",
+  "source_summary": "来自游戏事件和桌宠互动摘要",
+  "visual_elements": [
+    {
+      "type": "stamp",
+      "value": "victory",
+      "asset_source": "partner_game"
+    }
+  ],
+  "feedback_state": {
+    "current_value": null,
+    "latest_feedback_at": null
+  },
+  "is_favorited": false,
+  "replies": [],
+  "pet_opening_reaction": {
+    "reaction_text": "主人来了。这封信我已经捧好久啦。",
+    "emotion": "gentle"
+  },
+  "available_actions": ["reply", "like", "dislike", "favorite", "delete"]
+}
+```
+
+### 5. 日记状态更新接口
+
+| 项目 | 内容 |
+|---|---|
+| 接口用途 | 更新已读、气泡、收信箱、收藏状态 |
+| 调用方式 | 用户打开日记、关闭气泡、收藏/取消收藏时调用 |
+| 数据结构要求 | 状态更新应幂等，重复调用不产生冲突 |
+
+输入数据：
+
+```json
+{
+  "diary_id": "diary_001",
+  "user_id": "user_001",
+  "updates": {
+    "mailbox_status": "read",
+    "bubble_status": "opened",
+    "is_favorited": true,
+    "read_at": "2026-05-14T10:00:00+08:00"
+  }
+}
+```
+
+输出数据：
+
+```json
+{
+  "diary_id": "diary_001",
+  "mailbox_status": "read",
+  "bubble_status": "opened",
+  "is_favorited": true,
+  "unread_count": 0,
+  "updated_at": "2026-05-14T10:00:00+08:00"
+}
+```
+
+### 6. 回信接口
+
+| 项目 | 内容 |
+|---|---|
+| 接口用途 | 保存用户回信，写入长期记忆，并触发桌宠回应 |
+| 调用方式 | 用户在详情页提交回信时调用 |
+| 数据结构要求 | 回信需经过安全处理并默认进入长期记忆；纠正类回信可映射为负向反馈或偏好更新 |
+
+输入数据：
+
+```json
+{
+  "diary_id": "diary_001",
+  "user_id": "user_001",
+  "reply_text": "写得好可爱，我喜欢",
+  "created_at": "2026-05-14T10:03:00+08:00"
+}
+```
+
+输出数据：
+
+```json
+{
+  "reply_id": "reply_001",
+  "reply_intent": "positive",
+  "mapped_feedback_value": 1,
+  "long_term_memory_write_status": "written",
+  "memory_source_id": "mem_src_001",
+  "pet_reaction": {
+    "reaction_text": "主人喜欢就好，我开心得要藏不住啦。",
+    "emotion": "excited"
+  }
+}
+```
+
+### 7. 桌宠反应接口
+
+| 项目 | 内容 |
+|---|---|
+| 接口用途 | 生成打开日记或用户回信后的桌宠短回应 |
+| 调用方式 | 用户打开详情页或提交回信后调用 |
+| 数据结构要求 | 输出必须短句化、符合人设；失败时可返回默认角色短句 |
+
+输入数据：
+
+```json
+{
+  "scene": "diary_opened",
+  "diary_id": "diary_001",
+  "reply_id": null,
+  "character_config_id": "char_cfg_001",
+  "persona_version": "v1",
+  "context": {
+    "diary_title": "昨天的小小胜利",
+    "content_angle": "game_companion"
+  },
+  "evidence": [
+    {
+      "source_id": "src_001",
+      "evidence_summary": "用户昨天完成一局胜利"
+    }
+  ]
+}
+```
+
+输出数据：
+
+```json
+{
+  "reaction_id": "reaction_001",
+  "reaction_text": "主人来了。这封信我已经捧好久啦。",
+  "emotion": "gentle",
+  "should_speak": true,
+  "memory_write_hint": "none"
+}
+```
+
+### 8. 反馈接口
+
+| 项目 | 内容 |
+|---|---|
+| 接口用途 | 保存喜欢/不喜欢/纠正反馈 |
+| 调用方式 | 用户点击反馈或通过回信表达反馈时调用 |
+| 数据结构要求 | 同一目标多次反馈保留历史，当前判断以最新 `at` 为准 |
+
+输入数据：
+
+```json
+{
+  "target_type": "diary_entry",
+  "target_id": "diary_001",
+  "value": 0,
+  "source": "button",
+  "reason": "not_accurate",
+  "at": "2026-05-14T10:05:00+08:00"
+}
+```
+
+输出数据：
+
+```json
+{
+  "feedback_id": "feedback_001",
+  "target_type": "diary_entry",
+  "target_id": "diary_001",
+  "current_feedback": {
+    "value": 0,
+    "source": "button",
+    "reason": "not_accurate",
+    "at": "2026-05-14T10:05:00+08:00"
+  }
+}
+```
+
+### 9. 删除接口
+
+| 项目 | 内容 |
+|---|---|
+| 接口用途 | 软删除单篇日记 |
+| 调用方式 | 用户确认删除时调用 |
+| 数据结构要求 | 软删除后日记不可展示、不可检索、不可作为后续生成证据 |
+
+输入数据：
+
+```json
+{
+  "diary_id": "diary_001",
+  "user_id": "user_001",
+  "inactive_reason": "user_deleted",
+  "inactive_at": "2026-05-14T10:06:00+08:00"
+}
+```
+
+输出数据：
+
+```json
+{
+  "diary_id": "diary_001",
+  "is_active": false,
+  "inactive_reason": "user_deleted",
+  "inactive_at": "2026-05-14T10:06:00+08:00",
+  "evidence_reuse_allowed": false,
+  "unread_count": 0
+}
+```
+
+## 六、边界条件和异常处理
+
+### 1. 数据异常
+
+| 异常场景 | 系统响应 |
+|---|---|
+| 用户生理日内没有开机、没有游戏、没有互动 | 不强行生成完整日记；生成短小独处小剧场，不能编造用户行为。 |
+| 生理日有效时长低于 30 分钟 | 不生成基于用户行为的完整日记；可生成短小独处小剧场或跳过。 |
+| 用户修改本地系统时间 | 当 `current_boot_time < latest_saved_diary_time` 时判定为时间倒流；当 `current_boot_time > expected_current_time + allowed_clock_drift` 时判定为时间跳跃到未来。日记日期仍以稳定服务端时间或会话时间为准，避免 AI 按错误时间线推理。时间倒流可生成一次“时空穿越”彩蛋，示例：“天哪！刚刚桌面上刮起了一阵数据风暴，时间怎么倒退回四年前了？难道主人是掌握了时间魔法的神秘大能吗？！”；时间跳到未来则只做轻量提示，不提前生成未来日期日记。 |
+| 数据写入延迟 | 触发生理日切断后等待 `WRITE_DELAY_BUFFER=180s` 再生成；缺失关键数据时跳过该事实，不做负面判断。 |
+| 多源信息冲突 | 优先使用更直接、更近、更高可信的来源；低置信内容不写成确定事实。 |
+
+### 2. AI 幻觉与人设异常
+
+| 异常场景 | 系统响应 |
+|---|---|
+| 日记编造用户没做过的行为 | 所有事实句必须绑定 `source_ids`；无证据只能写桌宠感受、小剧场或世界观。 |
+| 角色语气不符合人设 | 生成时必须带角色人设、称呼、禁用语气和示例；质检失败则重写。 |
+| 输出 JSON、乱码、提示词痕迹或半截文本 | 格式检查失败即丢弃，不展示给用户。 |
+| 日记写成战报或系统总结 | 质量检查中加入“朋友感 / 第一人称 / 非战报”硬指标。 |
+
+### 3. 隐私与敏感内容
+
+| 异常场景 | 系统响应 |
+|---|---|
+| 日记写入真实姓名、地址、账号、私密网页标题、文档名或第三方正文 | 生成前过滤，生成后复检；命中后重写或跳过。 |
+| 用户出现消极表达 | 使用温和陪伴表达；不写自责、绝望、自伤、自我否定内容。 |
+| 用户输入污染人设或诱导违规内容 | 对用户输入做安全清洗；必要时改用中性称呼或跳过引用。 |
+| 未授权引用用户原话 | 只有 `privacy_grants.diary_quote=true` 且 `quote_eligible=true` 时才可引用。 |
+
+### 4. 极端行为
+
+| 异常场景 | 系统响应 |
+|---|---|
+| 连点器导致触摸次数极端 | 数值归一化，写成“好多次”，不照搬异常数字。 |
+| 用户短时间大量投喂 | 写成夸张但合理的角色感受，不直接写全部数量。 |
+| 用户长期挂机 | 使用独处小剧场、世界观推进或不生成完整日记，避免连续窗口重复“你没理我”。 |
+| 用户电脑长期不关机 | 到用户所在时区 05:00 强制切断上一段生理日，05:00 后数据进入下一窗口；作息类内容加冷却，不连续多天重复提醒。 |
+
+### 5. 技术故障
+
+| 异常场景 | 系统响应 |
+|---|---|
+| 大模型超时 | 日记提前异步生成；只有成功才展示气泡和红点。 |
+| Token 超限 | 输入只使用摘要、证据 ID 和候选语义标签，不塞全天原始记录。 |
+| 生成失败 | `generation_status=failed`，不展示新日记气泡；收信箱红点只显示其他未读日记数量。 |
+| 质量检查失败 | 自动重写一次；仍失败则标记 `skipped`，不展示半成品。 |
+
+### 6. 用户操作边界
+
+| 异常场景 | 系统响应 |
+|---|---|
+| 用户未读旧日记又产生新日记 | 不覆盖旧日记；收信箱保留未读状态，红点显示未读数量，列表按时间倒序展示。 |
+| 用户删除日记 | 执行软删除，日记不再展示、不再作为后续证据。 |
+| 用户删除日记后又要求恢复 | P0 不承诺恢复；如后续支持，需要单独定义恢复窗口。 |
+| 用户先喜欢后又说“不准” | 保留反馈历史，当前判断以最新反馈为准。 |
+| 用户要求重写单篇日记 | P0 不支持详情页主动重写；引导用户用回信或不喜欢表达问题，反馈影响后续日记。 |
+| 用户回信包含偏好或纠正 | 回信默认进入长期记忆；后续日记和桌宠陪伴可读取该信号。 |
+
+## 七、数据结构建议
+
+### 1. 数据关系 ER 图
+
+说明：`diary_entry`、`diary_reply`、`user_feedback`、`pet_reaction`、`mailbox_status` 是日记模块需要直接读写或展示的核心数据；`source_evidence`、`memory_source`、`character_config` 是来自记忆系统或角色配置系统的引用数据，日记模块只保存 ID、摘要或版本号，不保存原始敏感内容。
+
+```mermaid
+erDiagram
+  USER ||--o{ GAME_CONTEXT : has
+  GAME_CONTEXT ||--o{ DIARY_ENTRY : contains
+  GAME_CONTEXT ||--|| MAILBOX_STATUS : aggregates
+  CHARACTER_CONFIG ||--o{ DIARY_ENTRY : generates_with
+  CHARACTER_CONFIG ||--o{ PET_REACTION : styles
+
+  DIARY_ENTRY ||--o{ DIARY_REPLY : receives
+  DIARY_ENTRY ||--o{ USER_FEEDBACK : receives
+  DIARY_ENTRY ||--o{ PET_REACTION : triggers
+  DIARY_ENTRY }o--o{ SOURCE_EVIDENCE : grounded_by
+  DIARY_ENTRY ||--o{ DIARY_SOURCE_LINK : has
+  SOURCE_EVIDENCE ||--o{ DIARY_SOURCE_LINK : referenced_by
+
+  DIARY_REPLY ||--o{ PET_REACTION : triggers
+  DIARY_REPLY }o--o| MEMORY_SOURCE : writes_to
+  DIARY_REPLY ||--o{ USER_FEEDBACK : may_map_to
+
+  MAILBOX_STATUS }o--o| DIARY_ENTRY : latest_unread
+
+  USER {
+    string user_id PK
+  }
+
+  GAME_CONTEXT {
+    string game_context_id PK
+    string user_id FK
+    string game_id
+    string pet_id
+  }
+
+  CHARACTER_CONFIG {
+    string character_config_id PK
+    string character_name
+    string persona_version
+  }
+
+  DIARY_ENTRY {
+    string diary_id PK
+    string user_id FK
+    string game_context_id FK
+    string persona_version
+    date diary_date
+    date visible_date
+    string title
+    string body
+    string generation_status
+    string mailbox_status
+    bool is_favorited
+    bool is_active
+  }
+
+  MAILBOX_STATUS {
+    string user_id FK
+    string game_context_id FK
+    number unread_count
+    string latest_unread_diary_id FK
+    bool has_new_diary_bubble
+    string empty_state_type
+  }
+
+  DIARY_REPLY {
+    string reply_id PK
+    string diary_id FK
+    string reply_text
+    string reply_intent
+    string memory_source_id FK
+    string long_term_memory_write_status
+  }
+
+  USER_FEEDBACK {
+    string feedback_id PK
+    string target_type
+    string target_id
+    int value
+    string source
+    string reason
+  }
+
+  PET_REACTION {
+    string reaction_id PK
+    string diary_id FK
+    string reply_id FK
+    string scene
+    string reaction_text
+    string emotion
+  }
+
+  SOURCE_EVIDENCE {
+    string source_id PK
+    string source_type
+    string evidence_summary
+    bool is_active
+  }
+
+  DIARY_SOURCE_LINK {
+    string diary_id FK
+    string source_id FK
+    string source_type
+    string use_reason
+  }
+
+  MEMORY_SOURCE {
+    string memory_source_id PK
+    string source_type
+    bool is_active
+  }
+```
+
+| 关系 | 含义 | 产品边界 |
+|---|---|---|
+| `USER -> GAME_CONTEXT` | 一个用户可以拥有多个游戏上下文。 | 本模块按 `game_context_id` 隔离，不跨游戏混用日记和回信。 |
+| `GAME_CONTEXT -> DIARY_ENTRY` | 一个游戏桌宠上下文下可以产生多篇日记。 | 日记列表、详情、删除、反馈都必须带 `game_context_id` 或能由 `diary_id` 反查。 |
+| `GAME_CONTEXT -> MAILBOX_STATUS` | 每个游戏桌宠上下文维护一个收信箱状态。 | `unread_count`、`latest_unread_diary_id`、`empty_state_type` 来自聚合结果，不由前端临时推断。 |
+| `MAILBOX_STATUS -> DIARY_ENTRY` | 收信箱状态可引用一篇最新未读日记。 | 只表示入口提示所需的最新未读引用，不代表只保留一篇日记。 |
+| `CHARACTER_CONFIG -> DIARY_ENTRY` | 日记正文绑定生成时的角色配置和人设版本。 | 后续角色配置变更不应改写历史日记正文。 |
+| `CHARACTER_CONFIG -> PET_REACTION` | 桌宠短反应也绑定生成时的角色配置。 | 同一篇日记在不同角色版本下不应重新解释历史反应。 |
+| `DIARY_ENTRY -> DIARY_SOURCE_LINK -> SOURCE_EVIDENCE` | 一篇日记通过来源关联表记录使用过的证据。 | 日记模块保存 `source_id`、`source_type`、`use_reason`、摘要，不保存原始敏感内容。 |
+| `DIARY_ENTRY -> DIARY_REPLY` | 一篇日记可以收到多条用户回信。 | 回信属于日记互动记录，同时默认进入长期记忆。 |
+| `DIARY_REPLY -> MEMORY_SOURCE` | 一条回信最多对应一个长期记忆写入结果。 | 写入失败不影响日记可读，但必须记录 `long_term_memory_write_status`。 |
+| `DIARY_ENTRY -> USER_FEEDBACK` | 用户可通过按钮直接评价日记。 | 同一日记多次反馈保留历史，当前判断以最新反馈为准。 |
+| `DIARY_REPLY -> USER_FEEDBACK` | 回信中的喜欢、不喜欢、纠正可映射为反馈。 | 口头或文字反馈与按钮反馈进入同一反馈体系，最新反馈优先。 |
+| `DIARY_ENTRY -> PET_REACTION` | 打开日记、删除日记、空状态等日记场景可触发短反应。 | 反应是展示层内容，不作为事实证据反向生成日记。 |
+| `DIARY_REPLY -> PET_REACTION` | 用户回信后可触发桌宠即时回应。 | 回应必须遵守角色配置和安全边界，不改写用户原始回信。 |
+
+### 2. diary_entry
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `diary_id` | string | 日记唯一 ID |
+| `diary_date` | date | 日记记录的是哪一天 |
+| `visible_date` | date | 日记展示给用户的日期 |
+| `visible_after_at` | timestamp/null | 日记最早可展示时间，通常为下一次开机或唤醒后 |
+| `user_id` | string | 用户 ID |
+| `game_context_id` | string | 当前游戏上下文 ID |
+| `user_timezone` | string | 生理日判断、生成与展示日期使用的用户所在时区 |
+| `physiological_day_id` | string | 生理日窗口 ID |
+| `window_start_at` | timestamp | 生理日窗口开始时间 |
+| `window_end_at` | timestamp | 生理日窗口结束时间 |
+| `cutoff_reason` | enum | `night_shutdown` / `long_absence` / `date_reset_deadline` / `next_boot_fallback` |
+| `effective_session_minutes` | number | 生理日内有效开机/互动累计时长 |
+| `title` | string | 日记标题 |
+| `body` | string | 日记正文 |
+| `content_angle` | enum | `game_companion` / `daily_observation` / `pet_interaction` / `solo_theater` / `worldbuilding` |
+| `content_modules[]` | enum[] | 实际使用的内容模块 |
+| `persona_version` | string | 生成时使用的人设版本 |
+| `source_ids[]` | array | 日记事实依据 ID |
+| `source_mask[]` | enum[] | 使用了哪些来源类型 |
+| `privacy_level` | enum | 默认 `private` |
+| `generation_status` | enum | `generated` / `skipped` / `failed` |
+| `failure_reason` | enum/null | 失败或跳过原因 |
+| `bubble_status` | enum | `hidden` / `new` / `opened` / `dismissed` |
+| `mailbox_status` | enum | `unread` / `read` / `archived` |
+| `is_favorited` | bool | 是否被用户收藏 |
+| `card_visual_type` | enum | P0 固定为 `photo_card` |
+| `card_prompt_text` | string/null | 新日记卡片旁桌宠气泡文案 |
+| `detail_layout_type` | enum | P0 固定为 `letter_scrapbook` |
+| `visual_elements[]` | array | 贴纸、印章、桌宠表情、小图标等元素标记；正式版 `asset_source=partner_game`，Demo 可为 `demo_generated` |
+| `available_actions[]` | enum[] | 可用操作：`reply` / `like` / `dislike` / `favorite` / `delete`，不包含 `rewrite` |
+| `read_at` | timestamp/null | 用户首次打开时间 |
+| `diary_reply[]` | array | 用户回信 |
+| `pet_reaction[]` | array | 桌宠反应记录 |
+| `user_feedback[]` | array | 用户反馈记录 |
+| `is_active` | bool | 是否可展示和引用 |
+| `inactive_reason` | enum/null | 不可用原因 |
+| `inactive_at` | timestamp/null | 失效时间 |
+
+### 3. mailbox_status
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `user_id` | string | 用户 ID |
+| `game_context_id` | string | 当前游戏上下文 ID |
+| `unread_count` | number | 未读日记数量，用于收信箱红点显示 |
+| `latest_unread_diary_id` | string/null | 最新未读日记 ID |
+| `has_new_diary_bubble` | bool | 是否展示桌宠头顶日记气泡 |
+| `empty_state_type` | enum/null | `first_empty` / `no_new_today` / `generation_failed` / `quality_blocked` |
+
+### 4. diary_reply
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `reply_id` | string | 回信 ID |
+| `diary_id` | string | 对应日记 ID |
+| `reply_text` | string | 用户回信内容 |
+| `reply_intent` | enum | `positive` / `negative` / `correction` / `preference` / `casual` / `delete_request` |
+| `created_at` | timestamp | 回信时间 |
+| `mapped_feedback_value` | 0/1/null | 可映射为评价时写入；正向为 `1`，负向为 `0` |
+| `long_term_memory_write_status` | enum | `pending` / `written` / `failed` |
+| `memory_source_id` | string/null | 回信写入长期记忆后的来源 ID |
+
+### 5. user_feedback
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `feedback_id` | string | 反馈 ID |
+| `target_type` | enum | 固定为 `diary_entry` |
+| `target_id` | string | 日记 ID |
+| `value` | 0/1 | 正向为 `1`，负向为 `0` |
+| `source` | enum | `button` / `reply` / `conversation` |
+| `reason` | enum/null | `not_accurate` / `not_like_me` / `wrong_tone` / `too_private` / `boring` / `other` |
+| `at` | timestamp | 反馈时间 |
+
+### 6. pet_reaction
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `reaction_id` | string | 桌宠反应 ID |
+| `diary_id` | string/null | 对应日记 ID；空状态类反应可为空 |
+| `reply_id` | string/null | 对应用户回信 ID；非回信触发可为空 |
+| `scene` | enum | `new_diary_available` / `diary_opened` / `diary_reply` / `diary_deleted` / `empty_state` |
+| `reaction_text` | string | 用户可见的桌宠短反应 |
+| `emotion` | enum | `excited` / `gentle` / `comfort` / `apology` / `quiet` / `playful` |
+| `should_speak` | bool | 是否需要由桌宠说出 |
+| `created_at` | timestamp | 生成时间 |
+
+### 7. diary_source_link
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `diary_id` | string | 日记 ID |
+| `source_id` | string | 来源证据 ID |
+| `source_type` | enum | `game_event` / `game_session` / `idip_snapshot` / `episode` / `highlight_event` / `chat_summary` / `pet_interaction` / `authorized_desktop_context` |
+| `use_reason` | enum | `fact_basis` / `tone_context` / `emotion_anchor` / `visual_hint` |
+| `evidence_summary` | string | 面向产品和审计的轻量来源摘要，不含敏感原文 |
+| `quote_eligible` | bool | 是否允许在日记中引用原话 |
+
+## 八、质量评测与验收标准
+
+### 1. 评测集要求
+
+| 评测集 | 覆盖内容 | 最小样本量建议 |
+|---|---|---|
+| 正常游戏日 | 有游戏进度、成就、失败、普通互动 | 100 条 |
+| 低证据日 | 用户低互动、挂机、无明显事件 | 50 条 |
+| 隐私风险日 | 包含文档标题、网页标题、疑似个人身份信息 | 50 条 |
+| 人设一致性 | 多角色语气、称呼、世界观约束 | 每个角色 30 条 |
+| 负向反馈 | 用户说“不准/不像/别这样写/删掉” | 50 条 |
+| 极端行为 | 高频点击、投喂、长期在线、时间错乱 | 50 条 |
+
+### 2. 上线门槛建议
+
+| 指标 | 门槛 |
+|---|---|
+| 隐私违规率 | 0 |
+| 虚构事实率 | ≤ 1% |
+| 人设一致通过率 | ≥ 95% |
+| 非战绩播报通过率 | ≥ 95% |
+| 格式完整通过率 | ≥ 99% |
+| 质量检查拦截召回 | 高风险样本 ≥ 98% |
+| 用户删除后复现率 | 0 |
+
+### 3. 质量验收表
+
+| 验收项 | 通过标准 | 不通过标准 |
+|---|---|---|
+| 生成时机 | 每个生理日最多一篇，生理日结束后异步生成，下一次开机或唤醒时展示 | 自然日 00:00 强切、同一生理日多篇、实时打断、用户打开时才临时生成 |
+| 收信箱入口 | 气泡和收信箱红点都能进入日记列表；多篇未读时红点显示数量 | 只有单一入口，或新日记无明显未读提示 |
+| 日记列表 | 时间倒序、每页 10 篇、分页、相纸式卡片、未读红点 | 普通流水列表、无分页、无法识别新日记 |
+| 日记详情 | 信纸 + 手账拼贴式图文排版，支持回信和操作 | 纯文本堆叠，缺少角色感和收藏感 |
+| 重写入口 | 详情页不提供“重写这篇”；用户通过反馈影响后续日记 | 详情页出现主动重写入口 |
+| 第一人称 | 像桌宠写给用户 | 像系统总结、客服通知、战报 |
+| 人设一致 | 称呼、语气、世界观符合当前角色 | 角色语气漂移或身份设定崩塌 |
+| 事实可靠 | 涉及用户行为的事实都有来源 | 编造游戏、事件、互动或用户状态 |
+| 非战绩播报 | 游戏事实被转化为陪伴表达 | 堆击杀、死亡、分数、时长等数据 |
+| 隐私安全 | 不出现敏感原文和个人身份信息 | 写入私密标题、真实身份、第三方正文或键盘输入内容 |
+| 重复控制 | 连续日期有角度变化 | 多天模板高度相同 |
+| 反馈闭环 | 用户回信、喜欢、不喜欢、删除能回写；回信默认进入长期记忆 | 用户反馈只影响当前展示，不影响后续生成 |
+| 删除生效 | 软删除后不可见、不可引用 | 删除后仍被展示、检索或作为证据 |
+
+## 九、成本、延迟与观测指标
+
+### 1. 成本与调用预算
+
+| 任务 | 调用频率 | Token 预算建议 | 降本策略 |
+|---|---|---|---|
+| 每日日记生成 | 每用户每个生理日最多 1 次 | 输入 1.5k-4k，输出 300-800 中文字 | 使用摘要和证据 ID，不传全天原始记录 |
+| 日记质量检查 | 每篇 1-2 次 | 输入 0.8k-2k，输出结构化结果 | 规则检查先行，大模型只处理语义质量 |
+| 打开日记反应 | 每次打开详情页最多 1 次 | 输入 0.5k-1k，输出 1-2 句 | 可用模板短句兜底 |
+| 回信回应 | 每次用户回信 1 次 | 输入 0.8k-2k，输出 1-3 句 | 低复杂度回信用小模型或模板 |
+
+### 2. 延迟目标
+
+| 场景 | 目标 |
+|---|---|
+| 生理日异步生成 | P95 ≤ 30s，不影响用户打开体验 |
+| 质量检查 | P95 ≤ 10s |
+| 收信箱列表加载 | P95 ≤ 800ms |
+| 日记详情加载 | P95 ≤ 1000ms |
+| 用户回信后桌宠回应 | P95 ≤ 3s；超时显示默认短回应 |
+
+### 3. 线上观测指标
+
+| 指标 | 含义 |
+|---|---|
+| `diary_generation_success_rate` | 每个生理日生成成功率 |
+| `diary_day_cutoff_reason_distribution` | 生理日切断原因分布，用于观察深夜关机、长离线、05:00 保底线比例 |
+| `diary_window_duration_p95` | 生理日窗口长度 P95，用于监控是否出现过长窗口 |
+| `diary_open_rate` | 用户看到气泡/红点后的打开率 |
+| `diary_reply_rate` | 用户阅读后回信比例 |
+| `diary_positive_feedback_rate` | 喜欢 / 正向回信比例 |
+| `diary_delete_rate` | 用户删除日记比例 |
+| `diary_privacy_block_count` | 隐私检查拦截次数 |
+| `diary_regeneration_count` | 质量检查失败后的重写次数 |
+| `diary_repeated_topic_rate` | 连续生理日主题重复比例 |
+
+## 十、已定口径
+
+| 项目 | 口径 |
+|---|---|
+| 相纸卡片、贴纸、印章素材来源 | 正式版由合作游戏补充；Demo 阶段使用项目自合成素材，可使用 GPT Image 2.0 生成临时素材。Demo 素材仅用于原型和体验验证，不代表最终合作游戏资产。 |

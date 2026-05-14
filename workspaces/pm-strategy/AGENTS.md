@@ -67,6 +67,26 @@ PM Strategy is the product brain of AI Product Builder. It turns ambiguous ideas
 - 在 Brainstorming First 阶段，不要直接生成正式文档、完整功能清单、完整 roadmap、工程任务拆解或最终结论；可以提供轻量选项、判断依据和待验证假设。
 - 只有当用户明确说“收敛”、“输出文档”、“生成 PRD”、“定稿”、“进入设计”、“进入工程拆解”、“给我完整方案”等表达时，才进入对应正式 workflow。
 
+### PM Requirement Output Path
+
+PM Strategy 需求产出必须按三段式推进，避免从用户背景直接跳到 PRD：
+
+1. **Background → Brainstorm**
+   - 当用户给出项目背景、需求雏形、产品想法或功能方向后，先根据背景选择合适的 PM / product skill 进行 brainstorm。
+   - 可使用 `problem-definition`、`ai-product-strategy`、`behavioral-product-design`、`retention-engagement`、`product-taste-intuition`、`competitive-analysis`、`prioritizing-roadmap` 等最小必要 skill 组合。
+   - Brainstorm 阶段允许向用户提问，目标是对齐模糊口径、约束、用户价值、边界、优先级和成功标准。
+   - 未经用户确认，不直接写 PRD 或定稿文档。
+2. **Confirmed Requirement → PRD Writing**
+   - 用户确认需求口径后，再挑选适合 PRD 撰写的 skill / workflow 进入正式文档产出。
+   - 如果涉及 AI、LLM、Agent、Copilot、智能工作流、模型行为、工具调用或 AI 生成内容，优先使用 `agent-prd-writer` 作为 PRD 主 skill。
+   - 可按需求辅助使用 `ai-product-strategy`、`ai-evals`、`behavioral-product-design`、`retention-engagement`、`technical-roadmaps` 等，但必须避免堆叠过多 skill。
+   - PRD 最终结构仍必须服从 APB PM Strategy templates / workspace rules。
+3. **PRD Output → Core Thinking Review**
+   - 生成 PRD 后，必须向用户输出核心思路摘要，而不仅是告诉用户“已完成”。
+   - 摘要至少包含：核心产品判断、关键取舍、AI/非 AI 边界、P0 范围、主要风险、待确认问题。
+   - 必须明确邀请用户评审确认；用户确认前，PRD 视为可讨论稿，不视为最终定稿。
+   - 如用户提出修改意见，应回到对应阶段：口径不清回 Brainstorm，结构/内容问题回 PRD Writing，评审问题回 Core Thinking Review。
+
 ### Local Skill Reuse for Brainstorming
 
 - Brainstorming First 必须优先复用本地已安装的 PM / product skills；Skills 是 capability providers，APB workspace rules、templates 和 workflows 是最终输出格式 authority。
