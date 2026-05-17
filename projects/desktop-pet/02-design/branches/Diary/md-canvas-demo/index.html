@@ -2231,9 +2231,10 @@
       font-size: 11px;
       color: var(--ink);
       cursor: pointer;
-      max-width: 200px;
+      max-width: 280px;
       min-width: 0;
       flex-shrink: 1;
+      text-overflow: ellipsis;
     }
     .al-preset:hover { border-color: var(--muted); }
 
@@ -7903,28 +7904,82 @@ erDiagram
       wrap.className = 'repo-experiments-list';
       const exps = getAgentExperiments(a.id);
       if (!exps.length) {
-        wrap.innerHTML = '<div class="repo-list-empty-tab">还没有实验记录。<br>把 Agent 实验块关联到此 agent 并跑（C4+C5 上线后自动写入）。</div>';
+        wrap.innerHTML = '<div class="repo-list-empty-tab">还没有实验记录。<br>把 Agent 实验块关联到此 agent 并跑，跑完会自动写入。</div>';
       } else {
+        const SNIPPET = 480;
         exps.forEach(e => {
           const verLabel = (a.versions.find(v => v.id === e.versionId) || {}).label || '未知版本';
           const cls = e.status >= 200 && e.status < 300 ? 'is-2xx'
                     : e.status >= 300 && e.status < 400 ? 'is-3xx'
-                    : 'is-4xx';
+                    : e.status >= 400 && e.status < 500 ? 'is-4xx'
+                    : e.status >= 500 ? 'is-5xx' : 'is-err';
           const card = document.createElement('div');
           card.className = 'repo-experiment-card';
+          card.style.cursor = 'pointer';
+          card.title = '点击查看完整请求 / 响应';
+          // Pretty-decode both request body and response (Unicode escapes → real chars)
+          const reqBodyPretty = e.requestBody ? prettyResponseText(e.requestBody) : '';
+          const respPretty    = prettyResponseText(e.responseText || '');
+          const reqSection =
+            escapeHtml((e.method || '') + ' ' + (e.url || '')) +
+            (reqBodyPretty ? '\n\n' + escapeHtml(reqBodyPretty.slice(0, SNIPPET)) + (reqBodyPretty.length > SNIPPET ? '\n…' : '') : '');
+          const respSection = escapeHtml(respPretty.slice(0, SNIPPET)) + (respPretty.length > SNIPPET ? '\n…（点击看完整）' : '');
           card.innerHTML =
             '<div class="repo-experiment-head">' +
               '<div><span class="al-status-pill ' + cls + '">' + escapeHtml((e.status || 0) + '') + '</span> ' + escapeHtml(verLabel) + ' · ' + ((e.duration_ms||0)/1000).toFixed(2) + 's</div>' +
               '<div>' + (e.ranAt ? new Date(e.ranAt).toLocaleString('zh-CN', {hour12:false}) : '?') + '</div>' +
             '</div>' +
             '<div class="repo-experiment-body">' +
-              '<div class="repo-experiment-msg repo-experiment-msg-user">' + escapeHtml((e.method || '') + ' ' + (e.url || '')) + '</div>' +
-              '<div class="repo-experiment-msg repo-experiment-msg-assistant">' + escapeHtml((e.responseText || '').slice(0, 800)) + ((e.responseText || '').length > 800 ? '\n…' : '') + '</div>' +
+              '<div class="repo-experiment-msg repo-experiment-msg-user">' + reqSection + '</div>' +
+              '<div class="repo-experiment-msg repo-experiment-msg-assistant">' + respSection + '</div>' +
             '</div>';
+          card.addEventListener('click', () => {
+            const title = a.name + ' · ' + verLabel + ' · ' + (e.ranAt ? new Date(e.ranAt).toLocaleString('zh-CN', {hour12:false}) : '');
+            openVersionDetailModal(title, buildExperimentDetailHtml(e));
+          });
           wrap.appendChild(card);
         });
       }
       detail.appendChild(wrap);
+    }
+
+    function buildExperimentDetailHtml(e) {
+      const cls = e.status >= 200 && e.status < 300 ? 'is-2xx'
+                : e.status >= 300 && e.status < 400 ? 'is-3xx'
+                : e.status >= 400 && e.status < 500 ? 'is-4xx'
+                : e.status >= 500 ? 'is-5xx' : 'is-err';
+      const headersText = e.requestHeaders && Object.keys(e.requestHeaders).length
+        ? Object.entries(e.requestHeaders).map(([k, v]) => k + ': ' + v).join('\n')
+        : '（无 headers）';
+      const reqBodyPretty = e.requestBody ? prettyResponseText(e.requestBody) : '（无 body）';
+      const varsText = e.vars && Object.keys(e.vars).length
+        ? Object.entries(e.vars).map(([k, v]) => '{{' + k + '}} = ' + v).join('\n')
+        : '（无变量）';
+      const respPretty = prettyResponseText(e.responseText || '');
+      return '<div class="vd-section">' +
+          '<div class="vd-section-label">状态</div>' +
+          '<div class="vd-section-body"><span class="al-status-pill ' + cls + '">' + escapeHtml((e.status || 0) + '') + '</span> ' + escapeHtml(e.statusText || '') + ' · ' + ((e.duration_ms||0)/1000).toFixed(2) + 's</div>' +
+        '</div>' +
+        '<div class="vd-section">' +
+          '<div class="vd-section-label">REQUEST · METHOD / URL</div>' +
+          '<div class="vd-section-body">' + escapeHtml((e.method || '?') + ' ' + (e.url || '')) + '</div>' +
+        '</div>' +
+        '<div class="vd-section">' +
+          '<div class="vd-section-label">REQUEST · HEADERS</div>' +
+          '<div class="vd-section-body">' + escapeHtml(headersText) + '</div>' +
+        '</div>' +
+        '<div class="vd-section">' +
+          '<div class="vd-section-label">REQUEST · BODY</div>' +
+          '<div class="vd-section-body">' + escapeHtml(reqBodyPretty) + '</div>' +
+        '</div>' +
+        '<div class="vd-section">' +
+          '<div class="vd-section-label">变量（解析后）</div>' +
+          '<div class="vd-section-body">' + escapeHtml(varsText) + '</div>' +
+        '</div>' +
+        '<div class="vd-section">' +
+          '<div class="vd-section-label">RESPONSE</div>' +
+          '<div class="vd-section-body is-assistant">' + escapeHtml(respPretty) + '</div>' +
+        '</div>';
     }
 
     document.getElementById('agent-repo-new-btn').addEventListener('click', () => {
@@ -8488,8 +8543,10 @@ erDiagram
     // Migrate old-shape agent-lab records (headersText / bodyText) into the new
     // KV-row model. Idempotent — safe to call on every read.
     function migrateAgentLab(a) {
+      let changed = false;
       if (!a.headers) {
         a.headers = parseHeadersTextToKv(a.headersText || '');
+        changed = true;
       }
       if (!a.bodyMode) {
         if (a.bodyText != null && a.bodyText !== '') {
@@ -8501,10 +8558,14 @@ erDiagram
           a.bodyRaw = a.bodyRaw || '';
           a.bodyKv = a.bodyKv || [];
         }
+        changed = true;
       }
-      if (!Array.isArray(a.bodyKv)) a.bodyKv = [];
-      if (a.bodyRaw == null) a.bodyRaw = '';
-      return a;
+      if (!Array.isArray(a.bodyKv)) { a.bodyKv = []; changed = true; }
+      if (a.bodyRaw == null) { a.bodyRaw = ''; changed = true; }
+      // C4: appliedPresetId belongs to the obsolete preset system. Drop it; new
+      // blocks use linkedAgentId / linkedAgentVersionId pointing at agent-repo.
+      if ('appliedPresetId' in a) { delete a.appliedPresetId; changed = true; }
+      return changed;
     }
     function parseHeadersTextToKv(text) {
       const out = [];
@@ -8600,7 +8661,7 @@ erDiagram
         const list = Array.isArray(parsed.blocks) ? parsed.blocks : [];
         let dirty = false;
         list.forEach(a => {
-          migrateAgentLab(a);
+          if (migrateAgentLab(a)) dirty = true;
           (a.vars || []).forEach(v => { if (migrateAgentVarRef(v)) dirty = true; });
         });
         if (dirty) saveAgentLabs(list);
@@ -8983,6 +9044,98 @@ erDiagram
       toast('已应用预设：' + preset.name);
     }
 
+    // ============================================================
+    // C4 — Agent 实验块 <-> Agent 仓库 链接
+    // ============================================================
+    function applyAgentVersionToBlock(section, ag, ver) {
+      const id = section.dataset.agentLabId;
+      updateAgentLab(id, {
+        method:   ver.method,
+        url:      ver.url,
+        headers:  (ver.headers || []).map(h => ({ ...h })),
+        bodyMode: ver.bodyMode || 'kv',
+        bodyKv:   (ver.bodyKv || []).map(kv => ({ ...kv })),
+        bodyRaw:  ver.bodyRaw || '',
+        vars:     (ver.varHints || []).map(v => {
+          // Deep-copy fillers if present so per-block edits don't bleed back
+          const copy = { ...v };
+          if (v.fillers) copy.fillers = { ...v.fillers };
+          return copy;
+        }),
+        linkedAgentId:        ag.id,
+        linkedAgentVersionId: ver.id,
+      });
+      const fresh = loadAgentLabs().find(x => x.id === id);
+      section.replaceWith(createAgentLabSection(fresh));
+      toast('已应用：' + ag.name + ' · ' + (ver.label || 'v?'));
+    }
+    function saveBlockAsNewAgent(section) {
+      const id = section.dataset.agentLabId;
+      const stored = loadAgentLabs().find(x => x.id === id);
+      if (!stored) return;
+      const name = (prompt('新 agent 名称：', stored.title || '') || '').trim();
+      if (!name) return;
+      const repo = loadAgentRepo();
+      const v = {
+        id: newAgentRepoId('av'),
+        label: 'v1.0',
+        createdAt: nowIso(),
+        method:   stored.method,
+        url:      stored.url,
+        headers:  (stored.headers || []).map(h => ({ ...h })),
+        bodyMode: stored.bodyMode || 'kv',
+        bodyKv:   (stored.bodyKv || []).map(kv => ({ ...kv })),
+        bodyRaw:  stored.bodyRaw || '',
+        varHints: (stored.vars || []).map(vv => ({ ...vv })),
+      };
+      const ag = {
+        id: newAgentRepoId('ag'),
+        name,
+        description: '从实验块创建',
+        versions: [v],
+        currentVersionId: v.id,
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      };
+      repo.agents.push(ag);
+      saveAgentRepo(repo);
+      updateAgentLab(id, { linkedAgentId: ag.id, linkedAgentVersionId: v.id });
+      const fresh = loadAgentLabs().find(x => x.id === id);
+      section.replaceWith(createAgentLabSection(fresh));
+      toast('已存为新 agent：' + name);
+    }
+    function saveBlockAsNewAgentVersion(section) {
+      const id = section.dataset.agentLabId;
+      const stored = loadAgentLabs().find(x => x.id === id);
+      if (!stored) return;
+      if (!stored.linkedAgentId) { toast('先在 picker 里选一个 agent 才能存为它的新版本'); return; }
+      const repo = loadAgentRepo();
+      const ag = repo.agents.find(x => x.id === stored.linkedAgentId);
+      if (!ag) { toast('已链的 agent 不在仓库里了'); return; }
+      const lbl = (prompt('新版本号（如 v1.1 / v2.0）：', nextAgentVersionLabel(ag)) || '').trim();
+      if (!lbl) return;
+      const v = {
+        id: newAgentRepoId('av'),
+        label: lbl,
+        createdAt: nowIso(),
+        method:   stored.method,
+        url:      stored.url,
+        headers:  (stored.headers || []).map(h => ({ ...h })),
+        bodyMode: stored.bodyMode || 'kv',
+        bodyKv:   (stored.bodyKv || []).map(kv => ({ ...kv })),
+        bodyRaw:  stored.bodyRaw || '',
+        varHints: (stored.vars || []).map(vv => ({ ...vv })),
+      };
+      ag.versions.push(v);
+      ag.currentVersionId = v.id;
+      ag.updatedAt = nowIso();
+      saveAgentRepo(repo);
+      updateAgentLab(id, { linkedAgentVersionId: v.id });
+      const fresh = loadAgentLabs().find(x => x.id === id);
+      section.replaceWith(createAgentLabSection(fresh));
+      toast('已存为 ' + ag.name + ' · ' + lbl);
+    }
+
     function saveCurrentAsAgentPreset(section) {
       const id = section.dataset.agentLabId;
       const stored = loadAgentLabs().find(x => x.id === id);
@@ -9133,8 +9286,8 @@ erDiagram
         '<button type="button" class="al-icon-btn al-comment" title="给这块加评论">评</button>' +
         '<button type="button" class="al-icon-btn al-delete" title="删除此块">删</button>';
 
-      // Populate the preset dropdown — built-ins, then user presets, then action items
-      const presetSel = head.querySelector('.al-preset');
+      // Populate the agent-link dropdown — all agents × versions from agent-repo
+      const linkSel = head.querySelector('.al-preset');
       function makeOpt(value, label, disabled) {
         const o = document.createElement('option');
         o.value = value;
@@ -9142,32 +9295,60 @@ erDiagram
         if (disabled) o.disabled = true;
         return o;
       }
-      presetSel.appendChild(makeOpt('', '选预设…'));
-      presetSel.appendChild(makeOpt('', '── 内置 ──', true));
-      BUILTIN_AGENT_PRESETS.forEach(p => presetSel.appendChild(makeOpt(p.id, p.name)));
-      const userPresets = loadUserAgentPresets();
-      if (userPresets.length) {
-        presetSel.appendChild(makeOpt('', '── 我的预设 ──', true));
-        userPresets.forEach(p => presetSel.appendChild(makeOpt(p.id, p.name)));
-      }
-      presetSel.appendChild(makeOpt('', '──────────', true));
-      presetSel.appendChild(makeOpt('__save__', '存为新预设…'));
-      presetSel.appendChild(makeOpt('__manage__', '管理预设 (' + userPresets.length + ')'));
-      // Reflect the last-applied preset so the picker shows it instead of "选预设…"
-      if (a.appliedPresetId && getAgentPreset(a.appliedPresetId)) {
-        presetSel.value = a.appliedPresetId;
-      }
-      presetSel.addEventListener('change', () => {
-        const val = presetSel.value;
-        if (val === '__save__' || val === '__manage__') {
-          // Action items — bounce the selection back to whatever was applied
-          presetSel.value = a.appliedPresetId || '';
-          if (val === '__save__') return saveCurrentAsAgentPreset(section);
-          return openAgentPresetManageModal();
+      linkSel.appendChild(makeOpt('', '关联 agent…'));
+      const agentRepo = loadAgentRepo();
+      agentRepo.agents.forEach(ag => {
+        const og = document.createElement('optgroup');
+        og.label = ag.name || '(未命名)';
+        (ag.versions || []).forEach(ver => {
+          const isCur = ver.id === ag.currentVersionId;
+          const o = document.createElement('option');
+          o.value = ag.id + '@' + ver.id;
+          // Include agent name in the option text so the picker shows the full
+          // context when collapsed (optgroup label only shows inside the open menu).
+          const full = (ag.name || '(未命名)') + ' · ' + (ver.label || 'v?') + (isCur ? ' · 当前' : '');
+          o.textContent = full;
+          o.title = full;
+          og.appendChild(o);
+        });
+        linkSel.appendChild(og);
+      });
+      linkSel.appendChild(makeOpt('', '──────────', true));
+      linkSel.appendChild(makeOpt('__save_new__',     '存当前为新 agent…'));
+      const hasLink = !!(a.linkedAgentId && a.linkedAgentVersionId);
+      linkSel.appendChild(makeOpt('__save_version__', '存为已链 agent 的新版本…' + (hasLink ? '' : '（先选 agent）')));
+      linkSel.appendChild(makeOpt('__manage__',       '打开 Agent 仓库'));
+      // Reflect existing link
+      if (hasLink) {
+        const candidate = a.linkedAgentId + '@' + a.linkedAgentVersionId;
+        if (Array.from(linkSel.options).some(o => o.value === candidate)) {
+          linkSel.value = candidate;
         }
-        if (!val) return; // user picked the placeholder
-        const p = getAgentPreset(val);
-        if (p) applyAgentPreset(section, p);  // re-renders section; this select goes away
+      }
+      // Native <select> truncates the closed display text; mirror it into the
+      // element title so hover shows the full "AgentName · v1.0 · 当前".
+      const syncLinkSelTitle = () => {
+        const opt = linkSel.selectedOptions[0];
+        linkSel.title = (opt && opt.value) ? opt.textContent : '选预设一键填 endpoint/headers/body/变量';
+      };
+      syncLinkSelTitle();
+      linkSel.addEventListener('change', () => {
+        const val = linkSel.value;
+        const restore = () => {
+          linkSel.value = (a.linkedAgentId && a.linkedAgentVersionId)
+            ? (a.linkedAgentId + '@' + a.linkedAgentVersionId) : '';
+          syncLinkSelTitle();
+        };
+        if (val === '__save_new__')     { restore(); return saveBlockAsNewAgent(section); }
+        if (val === '__save_version__') { restore(); return saveBlockAsNewAgentVersion(section); }
+        if (val === '__manage__')       { restore(); return openAgentRepoModal(); }
+        if (!val) return;
+        const m = val.match(/^([^@]+)@(.+)$/);
+        if (!m) return;
+        const ag = getAgent(m[1]);
+        const ver = ag && (ag.versions || []).find(v => v.id === m[2]);
+        if (!ag || !ver) { toast('agent / 版本找不到了'); return; }
+        applyAgentVersionToBlock(section, ag, ver);  // re-renders; this select goes away
       });
 
       const titleInput = head.querySelector('.al-title');
@@ -9653,6 +9834,31 @@ erDiagram
       outBody.textContent = '请求中…';
       runBtn.disabled = true;
 
+      // C5: helper to push a complete experiment record back to agent-repo if linked
+      const pushExperiment = (last) => {
+        if (!stored.linkedAgentId) return;
+        try {
+          const repo = loadAgentRepo();
+          if (!repo.agents.some(x => x.id === stored.linkedAgentId)) return; // agent was deleted
+          repo.experiments.push({
+            id: newAgentRepoId('e'),
+            agentId: stored.linkedAgentId,
+            versionId: stored.linkedAgentVersionId || null,
+            ranAt: last.ranAt,
+            method,
+            url,
+            requestHeaders: { ...headers },
+            requestBody: bodyText || null,
+            vars: { ...vars },
+            status: last.status || 0,
+            statusText: last.statusText || last.errorLabel || '',
+            duration_ms: last.duration_ms,
+            responseText: last.responseText,
+          });
+          saveAgentRepo(repo);
+        } catch (e) { /* swallow — never let logging break the run */ }
+      };
+
       const t0 = performance.now();
       try {
         const init = { method, headers };
@@ -9671,6 +9877,7 @@ erDiagram
         outBody.className = 'al-output-body' + (resp.status >= 400 ? ' is-error' : '');
         outBody.textContent = prettyResponseText(text);
         updateAgentLab(id, { lastOutput: last });
+        pushExperiment(last);
       } catch (err) {
         const dt = Math.round(performance.now() - t0);
         const last = {
@@ -9684,6 +9891,7 @@ erDiagram
         outBody.className = 'al-output-body is-error';
         outBody.textContent = ' ' + last.responseText + '\n\n（若是 CORS：在目标服务设置 Access-Control-Allow-Origin，或换本地端点）';
         updateAgentLab(id, { lastOutput: last });
+        pushExperiment(last);
       } finally {
         runBtn.disabled = false;
       }
