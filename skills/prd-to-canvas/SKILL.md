@@ -125,6 +125,12 @@ CSS source order 决定后定义的优先——这块自动覆盖模板内置的
 ## 关键原则
 
 - **永远不覆盖用户原 PRD**。所有输出落在原 PRD 同目录下的 `canvas/` 子目录（或用户指定的输出路径）。
+- **PRD 文件名必须传给模板**（关键！）。md-canvas 模板里的 `FILENAME` 常量被用来组 localStorage key（`md-canvas:<FILENAME>:mocks` / `:prompts` / `:agents` / `:b-extras` / `:prototypes`）。如果两份 PRD 共享同一个 FILENAME：
+  - 它们的 canvas-only 块状态（Mock / Prompt / Agent / Prototype / B 模式额外 status）**互相污染**
+  - 打开新 canvas 时浏览器会弹"检测到本地未提交修改，是否恢复？"——把另一份 PRD 的状态恢复到当前 PRD
+  - 浏览器标签页 `<title>` 显示错误的 PRD 名
+  
+  Phase 4 **必须**用真实 PRD basename 替换 `__PRD_FILENAME__` 和 `__PRD_TITLE__` 占位符。
 - **用户语气/措辞保留**。Phase 4 重写只做格式升级（B 模式接口 → A 模式 ```api fence、散落 prompt → Prompt 块建议、emoji 警告 → callout-warning），不动叙述。
 - **Canvas-only 块（Mock / Prompt 实验 / Agent 实验 / 原型预览）不写 .md**。只在 Phase 2 报告里告诉用户"这些可以在 canvas 里手动加"。
 - **循环修复**。Phase 3 的 checklist 用户可以全部 reject。reject 后重跑 Phase 1+2+3 出新 checklist，直到用户全部确认。

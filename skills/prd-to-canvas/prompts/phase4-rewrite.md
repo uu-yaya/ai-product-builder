@@ -88,12 +88,16 @@ build_rewrite 按 BLOCK_INVENTORY 每类块的"重写模板"小节生成：
 
 ### 6. 生成 index.html
 
-读 `./templates/md-canvas.html`，做 3 件事：
+读 `./templates/md-canvas.html`，做 4 件事（前 3 个是占位符替换，**全部必须替换**）：
 
-1. **注入 markdown**: 替换 `__MARKDOWN_SOURCE_INLINE__` 为 canonical.md 内容
+1. **替换 `__PRD_FILENAME__`** → 原 PRD 的 basename（含扩展名，如 `USER_PORTRAIT_PRD.md`）。
+   - 这个值在模板 JS 里被用来组 localStorage key（`md-canvas:<FILENAME>:mocks` / `:prompts` / `:agents` / `:b-extras` / `:prototypes`）。
+   - **如果忘了替换**，两份 PRD 共享 `__PRD_FILENAME__` 字面值作为 key → canvas-only 块状态互相污染 + 浏览器打开时弹"是否恢复"恢复到另一份 PRD 的状态。
+2. **替换 `__PRD_TITLE__`** → 原 PRD 的 basename（不含扩展名，如 `USER_PORTRAIT_PRD`）。用于 `<title>` 标签 + 浏览器标签页。
+3. **替换 `__MARKDOWN_SOURCE_INLINE__`** → canonical.md 内容
    - **必须先做安全替换**: `re.sub(r'(?i)</script>', '<\\/script>', md_content)` 避免 markdown 里有 `</script>` 字符串提前关闭脚本
-2. **注入 DESIGN override**: 如果 session state 有 DESIGN.md，解析所有 `--xxx | value` 表格行 → 生成 `<style id="design-overrides">:root { --xxx: value; ... }</style>` → 追加到模板内**最后一个** `</style>` 之后（即 CSS source order 最后，覆盖默认）
-3. **注入 canvas-only 建议提示**（如果 decisions.global_options.add_canvas_only_suggestions = true）:
+4. **注入 DESIGN override**: 如果 session state 有 DESIGN.md，解析所有 `--xxx | value` 表格行 → 生成 `<style id="design-overrides">:root { --xxx: value; ... }</style>` → 追加到模板内**最后一个** `</style>` 之后（即 CSS source order 最后，覆盖默认）
+5. **注入 canvas-only 建议提示**（如果 decisions.global_options.add_canvas_only_suggestions = true）:
    - 在 `<body>` 开头插一个小 banner 块，列出 MOCK / PROMPT / AGENT / PROTO 候选建议
 
 写入 `<out>/index.html`。
