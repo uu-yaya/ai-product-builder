@@ -157,6 +157,32 @@ def preflight_git_check() -> list[str]:
             "     git config user.name <your-name>"
         )
 
+    # 5. Non-interactive push works? (catches first-time credential issue)
+    # 这是首次跑 server 的最常见痛点：HTTPS push 需要凭证但 credential helper
+    # 没缓存，server 子进程没 TTY 没法交互输入，sliently 失败。
+    # 这里用 dry-run + GIT_TERMINAL_PROMPT=0 探测一次。
+    try:
+        push_probe = subprocess.run(
+            ["git", "push", "--dry-run"],
+            cwd=ROOT, capture_output=True, text=True, timeout=5,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        )
+        if push_probe.returncode != 0:
+            out = (push_probe.stderr + push_probe.stdout).lower()
+            if any(p in out for p in [
+                "could not read username", "authentication failed",
+                "terminal prompts disabled", "could not read password",
+                "permission denied", "publickey",
+            ]):
+                issues.append(
+                    "git push 凭证还没缓存 → server 自动 push 会失败（首次必踩）。\n"
+                    "     terminal 跑一次:  git push\n"
+                    "     输完 username + token（或解决 SSH key）成功后，\n"
+                    "     credential helper 会缓存凭证，之后 server 自动 push 就 OK。"
+                )
+    except (subprocess.TimeoutExpired, FileNotFoundError):
+        pass  # network slow / git missing — 不阻塞 server 启动
+
     return issues
 
 

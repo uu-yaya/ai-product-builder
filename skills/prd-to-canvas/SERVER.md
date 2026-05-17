@@ -28,6 +28,19 @@ cd <你的项目> && git commit --allow-empty -m "test push" && git push
 cd <你的项目>; git commit --allow-empty -m "test push"; git push
 ```
 
+### 🚨 首次使用必看：凭证缓存
+
+**HTTPS 仓库**（github.com / gitlab.com / git.code.tencent.com 等）首次 push 通常会让你输 username + access token。但 server 是个 background 子进程**没 TTY**——git 想交互式问，问不到，sliently 失败。
+
+**解法**：起 server **之前**，先在 terminal 手动跑一次 `git push`（哪怕是 empty commit），输完凭证后 credential helper 会缓存到 `~/.git-credentials`，之后 server 自动 push 才能用。
+
+```bash
+git config credential.helper store  # 启用本地缓存（默认很多发行版已有）
+git push                            # 让 git 把凭证 prompt 出来，输入完它会自己存
+```
+
+server 启动时会**主动跑一次 git push --dry-run --no-prompt** 探测，如果撞凭证问题会在 banner 顶部告诉你具体怎么修。SSH key 仓库一般不撞这个，因为 SSH agent 处理 auth。
+
 那 server 一定能 work。否则先按下面 checklist 配好：
 
 | 缺啥 | 怎么补 |
