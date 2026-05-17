@@ -107,12 +107,16 @@ prd-canvas
 预期输出：
 
 ```
-md-canvas server
-  serving:   /Users/me/work/ai-product-builder
-  template:  /Users/me/work/ai-product-builder/skills/prd-to-canvas/templates/md-canvas.html
+md-canvas server  v0.6.0
+  serving:   <your-project-root>
+  template:  <your-project-root>/skills/prd-to-canvas/templates/md-canvas.html
   url:       http://localhost:7799/
-  (Ctrl-C to stop)
+  PID:       12345
+  platform:  darwin
+  ...
 ```
+
+（实际显示的是你当前目录的绝对路径，不是 `<your-project-root>` 字面。）
 
 浏览器自动开 `http://localhost:7799/`，看到当前目录下所有 `.md` 文件的列表。点哪个开哪个。
 
@@ -185,13 +189,35 @@ canvas 模板**双模兼容**：
 
 ## 排错
 
-### 端口被占
+### 端口被占（最常见的"启动失败"）
+
+如果 startup 报：
 
 ```
 OSError: [Errno 48] Address already in use
 ```
 
-→ 用 `--port 7798` 之类换一个
+或 server 启动后浏览器开 7799 进入的不是 md-canvas 而是别的 app：
+
+**一行修**：加 `--port` 换个：
+
+```bash
+# macOS/Linux:
+python3 skills/prd-to-canvas/server.py --port 7800
+
+# Windows:
+python skills\prd-to-canvas\server.py --port 7800
+```
+
+想知道是谁占的：
+
+```bash
+# macOS/Linux:
+lsof -i :7799
+
+# Windows (PSh):
+Get-NetTCPConnection -LocalPort 7799 | Select-Object OwningProcess
+```
 
 ### `git push` 报权限错
 

@@ -52,7 +52,7 @@ clone 到任意目录，然后口头让 agent 读：
 或：
 
 ```
-Use the skill at /Users/me/skills/prd-to-canvas to process xxx.md
+Use the skill at <path-to>/prd-to-canvas to process xxx.md
 ```
 
 只要 agent 能 Read 文件，都能跑。

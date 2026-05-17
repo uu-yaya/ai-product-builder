@@ -43,6 +43,7 @@ try:
 except ImportError:
     sys.exit("error: flask not installed. run:  python3 -m pip install flask")
 
+__version__ = "0.6.0"
 DEFAULT_PORT = 7799
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 TEMPLATE_PATH = SCRIPT_DIR / "templates" / "md-canvas.html"
@@ -328,7 +329,8 @@ def api_status():
     """Quick health check so canvas can detect server-mode at load time
     and so a duplicate server startup can detect existing instance."""
     return jsonify(ok=True, root=str(ROOT), template_ok=TEMPLATE_PATH.exists(),
-                   product="md-canvas-server", pid=os.getpid())
+                   product="md-canvas-server", version=__version__,
+                   pid=os.getpid())
 
 
 def _probe_port(port: int) -> dict | None:
@@ -366,12 +368,19 @@ def _open_browser(url: str):
 
 def main():
     global ROOT
-    parser = argparse.ArgumentParser(description="md-canvas server")
-    parser.add_argument("--port", type=int, default=DEFAULT_PORT)
+    parser = argparse.ArgumentParser(
+        prog="md-canvas-server",
+        description=f"md-canvas server v{__version__} — local Flask "
+                    "server bridging canvas HTML to your .md files + git.",
+    )
+    parser.add_argument("--port", type=int, default=DEFAULT_PORT,
+                        help=f"listen port (default: {DEFAULT_PORT})")
     parser.add_argument("--root", type=str, default=None,
                         help="serve from this dir (default: cwd)")
     parser.add_argument("--no-browser", action="store_true",
-                        help="don't auto-open browser")
+                        help="don't auto-open browser on startup")
+    parser.add_argument("--version", action="version",
+                        version=f"md-canvas-server {__version__}")
     args = parser.parse_args()
 
     if args.root:
@@ -408,7 +417,7 @@ def main():
     is_windows = sys.platform.startswith("win")
     py_cmd = "python" if is_windows else "python3"
     print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    print(f"  md-canvas server")
+    print(f"  md-canvas server  v{__version__}")
     print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print(f"  serving:   {ROOT}")
     print(f"  template:  {TEMPLATE_PATH}")

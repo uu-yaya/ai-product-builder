@@ -21,6 +21,16 @@
       "type": "integer",
       "description": "Phase 3 循环到第几轮（1 起算）。每轮 reject 后 +1"
     },
+    "partial": {
+      "type": "boolean",
+      "default": false,
+      "description": "true = Phase 3 还没跑完，这只是中途增量保存的进度（写到 decisions.partial.json）。Phase 0 启动时检测到此文件 + partial=true 会提供『接上次继续』选项。完整完成时这个字段是 false（或不存在）+ 文件名是 decisions.json"
+    },
+    "completed_buckets": {
+      "type": "array",
+      "items": { "enum": ["B1", "B2", "B3", "B4", "global_options"] },
+      "description": "Phase 3 进度持久化用：哪些桶已经决策完了。接续 partial 时跳过这些桶。完整完成的 decisions.json 应包含全部 5 项。"
+    },
     "decisions": {
       "type": "array",
       "description": "对每个 candidate 的用户裁决，候选 ID 与 candidates.json 对应",

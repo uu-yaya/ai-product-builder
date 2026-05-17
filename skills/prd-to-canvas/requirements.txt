@@ -1,1 +1,2 @@
-flask>=2.3
+# 锁定 flask 大版本：>=2.3 拿 stable API，<4 防未来 breaking
+flask>=2.3,<4

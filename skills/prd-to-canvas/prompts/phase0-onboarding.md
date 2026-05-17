@@ -33,16 +33,26 @@ Step 6: 确认 ready，进 Phase 1
 # 算出预期输出目录
 OUT_DIR="<prd_dir>/canvas"  # 或者 --out 指定的
 
-# 看有没有 decisions.json
+# 看有没有 decisions.partial.json（Phase 3 中途死了的进度）
+test -f "$OUT_DIR/decisions.partial.json" && cat "$OUT_DIR/decisions.partial.json"
+
+# 或者 decisions.json（完整跑过）
 test -f "$OUT_DIR/decisions.json" && cat "$OUT_DIR/decisions.json"
 ```
 
-如果 `decisions.json` 存在且能解析：
+如果 `decisions.partial.json` 存在且 `partial: true` → **断点续传场景**：
+
+- 读 `completed_buckets`（哪些桶已答）
+- 读 `iteration`（当前是第几轮）
+- 读已 accumulate 的 `decisions[]`
+- 显示"上次 Phase 3 跑到 [completed_buckets] 后中断（X 分钟/小时前）"
+
+如果 `decisions.json` 存在（完整完成过）：
 
 - 读 `created_at` 字段算"X 天前 / X 小时前"
 - 读 `mode` 字段（A 或 E）
-- 读 `decisions[]` 长度 + 各 verdict 计数（accept/skip/edit/request_review）
-- 读 `global_options`（preserve_b_mode / add_canvas_only_suggestions）
+- 读 `decisions[]` 长度 + 各 verdict 计数
+- 读 `global_options`
 - 看 `<out>/canonical.md` 和 `<out>/index.html` 是否还在
 
 ### 如果是返访 → 快通道
@@ -62,6 +72,26 @@ test -f "$OUT_DIR/decisions.json" && cat "$OUT_DIR/decisions.json"
 [跑 Step 2 env 检查]
 ✓ 环境仍 OK（或: ⚠ 检测到 X 项变化）
 
+如果只有 partial（中途死了）→ 5 选项变成断点续传优先：
+
+```
+> 上次 Phase 3 跑到一半中断了
+>   · 时间: 30 分钟前
+>   · 完成的桶: B1, B2（结构 + 简单升级都过了）
+>   · 累积决策: 38 个 accept / 5 个 skip
+>   · 下一桶: B3（需用户输入：mermaid 图类型 / 4xx body / etc）
+
+> ❓ 接下来怎么办？
+>   [ ] 从 B3 接着跑（推荐 — 已答 43 个不重做）
+>       agent 加载 decisions.partial.json，跳过 B1/B2，直接问 B3。
+>   [ ] 完全重跑（忽略 partial，从 Phase 1 头开始）
+>       适合"我改了原 PRD，上次决策没意义了"。
+>   [ ] 取消
+```
+
+只有完整 decisions.json（之前跑完过）→ 5 选项：
+
+```
 > ❓ 这次要做什么？
 >   [ ] 重新打开上次的 index.html (推荐 — 0 工作)
 >       不重跑 skill，直接告诉你 index.html 路径。如果 server 模式
@@ -217,7 +247,7 @@ git config user.name
 | --- | --- | --- |
 | Python 3 | ✓ 3.11.5 | 生成 HTML / 跑 server 都需要 |
 | Flask | ⚠ 未安装 | server 模式需要（file 模式不需要）|
-| Git 仓库 | ✓ /Users/me/work/proj | OK |
+| Git 仓库 | ✓ &lt;your-project-root&gt; | OK |
 | Git remote | ✓ origin = git@github.com:you/your-repo.git | OK |
 | Git upstream | ⚠ 分支 'main' 没设 upstream | server 模式 push 时需要 |
 | Git 身份 | ✓ you@example.com | OK |
