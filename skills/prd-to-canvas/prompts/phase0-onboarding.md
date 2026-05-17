@@ -23,7 +23,81 @@ Step 5: 选 server + 有缺 → 逐项 walkthrough（每个改环境命令都征
 Step 6: 确认 ready，进 Phase 1
 ```
 
-## Step 1: 解释 skill + 两种模式（要具体）
+## Step 0: 返访用户检测（在所有 Step 之前跑）
+
+第一件事：判断这是不是用户**之前跑过的 PRD**。如果是，给个快通道——别让老用户每次都看一遍完整的模式解释。
+
+### 检测
+
+```bash
+# 算出预期输出目录
+OUT_DIR="<prd_dir>/canvas"  # 或者 --out 指定的
+
+# 看有没有 decisions.json
+test -f "$OUT_DIR/decisions.json" && cat "$OUT_DIR/decisions.json"
+```
+
+如果 `decisions.json` 存在且能解析：
+
+- 读 `created_at` 字段算"X 天前 / X 小时前"
+- 读 `mode` 字段（A 或 E）
+- 读 `decisions[]` 长度 + 各 verdict 计数（accept/skip/edit/request_review）
+- 读 `global_options`（preserve_b_mode / add_canvas_only_suggestions）
+- 看 `<out>/canonical.md` 和 `<out>/index.html` 是否还在
+
+### 如果是返访 → 快通道
+
+用 1 段简短 recap + AskUserQuestion 让用户挑下一步，**跳过** Step 1 模式解释（用户已经懂了）但**仍跑 Step 2 env 检查**（环境可能变了）：
+
+```
+👋 检测到返访
+
+你之前对这份 PRD 跑过 skill：
+  · 时间: 5 月 14 日 14:32（3 天前）
+  · 模式: E（执行+审核）
+  · 决策: 73 个候选 → 67 accept / 3 skip / 3 edit
+  · 上次生成的 index.html 还在: <out>/index.html
+
+环境快速复检...
+[跑 Step 2 env 检查]
+✓ 环境仍 OK（或: ⚠ 检测到 X 项变化）
+
+> ❓ 这次要做什么？
+>   [ ] 重新打开上次的 index.html (推荐 — 0 工作)
+>       不重跑 skill，直接告诉你 index.html 路径。如果 server 模式
+>       还可以帮你启 server。适合"只是想再看看"。
+>
+>   [ ] 只重生成 HTML（用上次决策）
+>       skill 跳过 Phase 1/2/3，直接用 <out>/decisions.json 重跑
+>       Phase 4。适合"我改了原 PRD 一些段落，想用同样的决策重渲染"。
+>
+>   [ ] 编辑上次决策再生成
+>       加载 decisions.json 作为起点，Phase 3 让你只看变了的候选 /
+>       想改主意的几个，剩下沿用。适合"上次 reject 了几个 callout
+>       候选，想反悔"。
+>
+>   [ ] 完全重跑全 4 phase
+>       忽略上次决策，从头扫一遍。适合"原 PRD 大改了 / 我想重新过
+>       一遍"。
+>
+>   [ ] 取消
+```
+
+不同选项的后续：
+
+| 用户选 | agent 接下来 |
+| --- | --- |
+| 重新打开 | 直接进 Step 6 输出预览（只读 dashboard）+ 可选起 server。**不跑 Phase 1-4** |
+| 只重生成 HTML | 跳到 Pre-flight 参数检查 → 直接跑 Phase 4（用现有 decisions.json）|
+| 编辑决策再生成 | 跳过 Step 1 模式解释 → 进 Step 2 env 检查 → 跳 Step 3/4（沿用上次模式）→ 直接 Phase 1（带上次 decisions 做种子，只让用户重审变化项）|
+| 完全重跑 | 跳过 Step 1 → Step 2 env 检查 → 继续后续 Step 3/4/5/6 完整流程 |
+| 取消 | 退出 |
+
+### 如果不是返访（decisions.json 不存在）
+
+直接跑下面的 Step 1（完整模式解释）。
+
+
 
 skill 自我介绍 + 两种模式的**真实工作流**对比。不要光列"支持/不支持"——要让用户看完直接知道选了会发生什么。
 
@@ -230,7 +304,37 @@ options:
 
 对 Step 2 检查中**每一个缺的项**，单独发 AskUserQuestion。**任何会改用户环境的命令都必须先征求同意**——绝不静默 `pip install` / `git config` / 等。
 
-每个修复都带详细 description，让用户清楚选了之后 agent 会跑什么命令、产生什么 side-effect。
+### Step 5.0: 多项缺时先问"打包修 / 逐项问 / 跳过"（元问题）
+
+如果 env 缺 **2 项以上**，先发一个元问题让用户挑批量策略：
+
+```
+question: "你 server 模式还差 N 项（Flask + 没 remote + 没 upstream）。怎么处理？"
+header: "批量配置"
+options:
+  - label: "一键按推荐配齐 (推荐)"
+    description:
+      "agent 按推荐顺序串行执行：每项 agent 直接跑 / 替你装。
+       需要你输入的字段（仓库 URL / 邮箱 / 名字）还是会单独问你，
+       但'要不要这么做'的 yes/no 不再问了——你提前授权了。
+       省 3-4 个确认点击。中途如果哪步失败 agent 暂停问你。"
+  - label: "逐项手动决定"
+    description:
+      "每项单独 AskUserQuestion 问你怎么处理（agent 装 / 你自己装 /
+       venv / 跳过）。控制最细但点击最多。"
+  - label: "跳过 server 配置，先用 file 模式"
+    description:
+      "放弃 server 模式本次。Phase 4 生成独立 HTML 你双击看。
+       以后想升级 server 重跑 skill 即可。"
+```
+
+如果用户选**一键配齐** → 按推荐顺序跑（Flask → git init → remote → upstream → 身份），每项**仍要问"具体值"问题**（venv 路径 / 仓库 URL / 邮箱），但**跳过"要不要这么干"的 yes/no**。下面每个修复 section 的"推荐"option 就是 agent 这时候直接用的。
+
+如果用户选**逐项决定** → 走下面每个 section 的完整 AskUserQuestion。
+
+如果用户选**跳过** → 直接进 Step 6（file 模式）。
+
+下面这些 section 描述的是**逐项模式**的完整问法。一键模式只用每个的"推荐"option，跳过其他。
 
 ### 缺 Flask
 
