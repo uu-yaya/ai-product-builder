@@ -27,6 +27,7 @@ Design:
 from __future__ import annotations
 import argparse
 import json
+import os
 import pathlib
 import re
 import subprocess
@@ -321,11 +322,21 @@ def main():
                  f"  did you move server.py out of skills/prd-to-canvas/?")
 
     url = f"http://localhost:{args.port}/"
-    print(f"md-canvas server")
+    pid = os.getpid()
+    script_path = pathlib.Path(sys.argv[0]).resolve() if sys.argv[0] else SCRIPT_DIR / "server.py"
+    print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+    print(f"  md-canvas server")
+    print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print(f"  serving:   {ROOT}")
     print(f"  template:  {TEMPLATE_PATH}")
     print(f"  url:       {url}")
-    print(f"  (Ctrl-C to stop)")
+    print(f"  PID:       {pid}")
+    print(f"")
+    print(f"  📂 浏览器打开:   {url}")
+    print(f"  ⛔ 停止 server:  Ctrl-C （或 kill {pid}）")
+    print(f"  🔁 再启 server:  python3 {script_path}")
+    print(f"  ♾  后台保活:     nohup python3 {script_path} > server.log 2>&1 &")
+    print(f"")
 
     # Sanity-check git setup so user knows up front whether save+push will work
     issues = preflight_git_check()

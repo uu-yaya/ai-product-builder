@@ -616,6 +616,44 @@ options:
        `python3 skills/prd-to-canvas/server.py`。"
 ```
 
+### Server 启动 cheatsheet（无论用户选哪个都打印）
+
+**server 模式下**，skill 跑完 Step 6 之前一定要给一份"以后怎么启 server"的明确指引。打印这段（替换尖括号占位符为实际路径）：
+
+```
+─────────────────────────────────────────
+📋 Server 启动 cheatsheet（收藏）
+
+方式 1: 现在跑（如果你上面选了"agent 帮你启"）
+  ✓ agent 已经在后台启了。PID: <12345>
+  · URL:    http://localhost:7799/
+  · 停止:   在 terminal 跑  kill <12345>   或者关掉 agent 会话
+  
+  (上面 PID 是真实 PID，agent 启动后从 run_in_background 任务拿到)
+
+方式 2: 以后手动启（推荐你记住这条）
+  cd <project_root>            # 例如: cd ~/work/ai-product-builder
+  python3 skills/prd-to-canvas/server.py
+  # 然后浏览器开 http://localhost:7799/
+  # Ctrl-C 停
+
+  如果你用了 venv，前面加 source <venv>/bin/activate &&
+  例如: source .venv/bin/activate && python3 skills/prd-to-canvas/server.py
+
+方式 3: 固化成 shell alias（最方便，加一次终身用）
+  在你的 ~/.zshrc 或 ~/.bashrc 末尾加一行:
+  
+    alias prd-canvas='cd <project_root> && python3 skills/prd-to-canvas/server.py'
+  
+  然后 source ~/.zshrc 一次。之后任何 terminal:
+    prd-canvas       # 启动 server
+─────────────────────────────────────────
+```
+
+如果用户选了"agent 帮你启" → 用 run_in_background 跑 server，从返回中拿 PID，把方式 1 那段 `<12345>` 替换成真实 PID。
+
+如果用户选了"我自己跑" → 方式 1 那段改成 "你选了自己跑。skill 完成后用方式 2 启动"。
+
 ### 进 Phase 1
 
 确认完一句话过：

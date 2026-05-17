@@ -54,6 +54,19 @@ cd ~/work/ai-product-builder
 python3 skills/prd-to-canvas/server.py
 ```
 
+懒得每次敲？加 alias 一次永久用：
+
+```bash
+# 在 ~/.zshrc 或 ~/.bashrc 末尾
+alias prd-canvas='cd ~/work/ai-product-builder && python3 skills/prd-to-canvas/server.py'
+
+# 然后
+source ~/.zshrc
+
+# 之后任何 terminal 一行启:
+prd-canvas
+```
+
 预期输出：
 
 ```
