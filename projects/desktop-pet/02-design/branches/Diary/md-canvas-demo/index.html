@@ -385,7 +385,8 @@
       color: var(--on-dark);
       font-family: var(--font-mono);
     }
-    .code-lang-toolbar .clt-json-btn {
+    .code-lang-toolbar .clt-json-btn,
+    .code-lang-toolbar .clt-mock-btn {
       background: transparent;
       border: 1px solid rgba(255, 255, 255, 0.2);
       color: var(--on-dark);
@@ -397,10 +398,54 @@
       margin-left: 8px;
       display: none;
     }
-    .code-lang-toolbar .clt-json-btn:hover { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.4); }
-    /* Show the button only when current lang is json/jsonl */
+    .code-lang-toolbar .clt-json-btn:hover,
+    .code-lang-toolbar .clt-mock-btn:hover { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.4); }
     .md-block.md-code[data-code-lang="json"]  .code-lang-toolbar .clt-json-btn,
     .md-block.md-code[data-code-lang="jsonl"] .code-lang-toolbar .clt-json-btn { display: inline-block; }
+    /* JSON → Mock only on RESPONSE-tagged json blocks (前面段落含"输出/响应/返回") */
+    .md-block.md-code[data-code-lang="json"][data-api-role="response"]  .code-lang-toolbar .clt-mock-btn,
+    .md-block.md-code[data-code-lang="jsonl"][data-api-role="response"] .code-lang-toolbar .clt-mock-btn { display: inline-block; }
+    /* Optional indicator: request-role JSONs get a subtle "input" hint via the toolbar */
+    .md-block.md-code[data-api-role="request"] .code-lang-toolbar::after {
+      content: '请求示例';
+      color: rgba(255,255,255,0.45);
+      font-size: 10px;
+      margin-left: 6px;
+      letter-spacing: 0.5px;
+    }
+    .md-block.md-code[data-api-role="response"] .code-lang-toolbar::after {
+      content: '响应示例';
+      color: rgba(255,255,255,0.45);
+      font-size: 10px;
+      margin-left: 6px;
+      letter-spacing: 0.5px;
+    }
+    /* When a code block is linked to a mock, the button turns into a "已绑" indicator */
+    .md-block.md-code[data-mock-id] .code-lang-toolbar .clt-mock-btn {
+      background: rgba(93, 184, 114, 0.18);
+      border-color: rgba(93, 184, 114, 0.55);
+      color: #cdebd6;
+    }
+    .md-block.md-code[data-mock-id] .code-lang-toolbar .clt-mock-btn::before { content: '● '; }
+
+    /* "源 JSON" badge inside Mock head */
+    .mk-source-badge {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 3px 9px;
+      background: var(--surface-card);
+      border-radius: var(--r-pill);
+      font-size: 11px;
+      color: var(--primary-active);
+      font-family: var(--font-mono);
+      cursor: pointer;
+      border: none;
+      max-width: 260px;
+    }
+    .mk-source-badge:hover { background: var(--primary); color: var(--on-primary); }
+    .mk-source-text {
+      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+      min-width: 0;
+    }
 
     /* JSON → table output area */
     .md-code-json-output {
@@ -2298,6 +2343,150 @@
     .al-copy-btn:hover { color: var(--ink); border-color: var(--ink); }
     body.edit-mode .md-agentlab[data-edited]::after,
     body.edit-mode .md-agentlab::before { display: none; }
+
+    /* ============================================ 接口 Mock block ============================================ */
+    .md-mockblock {
+      position: relative;
+      margin: var(--sp-lg) 0;
+      border: 1px solid var(--hairline);
+      border-left: 4px solid var(--muted-soft);
+      border-radius: var(--r-lg);
+      background: var(--canvas);
+      overflow: hidden;
+    }
+    .md-mockblock.is-enabled { border-left-color: var(--success); }
+    .mk-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px 10px 16px;
+      background: var(--surface-soft);
+      border-bottom: 1px solid var(--hairline);
+    }
+    .mk-icon { font-size: 14px; color: var(--muted); }
+    .mk-title {
+      flex: 1;
+      font-family: var(--font-sans);
+      font-size: 13px; font-weight: 500;
+      color: var(--ink);
+      border: none; background: transparent; outline: none;
+      padding: 2px 0; min-width: 0;
+    }
+    .mk-title:focus { background: var(--canvas); padding: 2px 6px; border-radius: 3px; }
+    .mk-toggle {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 4px 10px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-pill);
+      background: var(--canvas);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      color: var(--muted);
+    }
+    .mk-toggle .mk-toggle-dot {
+      width: 8px; height: 8px;
+      border-radius: 50%;
+      background: var(--muted-soft);
+    }
+    .mk-toggle.is-on { color: var(--success); border-color: var(--success); }
+    .mk-toggle.is-on .mk-toggle-dot { background: var(--success); }
+    .mk-test {
+      background: var(--primary);
+      color: var(--on-primary);
+      border: none;
+      padding: 6px 14px;
+      border-radius: var(--r-md);
+      font-family: var(--font-sans);
+      font-size: 12px; font-weight: 500;
+      cursor: pointer;
+    }
+    .mk-test:hover { background: var(--primary-active); }
+    .mk-test:disabled { opacity: 0.55; cursor: not-allowed; }
+    .mk-icon-btn {
+      background: transparent; border: none; cursor: pointer;
+      padding: 4px 7px; border-radius: var(--r-sm);
+      color: var(--muted); font-size: 13px;
+    }
+    .mk-icon-btn:hover { background: var(--surface-card); color: var(--ink); }
+    .mk-body { padding: 14px 16px; }
+    .mk-row { margin-bottom: 12px; }
+    .mk-row label {
+      display: block;
+      font-size: 11px; font-weight: 500; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin-bottom: 4px;
+    }
+    .mk-endpoint { display: flex; gap: 8px; }
+    .mk-method {
+      padding: 6px 10px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      background: var(--canvas);
+      font-family: var(--font-mono);
+      font-size: 12px; color: var(--ink);
+      cursor: pointer; font-weight: 500; flex-shrink: 0;
+    }
+    .mk-url {
+      flex: 1; min-width: 0;
+      padding: 6px 10px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono); font-size: 12.5px;
+      color: var(--ink); background: var(--surface-soft);
+      outline: none;
+    }
+    .mk-url:focus { border-color: var(--primary); background: var(--canvas); }
+    .mk-status-row { display: flex; gap: 12px; }
+    .mk-status-row > div { flex: 1; }
+    .mk-status, .mk-delay {
+      width: 100%;
+      padding: 6px 10px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono); font-size: 12.5px;
+      color: var(--ink); background: var(--surface-soft);
+      outline: none;
+    }
+    .mk-status:focus, .mk-delay:focus { border-color: var(--primary); background: var(--canvas); }
+    .mk-row textarea {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono); font-size: 12.5px;
+      line-height: 1.55; color: var(--ink);
+      background: var(--surface-soft);
+      resize: vertical;
+    }
+    .mk-row textarea:focus { outline: none; border-color: var(--primary); background: var(--canvas); }
+    .mk-resp-headers { min-height: 50px; }
+    .mk-resp-body { min-height: 110px; }
+    .mk-hint {
+      font-size: 11px; color: var(--muted);
+      font-family: var(--font-mono);
+      margin-top: 6px;
+    }
+    .mk-output {
+      border-top: 1px solid var(--hairline);
+      background: var(--surface-soft);
+      padding: 12px 16px;
+    }
+    .mk-output-head {
+      display: flex; align-items: center; gap: 8px;
+      margin-bottom: 8px;
+      font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    }
+    .mk-output-body {
+      background: var(--canvas);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      padding: 12px 14px;
+      font-family: var(--font-mono); font-size: 12.5px;
+      line-height: 1.65; color: var(--ink);
+      max-height: 300px; overflow-y: auto;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    body.edit-mode .md-mockblock[data-edited]::after,
+    body.edit-mode .md-mockblock::before { display: none; }
 
     /* Preset dropdown inside agent-lab head */
     .al-preset {
@@ -4861,6 +5050,7 @@ erDiagram
       renderAllPrototypes();
       renderAllPromptLabs();
       renderAllAgentLabs();
+      renderAllMocks();
     }
 
     // ============================================================
@@ -5329,10 +5519,11 @@ erDiagram
       const content = document.getElementById('content');
       Array.from(content.children).forEach(block => {
         if (!block.classList.contains('md-block')) return;
-        // Prototype preview / Prompt-lab / Agent-lab blocks are canvas-only — never serialize to markdown
+        // Prototype preview / Prompt-lab / Agent-lab / Mock blocks are canvas-only — never serialize to markdown
         if (block.classList.contains('md-prototype')) return;
         if (block.classList.contains('md-promptlab')) return;
         if (block.classList.contains('md-agentlab')) return;
+        if (block.classList.contains('md-mockblock')) return;
         const tok = getTok(block);
         if (!tok) return;
         if (block.dataset.edited === 'true' && block.dataset.editable === 'true') {
@@ -5738,6 +5929,10 @@ erDiagram
         const alid = section.dataset.agentLabId;
         if (alid) removeAgentLab(alid);
       }
+      if (section.classList.contains('md-mockblock')) {
+        const mkid = section.dataset.mockId;
+        if (mkid) removeMock(mkid);
+      }
       // Sweep comments anchored inside this block (the visual anchors will die with the block)
       const removedIds = new Set();
       section.querySelectorAll('.comment-anchor').forEach(a => removedIds.add(a.dataset.commentId));
@@ -5967,6 +6162,7 @@ erDiagram
       { key: 'prototype', icon: '', label: '原型预览', desc: 'iframe 嵌入 URL 或粘贴 HTML / React / Vue 代码；本地保存，不写入 .md', tags: 'prototype preview html react vue iframe figma codesandbox' },
       { key: 'promptlab', icon: '', label: 'Prompt 实验', desc: '调真实大模型 (MiniMax) 看 system + user prompt 的输出；本地保存，不写入 .md', tags: 'prompt llm ai minimax system user run experiment 实验 提示词' },
       { key: 'agentlab',  icon: '', label: 'Agent 实验',  desc: '任意 HTTP 端点（method / headers / body / {{var}}），用于测后端 agent 接口；本地保存，不写入 .md', tags: 'agent http endpoint fetch api request curl rest 实验' },
+      { key: 'mock',      icon: '○',  label: '接口 Mock',    desc: '前端拦截 fetch：定义假端点 + 假响应，没后端也能演 demo；本地保存，不写入 .md', tags: 'mock fake stub api intercept fetch response' },
       { key: 'quote', icon: '"', label: '引用', desc: 'Blockquote', tags: 'quote blockquote' },
       { key: 'hr', icon: '—', label: '分隔线', desc: 'horizontal rule', tags: 'hr divider separator' },
       { key: 'callout-note',       icon: '', label: '注释 callout', desc: '一般补充信息',     tags: 'callout note 注释 alert admonition' },
@@ -6074,6 +6270,13 @@ erDiagram
         const ctx = slashContext;
         closeSlashMenu();
         createAgentLabAt(ctx ? ctx.refSection : null);
+        return;
+      }
+      // Mock block (fetch interceptor) — inline
+      if (key === 'mock') {
+        const ctx = slashContext;
+        closeSlashMenu();
+        createMockAt(ctx ? ctx.refSection : null);
         return;
       }
       // Special case: discussion callout needs a URL prompt
@@ -10034,6 +10237,459 @@ erDiagram
     }
 
     // ============================================================
+    // 接口 Mock blocks — front-end fetch interceptor.
+    // Storage: localStorage `md-canvas:<filename>:mocks`. Not written to .md.
+    // ============================================================
+    const MOCKBLOCK_KEY = 'md-canvas:' + FILENAME + ':mocks';
+
+    function loadMocks() {
+      try {
+        const raw = localStorage.getItem(MOCKBLOCK_KEY);
+        if (!raw) return [];
+        const parsed = JSON.parse(raw);
+        return Array.isArray(parsed.blocks) ? parsed.blocks : [];
+      } catch { return []; }
+    }
+    function saveMocks(list) {
+      try { localStorage.setItem(MOCKBLOCK_KEY, JSON.stringify({ version: 1, blocks: list })); } catch {}
+    }
+    function updateMock(id, patch) {
+      const list = loadMocks();
+      const idx = list.findIndex(m => m.id === id);
+      if (idx < 0) return;
+      list[idx] = Object.assign({}, list[idx], patch);
+      saveMocks(list);
+    }
+    function removeMock(id) {
+      saveMocks(loadMocks().filter(m => m.id !== id));
+    }
+    function newMockId() { return 'mk_' + Math.random().toString(36).slice(2, 10); }
+
+    // ----- fetch interceptor (installed once at boot) -----
+    if (!window.__mdCanvasFetchPatched) {
+      window.__mdCanvasFetchPatched = true;
+      const originalFetch = window.fetch.bind(window);
+      window.fetch = async function patchedFetch(input, init) {
+        init = init || {};
+        const method = ((init.method || (input && input.method) || 'GET') + '').toUpperCase();
+        const url = typeof input === 'string' ? input : (input && input.url) || '';
+        let hit = null;
+        try {
+          const mocks = loadMocks();
+          hit = mocks.find(m => m.enabled && (m.method || '').toUpperCase() === method && (m.url || '') === url) || null;
+        } catch (_) {}
+        if (!hit) return originalFetch(input, init);
+        // Synthetic response
+        if (hit.delayMs && hit.delayMs > 0) {
+          await new Promise(r => setTimeout(r, Math.min(60000, hit.delayMs)));
+        }
+        const headers = {};
+        (hit.responseHeaders || '').split(/\r?\n/).forEach(line => {
+          const t = line.trim();
+          if (!t || t.startsWith('#')) return;
+          const i = t.indexOf(':');
+          if (i < 0) return;
+          const k = t.slice(0, i).trim();
+          const v = t.slice(i + 1).trim();
+          if (k) headers[k] = v;
+        });
+        try { toast('Mock 拦截：' + method + ' ' + url); } catch (_) {}
+        return new Response(hit.responseBody || '', {
+          status: parseInt(hit.status, 10) || 200,
+          statusText: hit.statusText || '',
+          headers,
+        });
+      };
+    }
+
+    function buildMockHead(section, m) {
+      const head = document.createElement('div');
+      head.className = 'mk-head';
+      head.contentEditable = 'false';
+      head.dataset.skipSerialize = 'true';
+      const sourceBadgeHtml = m.sourceCodeBlockId
+        ? '<button type="button" class="mk-source-badge" title="跳转到源 JSON 代码块">' +
+            '<span>源</span>' +
+            '<span class="mk-source-text">' + escapeHtml(m.sourceLabel || '上方 JSON 块') + '</span>' +
+          '</button>'
+        : '';
+      head.innerHTML =
+        '<span class="mk-icon" title="接口 Mock 块">○</span>' +
+        '<input type="text" class="mk-title" placeholder="Mock 标题（如：日记接口假数据）" value="' + escapeHtml(m.title || '') + '">' +
+        sourceBadgeHtml +
+        '<button type="button" class="mk-toggle" title="启用 / 停用拦截"><span class="mk-toggle-dot"></span><span class="mk-toggle-label">停用</span></button>' +
+        '<button type="button" class="mk-test" title="本地跑一下：用上面的 method+url 自打一次 fetch，验证拦截生效">测试</button>' +
+        '<button type="button" class="mk-icon-btn mk-comment" title="给这块加评论">评</button>' +
+        '<button type="button" class="mk-icon-btn mk-delete" title="删除此块">删</button>';
+      const titleInput = head.querySelector('.mk-title');
+      titleInput.addEventListener('input', () => updateMock(m.id, { title: titleInput.value }));
+
+      const sourceBadge = head.querySelector('.mk-source-badge');
+      if (sourceBadge) {
+        sourceBadge.addEventListener('click', () => {
+          const target = document.querySelector('.md-code[data-code-block-id="' + m.sourceCodeBlockId + '"]');
+          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+          else toast('源 JSON 块已被删除');
+        });
+      }
+
+      const toggleBtn = head.querySelector('.mk-toggle');
+      const toggleLabel = toggleBtn.querySelector('.mk-toggle-label');
+      const syncToggle = (on) => {
+        toggleBtn.classList.toggle('is-on', !!on);
+        toggleLabel.textContent = on ? '拦截中' : '停用';
+        section.classList.toggle('is-enabled', !!on);
+      };
+      syncToggle(!!m.enabled);
+      toggleBtn.addEventListener('click', () => {
+        const next = !toggleBtn.classList.contains('is-on');
+        syncToggle(next);
+        updateMock(m.id, { enabled: next });
+      });
+
+      head.querySelector('.mk-comment').addEventListener('click', () => {
+        openCommentComposerForBlock(section, '（Mock：' + (titleInput.value || '未命名') + '）');
+      });
+      head.querySelector('.mk-delete').addEventListener('click', () => {
+        if (!confirm('删除这个 Mock 块？')) return;
+        removeMock(m.id);
+        section.remove();
+        toast('已删除 Mock');
+      });
+      head.querySelector('.mk-test').addEventListener('click', async () => {
+        const method = section.querySelector('.mk-method').value;
+        const url = section.querySelector('.mk-url').value.trim();
+        const outBody = section.querySelector('.mk-output-body');
+        const outHead = section.querySelector('.mk-output-head-meta');
+        if (!url) { toast('先填 URL'); return; }
+        if (!toggleBtn.classList.contains('is-on')) { toast('请先启用拦截再测试'); return; }
+        // Read latest sampleRequest from storage in case it was edited
+        const fresh = loadMocks().find(x => x.id === m.id) || m;
+        const sampleReq = fresh.sampleRequest || '';
+        outBody.textContent = '请求中…';
+        outHead.textContent = (sampleReq ? '发请求（用 sampleRequest）… ' : '… ') + method + ' ' + url;
+        try {
+          const t0 = performance.now();
+          const init = { method, headers: { 'Content-Type': 'application/json' } };
+          if (method !== 'GET' && method !== 'HEAD' && sampleReq) init.body = sampleReq;
+          const resp = await fetch(url, init);
+          const text = await resp.text();
+          const dt = Math.round(performance.now() - t0);
+          outHead.textContent = resp.status + ' ' + (resp.statusText || '') + ' · ' + (dt / 1000).toFixed(2) + 's';
+          try { outBody.textContent = JSON.stringify(JSON.parse(text), null, 2); }
+          catch { outBody.textContent = text; }
+        } catch (err) {
+          outHead.textContent = '失败';
+          outBody.textContent = err.message || String(err);
+        }
+      });
+      return head;
+    }
+
+    function createMockSection(m) {
+      const section = document.createElement('section');
+      section.className = 'md-block md-mockblock';
+      section.dataset.mdType = 'mockblock';
+      section.dataset.mockId = m.id;
+      section.classList.add('is-revealed');
+      section.insertAdjacentHTML('beforeend', buildBlockControlsHtml());
+      section.appendChild(buildMockHead(section, m));
+
+      const body = document.createElement('div');
+      body.className = 'mk-body';
+      body.contentEditable = 'false';
+      body.dataset.skipSerialize = 'true';
+      body.innerHTML =
+        '<div class="mk-row"><label>拦截的端点 · METHOD + 完全匹配 URL</label>' +
+          '<div class="mk-endpoint">' +
+            '<select class="mk-method">' +
+              '<option value="GET">GET</option>' +
+              '<option value="POST">POST</option>' +
+              '<option value="PUT">PUT</option>' +
+              '<option value="PATCH">PATCH</option>' +
+              '<option value="DELETE">DELETE</option>' +
+            '</select>' +
+            '<input type="text" class="mk-url" placeholder="http://localhost:7788/agent/chat">' +
+          '</div>' +
+          '<div class="mk-hint">匹配规则：method 一致且 URL 字符串完全相等。Agent 实验块的 fetch 命中后自动用下面的响应替代。</div>' +
+        '</div>' +
+        '<div class="mk-row"><label>响应</label>' +
+          '<div class="mk-status-row">' +
+            '<div><label style="margin-bottom:2px">STATUS</label><input type="number" class="mk-status" min="100" max="599" placeholder="200"></div>' +
+            '<div><label style="margin-bottom:2px">延迟 (ms)</label><input type="number" class="mk-delay" min="0" placeholder="0"></div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="mk-row"><label>响应 HEADERS · 每行一个 Key: Value</label>' +
+          '<textarea class="mk-resp-headers" placeholder="Content-Type: application/json"></textarea>' +
+        '</div>' +
+        '<div class="mk-row"><label>响应 BODY · 任意文本（JSON / XML / plain）</label>' +
+          '<textarea class="mk-resp-body" placeholder=\'{"reply_text": "假回复", "tool_calls": []}\'></textarea>' +
+        '</div>';
+      section.appendChild(body);
+
+      const methodSel = body.querySelector('.mk-method');
+      const urlInput  = body.querySelector('.mk-url');
+      const statusInput = body.querySelector('.mk-status');
+      const delayInput  = body.querySelector('.mk-delay');
+      const headersTa = body.querySelector('.mk-resp-headers');
+      const bodyTa    = body.querySelector('.mk-resp-body');
+
+      methodSel.value = m.method || 'POST';
+      urlInput.value  = m.url || '';
+      statusInput.value = m.status != null ? m.status : 200;
+      delayInput.value  = m.delayMs != null ? m.delayMs : 0;
+      headersTa.value = m.responseHeaders || '';
+      bodyTa.value    = m.responseBody || '';
+
+      methodSel.addEventListener('change', () => updateMock(m.id, { method: methodSel.value }));
+      urlInput.addEventListener('input',   () => updateMock(m.id, { url: urlInput.value }));
+      statusInput.addEventListener('input',() => updateMock(m.id, { status: parseInt(statusInput.value, 10) || 200 }));
+      delayInput.addEventListener('input', () => updateMock(m.id, { delayMs: parseInt(delayInput.value, 10) || 0 }));
+      headersTa.addEventListener('input',  () => updateMock(m.id, { responseHeaders: headersTa.value }));
+      bodyTa.addEventListener('input',     () => updateMock(m.id, { responseBody: bodyTa.value }));
+
+      // Output area (for test button)
+      const out = document.createElement('div');
+      out.className = 'mk-output';
+      out.contentEditable = 'false';
+      out.dataset.skipSerialize = 'true';
+      out.innerHTML =
+        '<div class="mk-output-head">' +
+          '<span class="mk-output-head-meta">点 [测试] 自打一次 fetch 看拦截结果</span>' +
+        '</div>' +
+        '<div class="mk-output-body">（尚无响应）</div>';
+      section.appendChild(out);
+
+      return section;
+    }
+
+    function createMockAt(refSection, opts) {
+      opts = opts || {};
+      const list = loadMocks();
+      const content = document.getElementById('content');
+      const blocks = Array.from(content.children).filter(c =>
+        c.classList.contains('md-block') &&
+        !c.classList.contains('md-mockblock') &&
+        !c.classList.contains('md-agentlab') &&
+        !c.classList.contains('md-promptlab') &&
+        !c.classList.contains('md-prototype'));
+      let insertAt = blocks.length - 1;
+      if (refSection) {
+        const idx = blocks.indexOf(refSection);
+        if (idx >= 0) insertAt = idx;
+      }
+      const m = {
+        id: newMockId(),
+        insertAt,
+        title: opts.title || '',
+        method: opts.method || 'POST',
+        url: opts.url || '',
+        enabled: opts.enabled != null ? !!opts.enabled : true,
+        status: opts.status || 200,
+        statusText: opts.statusText || 'OK',
+        delayMs: opts.delayMs || 0,
+        responseHeaders: opts.responseHeaders || 'Content-Type: application/json',
+        responseBody: opts.responseBody != null ? opts.responseBody : '{"hello": "mocked"}',
+        sampleRequest: opts.sampleRequest != null ? opts.sampleRequest : '',
+        sourceCodeBlockId: opts.sourceCodeBlockId || null,
+        sourceRequestCodeBlockId: opts.sourceRequestCodeBlockId || null,
+        sourceLabel: opts.sourceLabel || null,
+      };
+      list.push(m);
+      saveMocks(list);
+      const section = createMockSection(m);
+      if (refSection && refSection.nextSibling) content.insertBefore(section, refSection.nextSibling);
+      else content.appendChild(section);
+      if (!opts.silent) toast('已插入 Mock 块（默认启用，会拦截命中的 fetch）');
+      if (!opts.skipFocus) {
+        setTimeout(() => {
+          const focusTarget = section.querySelector('.mk-url');
+          if (focusTarget) focusTarget.focus();
+        }, 50);
+      }
+      return { section, mock: m };
+    }
+
+    // Tag a JSON code block as 请求 / 响应 by looking at its preceding paragraph/heading.
+    function tagApiRoleForCodeBlock(section) {
+      if (!section.classList.contains('md-code')) return;
+      // Skip non-json blocks
+      const lang = section.dataset.codeLang || '';
+      if (lang !== 'json' && lang !== 'jsonl') { section.removeAttribute('data-api-role'); return; }
+      // Walk back to nearest non-code block with text content
+      let prev = section.previousElementSibling;
+      while (prev) {
+        if (prev.classList.contains('md-paragraph') || prev.classList.contains('md-heading')) {
+          const text = (prev.textContent || '').slice(0, 60);
+          if (/输出|响应|返回|response|reply|output/i.test(text)) {
+            section.dataset.apiRole = 'response';
+            return;
+          }
+          if (/输入|请求|入参|request|input/i.test(text)) {
+            section.dataset.apiRole = 'request';
+            return;
+          }
+          break;
+        }
+        if (prev.classList.contains('md-code')) break; // crossed another code block — abort
+        prev = prev.previousElementSibling;
+      }
+      section.removeAttribute('data-api-role');
+    }
+
+    // Walk back from an OUTPUT JSON to find the matching INPUT JSON in the same section
+    // (stops at headings to avoid leaking across API definitions).
+    function findPairedRequestJson(outputSection) {
+      let cur = outputSection.previousElementSibling;
+      while (cur) {
+        if (cur.classList.contains('md-heading')) return null;
+        if (cur.classList.contains('md-code') && cur.dataset.apiRole === 'request') return cur;
+        cur = cur.previousElementSibling;
+      }
+      return null;
+    }
+
+    // Wizard: bind a Mock block. Source: an "OUTPUT" JSON code block. Also picks up
+    // the paired "INPUT" JSON above as the sample request body (Apifox-style:
+    // contract = method + url + request example + response example).
+    function bindMockFromJson(respSection) {
+      const existingId = respSection.dataset.mockId;
+      const all = loadMocks();
+      const existing = existingId ? all.find(x => x.id === existingId) : null;
+      if (existing) {
+        const choice = prompt(
+          '已绑定 Mock：' + (existing.title || existing.url || '(未命名)') + '\n\n' +
+          '输入 g = 跳到该 Mock 块  /  u = 解绑此 JSON  /  取消 = 不动',
+          'g'
+        );
+        if (!choice) return;
+        if (choice.trim().toLowerCase() === 'u') {
+          delete respSection.dataset.mockId;
+          toast('已解绑（Mock 块仍在）');
+          return;
+        }
+        const target = document.querySelector('.md-mockblock[data-mock-id="' + existing.id + '"]');
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        return;
+      }
+      const respText = (respSection.querySelector('pre > code') || {}).textContent || '';
+      const reqSection = findPairedRequestJson(respSection);
+      const reqText = reqSection
+        ? (reqSection.querySelector('pre > code') || {}).textContent || ''
+        : '';
+      const headingInfo = findNearestPrecedingHeading(respSection);
+      const defaultTitle = headingInfo ? headingInfo.text : '';
+
+      const titleAns = prompt(
+        '接口标题（来自 PRD 中最近的标题）：',
+        defaultTitle
+      );
+      if (titleAns == null) return;
+      const url = prompt('要拦截的 URL（完全匹配）：', 'http://localhost:7788/');
+      if (!url || !url.trim()) return;
+      const method = (prompt('METHOD（GET / POST / PUT / PATCH / DELETE）：', 'POST') || 'POST').trim().toUpperCase();
+
+      // Stable ids on the source code blocks so reload-time hash-reconnect can wire them back
+      if (!respSection.dataset.codeBlockId) {
+        respSection.dataset.codeBlockId = 'cb_' + Math.random().toString(36).slice(2, 10);
+      }
+      if (reqSection && !reqSection.dataset.codeBlockId) {
+        reqSection.dataset.codeBlockId = 'cb_' + Math.random().toString(36).slice(2, 10);
+      }
+
+      const sourceLabel = defaultTitle
+        ? defaultTitle + (reqSection ? ' · 输入/输出 JSON' : ' · 输出 JSON')
+        : (reqSection ? '上方输入/输出 JSON 对' : '上方 JSON 块');
+
+      const result = createMockAt(respSection, {
+        title: titleAns.trim() || defaultTitle || '从 PRD 接口绑定的 Mock',
+        method,
+        url: url.trim(),
+        responseHeaders: 'Content-Type: application/json',
+        responseBody: respText,
+        sampleRequest: reqText,
+        sourceCodeBlockId: respSection.dataset.codeBlockId,
+        sourceRequestCodeBlockId: reqSection ? reqSection.dataset.codeBlockId : null,
+        sourceLabel,
+        silent: true,
+        skipFocus: true,
+      });
+      if (!result) return;
+      respSection.dataset.mockId = result.mock.id;
+      if (reqSection) reqSection.dataset.requestMockId = result.mock.id;
+      toast(
+        '已建接口契约 Mock：' + method + ' ' + url.trim() +
+        (reqSection ? '（已配对输入 JSON 作为请求示例）' : '（没找到配对的输入 JSON）')
+      );
+      result.section.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+
+    // Cheap content hash so we can reconnect a code block to its mock after
+    // page reload (the dataset.mockId attribute is session-only since the
+    // section DOM is rebuilt on each render).
+    function hashStr(s) {
+      let h = 0;
+      for (let i = 0; i < (s || '').length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
+      return h.toString(36);
+    }
+    function tryReconnectCodeToMock(section) {
+      const codeText = (section.querySelector('pre > code') || {}).textContent || '';
+      if (codeText.trim().length < 30) return;
+      const hash = hashStr(codeText);
+      const list = loadMocks();
+      // As RESPONSE source?
+      if (!section.dataset.mockId) {
+        const respHit = list.find(m => m.sourceCodeBlockId && hashStr(m.responseBody || '') === hash);
+        if (respHit) {
+          section.dataset.codeBlockId = respHit.sourceCodeBlockId;
+          section.dataset.mockId = respHit.id;
+        }
+      }
+      // As REQUEST source?
+      if (!section.dataset.requestMockId) {
+        const reqHit = list.find(m => m.sourceRequestCodeBlockId && hashStr(m.sampleRequest || '') === hash);
+        if (reqHit) {
+          section.dataset.codeBlockId = reqHit.sourceRequestCodeBlockId;
+          section.dataset.requestMockId = reqHit.id;
+        }
+      }
+    }
+
+    // Walk back through siblings to find the nearest heading section before this block
+    function findNearestPrecedingHeading(section) {
+      let cur = section.previousElementSibling;
+      while (cur) {
+        if (cur.classList && cur.classList.contains('md-heading')) {
+          const h = cur.querySelector('h1, h2, h3, h4, h5, h6');
+          const text = h ? (h.textContent || '').replace(/^[▼▶▾▴]\s*/, '').trim() : '';
+          if (text) return { section: cur, text };
+        }
+        cur = cur.previousElementSibling;
+      }
+      return null;
+    }
+
+    function renderAllMocks() {
+      document.querySelectorAll('#content > .md-mockblock').forEach(s => s.remove());
+      const list = loadMocks();
+      if (!list.length) return;
+      const content = document.getElementById('content');
+      list.forEach(m => {
+        const section = createMockSection(m);
+        const blocks = Array.from(content.children).filter(c =>
+          c.classList.contains('md-block') &&
+          !c.classList.contains('md-mockblock') &&
+          !c.classList.contains('md-agentlab') &&
+          !c.classList.contains('md-promptlab') &&
+          !c.classList.contains('md-prototype'));
+        const targetIdx = Math.min(Math.max(0, m.insertAt | 0), blocks.length - 1);
+        const targetBlock = blocks[targetIdx];
+        if (targetBlock && targetBlock.nextSibling) content.insertBefore(section, targetBlock.nextSibling);
+        else content.appendChild(section);
+      });
+    }
+
+    // ============================================================
     // AI integration — rewrite mermaid via MiniMax
     // ============================================================
     const AI_SETTINGS_KEY = 'md-canvas:ai-settings';
@@ -10436,7 +11092,8 @@ erDiagram
       tb.innerHTML =
         '<span class="clt-label">lang</span>' +
         '<select>' + buildLangSelectOptions(currentLang) + '</select>' +
-        '<button type="button" class="clt-json-btn" title="把这段 JSON 渲染成表格">JSON → 表</button>';
+        '<button type="button" class="clt-json-btn" title="把这段 JSON 渲染成表格">JSON → 表</button>' +
+        '<button type="button" class="clt-mock-btn" title="用这段 JSON 作为 Mock 响应：在下面建一个 Mock 块，绑定此 JSON；之后改这里 mock 自动跟">JSON → Mock</button>';
       section.appendChild(tb);
 
       applyLangToCode(section, currentLang);
@@ -10465,6 +11122,44 @@ erDiagram
 
       // JSON → table button (#49)
       tb.querySelector('.clt-json-btn').addEventListener('click', () => toggleJsonTable(section));
+      // JSON → Mock button (#68/69: bind both request + response sources to a Mock)
+      tb.querySelector('.clt-mock-btn').addEventListener('click', () => bindMockFromJson(section));
+      // Tag this JSON as 请求 / 响应 based on the preceding paragraph
+      tagApiRoleForCodeBlock(section);
+      // After reload, dataset.mockId / requestMockId are lost — try content-hash reconnect
+      tryReconnectCodeToMock(section);
+
+      // Live-sync: edits to a bound code block push into its mock
+      const codeEl = section.querySelector('pre > code');
+      if (codeEl) {
+        codeEl.addEventListener('input', () => {
+          // As RESPONSE source → mock.responseBody
+          const respMockId = section.dataset.mockId;
+          if (respMockId) {
+            const list = loadMocks();
+            const mk = list.find(x => x.id === respMockId);
+            if (mk) {
+              mk.responseBody = codeEl.textContent || '';
+              saveMocks(list);
+              const live = document.querySelector('.md-mockblock[data-mock-id="' + respMockId + '"]');
+              if (live) {
+                const ta = live.querySelector('.mk-resp-body');
+                if (ta && ta.value !== mk.responseBody) ta.value = mk.responseBody;
+              }
+            } else delete section.dataset.mockId;
+          }
+          // As REQUEST source → mock.sampleRequest
+          const reqMockId = section.dataset.requestMockId;
+          if (reqMockId) {
+            const list = loadMocks();
+            const mk = list.find(x => x.id === reqMockId);
+            if (mk) {
+              mk.sampleRequest = codeEl.textContent || '';
+              saveMocks(list);
+            } else delete section.dataset.requestMockId;
+          }
+        });
+      }
     }
 
     // ----- JSON → table rendering (#49) -----
