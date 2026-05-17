@@ -2697,6 +2697,43 @@
       cursor: pointer;
     }
     .api-spec-resp-add:hover { color: var(--ink); border-color: var(--ink); }
+    .api-spec-resp-tab.sortable-ghost { opacity: 0.4; }
+    .api-spec-resp-tab.sortable-chosen { cursor: grabbing; }
+    /* Inline diff view (actual response vs documented sample) */
+    .api-spec-diff-toggle {
+      background: transparent;
+      border: 1px solid var(--hairline);
+      color: var(--muted);
+      padding: 2px 8px;
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      cursor: pointer;
+      margin-left: 8px;
+    }
+    .api-spec-diff-toggle:hover { color: var(--ink); border-color: var(--ink); }
+    .api-spec-diff-toggle.is-active {
+      color: var(--ink);
+      border-color: var(--primary);
+      background: var(--surface-card);
+    }
+    .api-spec-diff[hidden] { display: none; }
+    .api-spec-diff {
+      margin-top: 6px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      padding: 6px 8px;
+      background: var(--surface-soft);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      max-height: 320px;
+      overflow: auto;
+    }
+    .api-spec-diff-line { white-space: pre-wrap; word-break: break-word; padding: 0 4px; }
+    .api-spec-diff-add { background: rgba(93, 184, 114, 0.12); color: #2e6f3b; }
+    .api-spec-diff-del { background: rgba(198, 69, 69, 0.10); color: #a23434; }
+    .api-spec-diff-eq  { color: var(--muted-soft); }
+    .api-spec-diff-empty { color: var(--muted-soft); font-style: italic; }
     /* GET/HEAD: dim the body section since the body will be ignored */
     .api-spec-section.is-no-body {
       opacity: 0.55;
@@ -11245,6 +11282,51 @@ erDiagram
       catch { return text; }
     }
 
+    // Shared utilities for 接口契约块 multi-status & diff (used by both A and B modes)
+    function statusBucket(code) {
+      if (code >= 200 && code < 300) return '2xx';
+      if (code >= 300 && code < 400) return '3xx';
+      if (code >= 400 && code < 500) return '4xx';
+      return '5xx';
+    }
+    function renderRespDiff(container, before, after) {
+      // Normalize both sides (pretty-print JSON if possible) so formatting noise
+      // doesn't drown the actual semantic diff.
+      const a = prettyJsonOrSame(before || '').split('\n');
+      const b = prettyJsonOrSame(after || '').split('\n');
+      if (!a.join('').trim() && !b.join('').trim()) {
+        container.innerHTML = '<div class="api-spec-diff-empty">（双侧均为空）</div>';
+        return;
+      }
+      if (!a.join('').trim()) {
+        container.innerHTML = '<div class="api-spec-diff-empty">文档样本为空，无法 diff（直接看上方实际响应）</div>';
+        return;
+      }
+      const parts = (window.Diff && window.Diff.diffLines)
+        ? Diff.diffLines(a.join('\n') + '\n', b.join('\n') + '\n')
+        : null;
+      if (!parts) {
+        container.innerHTML = '<div class="api-spec-diff-empty">diff 库未加载</div>';
+        return;
+      }
+      const frag = document.createDocumentFragment();
+      parts.forEach(p => {
+        const cls = p.added ? 'api-spec-diff-add'
+                  : p.removed ? 'api-spec-diff-del'
+                  : 'api-spec-diff-eq';
+        const prefix = p.added ? '+ ' : p.removed ? '- ' : '  ';
+        p.value.split('\n').forEach(line => {
+          if (line === '' && p.value.endsWith('\n')) return; // trailing newline split artifact
+          const div = document.createElement('div');
+          div.className = 'api-spec-diff-line ' + cls;
+          div.textContent = prefix + line;
+          frag.appendChild(div);
+        });
+      });
+      container.innerHTML = '';
+      container.appendChild(frag);
+    }
+
     // ----- helpers for KV rows + var interpolation inside api-spec blocks -----
     function appendApiKvRow(listEl, kv, persistFn, opts) {
       opts = opts || {};
@@ -11476,8 +11558,10 @@ erDiagram
           '<div class="api-spec-result-head">' +
             '<span class="api-spec-result-pill" hidden></span>' +
             '<span class="api-spec-result-meta">点 [运行] 用上面 body 真发一次（命中 Mock 走 mock）</span>' +
+            '<button type="button" class="api-spec-diff-toggle" data-act="toggle-diff" hidden>vs 文档样本</button>' +
           '</div>' +
           '<div class="api-spec-result-body is-empty">（尚无实跑结果）</div>' +
+          '<div class="api-spec-diff" data-resp-diff hidden></div>' +
         '</div>' +
         '<div class="api-spec-popover" hidden>' +
           '<button type="button" data-act="copy-curl">复制为 curl</button>' +
@@ -11601,12 +11685,6 @@ erDiagram
       wrap._activeRespIdx = 0;
       const respTabs = wrap.querySelector('[data-resp-tabs]');
       const respTa = wrap.querySelector('[data-field="response"]');
-      function statusBucket(code) {
-        if (code >= 200 && code < 300) return '2xx';
-        if (code >= 300 && code < 400) return '3xx';
-        if (code >= 400 && code < 500) return '4xx';
-        return '5xx';
-      }
       function renderRespTabs() {
         respTabs.innerHTML = '';
         wrap._responses.forEach((r, idx) => {
@@ -11676,6 +11754,28 @@ erDiagram
       respTa.addEventListener('input', () => {
         wrap._responses[wrap._activeRespIdx].body = respTa.value;
       });
+      // Drag-sort tabs (excludes the trailing + button via filter on .api-spec-resp-tab)
+      if (window.Sortable) {
+        Sortable.create(respTabs, {
+          animation: 120,
+          draggable: '.api-spec-resp-tab',
+          ghostClass: 'sortable-ghost',
+          chosenClass: 'sortable-chosen',
+          onEnd: () => {
+            // Save active before reordering
+            const activeStatus = wrap._responses[wrap._activeRespIdx].status;
+            wrap._responses[wrap._activeRespIdx].body = respTa.value;
+            const newOrder = Array.from(respTabs.querySelectorAll('.api-spec-resp-tab'))
+              .map(t => wrap._responses[parseInt(t.dataset.respIdx, 10)]);
+            wrap._responses = newOrder;
+            wrap._activeRespIdx = newOrder.findIndex(r => r.status === activeStatus);
+            if (wrap._activeRespIdx < 0) wrap._activeRespIdx = 0;
+            respTa.value = wrap._responses[wrap._activeRespIdx].body;
+            renderRespTabs();
+            markEdited();
+          },
+        });
+      }
 
       // Format JSON buttons
       wrap.querySelectorAll('.api-spec-section-action').forEach(btn => {
@@ -11730,6 +11830,18 @@ erDiagram
             const tab = respTabs.querySelector('[data-resp-idx="' + matchIdx + '"]');
             if (tab) tab.classList.add('has-actual');
           }
+          // Surface "vs 文档样本" toggle when the matching tab has a documented body
+          const diffBtn = wrap.querySelector('[data-act="toggle-diff"]');
+          const diffBox = wrap.querySelector('[data-resp-diff]');
+          const docBody = matchIdx >= 0 ? (wrap._responses[matchIdx].body || '') : '';
+          wrap._lastActualResponse = text;
+          wrap._lastDocResponse = docBody;
+          if (diffBtn) {
+            const hasDoc = docBody.trim().length > 0;
+            diffBtn.hidden = !hasDoc;
+            diffBtn.classList.remove('is-active');
+            if (diffBox) { diffBox.hidden = true; diffBox.innerHTML = ''; }
+          }
         } catch (err) {
           resultPill.hidden = false;
           resultPill.className = 'api-spec-result-pill is-err';
@@ -11739,6 +11851,18 @@ erDiagram
           resultBody.textContent = (err.message || String(err));
         } finally { btn.disabled = false; }
       });
+
+      // Diff toggle (A mode): renders Diff.diffLines between actual and active doc tab
+      const diffToggleA = wrap.querySelector('[data-act="toggle-diff"]');
+      const diffBoxA = wrap.querySelector('[data-resp-diff]');
+      if (diffToggleA && diffBoxA) {
+        diffToggleA.addEventListener('click', () => {
+          const show = diffBoxA.hidden;
+          diffToggleA.classList.toggle('is-active', show);
+          diffBoxA.hidden = !show;
+          if (show) renderRespDiff(diffBoxA, wrap._lastDocResponse || '', wrap._lastActualResponse || '');
+        });
+      }
 
       // Comment / delete
       wrap.querySelector('.api-spec-comment').addEventListener('click', () => {
@@ -12048,20 +12172,23 @@ erDiagram
             '</div>' +
             '<div class="api-spec-body-hint" data-hint></div>' +
           '</div>' +
-          '<div class="api-spec-section">' +
+          '<div class="api-spec-section" data-section="response">' +
             '<div class="api-spec-section-head">' +
-              '<span class="api-spec-section-label">响应契约 · 实跑后被真实响应覆盖（同步到下方"输出数据" JSON）</span>' +
+              '<span class="api-spec-section-label">响应契约 · 200 同步 PRD"输出数据"；额外 status 仅 localStorage 持久</span>' +
               '<button type="button" class="api-spec-section-action" data-act="format-response">格式化 JSON</button>' +
             '</div>' +
-            '<textarea class="api-spec-json" data-field="response">' + escapeHtml(initialResponse) + '</textarea>' +
+            '<div class="api-spec-resp-tabs" data-resp-tabs></div>' +
+            '<textarea class="api-spec-json" data-field="response"></textarea>' +
           '</div>' +
         '</div>' +
         '<div class="api-spec-result">' +
           '<div class="api-spec-result-head">' +
             '<span class="api-spec-result-pill" hidden></span>' +
             '<span class="api-spec-result-meta">点 [运行] 用上面 body 真发一次（命中 Mock 走 mock，否则真发）</span>' +
+            '<button type="button" class="api-spec-diff-toggle" data-act="toggle-diff" hidden>vs 文档样本</button>' +
           '</div>' +
           '<div class="api-spec-result-body is-empty">（尚无实跑结果）</div>' +
+          '<div class="api-spec-diff" data-resp-diff hidden></div>' +
         '</div>' +
         '<div class="api-spec-popover" hidden>' +
           '<button type="button" data-act="copy-curl">复制为 curl</button>' +
@@ -12116,10 +12243,125 @@ erDiagram
         }
         setCodeText(group.reqJson, toWrite);
       });
-      respEl.addEventListener('input', () => {
-        if (syncingFromUnderlying) return;
-        setCodeText(group.respJson, respEl.value);
-      });
+
+      // ---------- B-mode multi-status responses ----------
+      // Primary (idx 0, status 200) is the PRD's 输出 JSON — round-trips to MD.
+      // Extras (401/500/...) are overlay-only state, persisted to localStorage
+      // keyed by heading text so they survive reload but never write back to PRD MD.
+      const B_EXTRAS_KEY = 'md-canvas:' + FILENAME + ':b-extras';
+      function loadBExtrasMap() { try { return JSON.parse(localStorage.getItem(B_EXTRAS_KEY) || '{}'); } catch { return {}; } }
+      function saveBExtrasMap(m) { try { localStorage.setItem(B_EXTRAS_KEY, JSON.stringify(m)); } catch {} }
+      const groupKey = (group.name || 'untitled').replace(/\s+/g, '_').slice(0, 80);
+      const initialExtras = loadBExtrasMap()[groupKey] || [];
+      overlay._responses = [
+        { status: 200, label: '', body: initialResponse, isPrimary: true },
+        ...initialExtras.map(r => ({ status: r.status, label: r.label || '', body: r.body || '', isPrimary: false })),
+      ];
+      overlay._activeRespIdx = 0;
+      function persistBExtras() {
+        const extras = overlay._responses.filter(r => !r.isPrimary).map(r => ({
+          status: r.status, label: r.label, body: r.body,
+        }));
+        const map = loadBExtrasMap();
+        if (extras.length) map[groupKey] = extras;
+        else delete map[groupKey];
+        saveBExtrasMap(map);
+      }
+      function writeActiveToBackend() {
+        const cur = overlay._responses[overlay._activeRespIdx];
+        cur.body = respEl.value;
+        if (cur.isPrimary) {
+          if (!syncingFromUnderlying) setCodeText(group.respJson, respEl.value);
+        } else {
+          persistBExtras();
+        }
+      }
+      const respTabsB = overlay.querySelector('[data-resp-tabs]');
+      function renderRespTabsB() {
+        respTabsB.innerHTML = '';
+        overlay._responses.forEach((r, idx) => {
+          const tab = document.createElement('button');
+          tab.type = 'button';
+          tab.className = 'api-spec-resp-tab' + (idx === overlay._activeRespIdx ? ' is-active' : '');
+          tab.dataset.respIdx = String(idx);
+          tab.dataset.bucket = statusBucket(r.status);
+          tab.title = r.isPrimary
+            ? '主响应（同步到 PRD"输出数据"，下载 .md 写回）'
+            : '额外响应（仅 localStorage 持久，不写回 PRD MD）';
+          const lbl = document.createElement('span');
+          lbl.textContent = r.status + (r.label ? ' ' + r.label : '') + (r.isPrimary ? '' : ' *');
+          tab.appendChild(lbl);
+          if (!r.isPrimary) {
+            const x = document.createElement('button');
+            x.type = 'button';
+            x.className = 'api-spec-resp-x';
+            x.textContent = '×';
+            x.title = '删除这个状态码（仅删除 overlay 中的额外响应）';
+            x.addEventListener('click', (e) => {
+              e.stopPropagation();
+              if (r.body && !confirm('删除 ' + r.status + ' 的响应？body 不为空')) return;
+              overlay._responses.splice(idx, 1);
+              if (overlay._activeRespIdx >= overlay._responses.length) overlay._activeRespIdx = overlay._responses.length - 1;
+              respEl.value = overlay._responses[overlay._activeRespIdx].body;
+              persistBExtras();
+              renderRespTabsB();
+            });
+            tab.appendChild(x);
+          }
+          tab.addEventListener('click', () => {
+            writeActiveToBackend();
+            overlay._activeRespIdx = idx;
+            respEl.value = overlay._responses[idx].body;
+            renderRespTabsB();
+          });
+          respTabsB.appendChild(tab);
+        });
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'api-spec-resp-add';
+        addBtn.textContent = '+';
+        addBtn.title = '新增状态码（仅 overlay 持久，不写回 PRD MD）';
+        addBtn.addEventListener('click', () => {
+          const codeStr = (prompt('状态码（3 位数字，如 401 / 429 / 500）：', '400') || '').trim();
+          const code = parseInt(codeStr, 10);
+          if (!code || code < 100 || code > 599) { toast('状态码必须是 100-599'); return; }
+          if (overlay._responses.some(r => r.status === code)) { toast('已有 ' + code + ' 这个状态码'); return; }
+          const label = (prompt('简短说明（可选，如 "token 失效" / "限流"）：', '') || '').trim();
+          writeActiveToBackend();
+          overlay._responses.push({ status: code, label, body: '', isPrimary: false });
+          overlay._activeRespIdx = overlay._responses.length - 1;
+          respEl.value = '';
+          persistBExtras();
+          renderRespTabsB();
+          respEl.focus();
+        });
+        respTabsB.appendChild(addBtn);
+      }
+      respEl.value = overlay._responses[overlay._activeRespIdx].body;
+      renderRespTabsB();
+      respEl.addEventListener('input', writeActiveToBackend);
+      // Drag-sort tabs (primary stays where user puts it; persistBExtras only
+      // tracks the extras subset, which is order-agnostic in the map).
+      if (window.Sortable) {
+        Sortable.create(respTabsB, {
+          animation: 120,
+          draggable: '.api-spec-resp-tab',
+          ghostClass: 'sortable-ghost',
+          chosenClass: 'sortable-chosen',
+          onEnd: () => {
+            const activeStatus = overlay._responses[overlay._activeRespIdx].status;
+            writeActiveToBackend();
+            const newOrder = Array.from(respTabsB.querySelectorAll('.api-spec-resp-tab'))
+              .map(t => overlay._responses[parseInt(t.dataset.respIdx, 10)]);
+            overlay._responses = newOrder;
+            overlay._activeRespIdx = newOrder.findIndex(r => r.status === activeStatus);
+            if (overlay._activeRespIdx < 0) overlay._activeRespIdx = 0;
+            respEl.value = overlay._responses[overlay._activeRespIdx].body;
+            persistBExtras();
+            renderRespTabsB();
+          },
+        });
+      }
 
       // Method change → dim body section for GET/HEAD
       const reflectMethodB = () => updateApiSpecBodyVisibility(overlay, methodEl.value);
@@ -12209,8 +12451,12 @@ erDiagram
       if (respCodeEl) {
         respCodeEl.addEventListener('input', () => {
           if (syncingFromUnderlying) return;
+          // Only sync into overlay when the primary (200) tab is active;
+          // extras live in localStorage and should not be overwritten.
+          if (!overlay._responses[overlay._activeRespIdx].isPrimary) return;
           syncingFromUnderlying = true;
           respEl.value = respCodeEl.textContent || '';
+          overlay._responses[overlay._activeRespIdx].body = respEl.value;
           syncingFromUnderlying = false;
         });
       }
@@ -12291,6 +12537,25 @@ erDiagram
           resultMeta.textContent = (dt / 1000).toFixed(2) + 's · ' + new Date().toLocaleTimeString();
           resultBody.className = 'api-spec-result-body' + (resp.status >= 400 ? ' is-error' : '');
           resultBody.textContent = prettyJsonOrSame(text);
+          // Mark matching response tab
+          respTabsB.querySelectorAll('.api-spec-resp-tab.has-actual')
+            .forEach(t => t.classList.remove('has-actual'));
+          const matchIdx = overlay._responses.findIndex(r => r.status === resp.status);
+          if (matchIdx >= 0) {
+            const tab = respTabsB.querySelector('[data-resp-idx="' + matchIdx + '"]');
+            if (tab) tab.classList.add('has-actual');
+          }
+          // Diff toggle
+          const diffBtn = overlay.querySelector('[data-act="toggle-diff"]');
+          const diffBox = overlay.querySelector('[data-resp-diff]');
+          const docBody = matchIdx >= 0 ? (overlay._responses[matchIdx].body || '') : '';
+          overlay._lastActualResponse = text;
+          overlay._lastDocResponse = docBody;
+          if (diffBtn) {
+            diffBtn.hidden = !docBody.trim();
+            diffBtn.classList.remove('is-active');
+            if (diffBox) { diffBox.hidden = true; diffBox.innerHTML = ''; }
+          }
         } catch (err) {
           resultPill.hidden = false;
           resultPill.className = 'api-spec-result-pill is-err';
@@ -12300,6 +12565,18 @@ erDiagram
           resultBody.textContent = err.message || String(err);
         } finally { btn.disabled = false; }
       });
+
+      // Diff toggle (B mode)
+      const diffToggleB = overlay.querySelector('[data-act="toggle-diff"]');
+      const diffBoxB = overlay.querySelector('[data-resp-diff]');
+      if (diffToggleB && diffBoxB) {
+        diffToggleB.addEventListener('click', () => {
+          const show = diffBoxB.hidden;
+          diffToggleB.classList.toggle('is-active', show);
+          diffBoxB.hidden = !show;
+          if (show) renderRespDiff(diffBoxB, overlay._lastDocResponse || '', overlay._lastActualResponse || '');
+        });
+      }
 
       // Expand / collapse originals
       overlay.querySelector('.api-spec-expand-orig').addEventListener('click', (e) => {
@@ -12330,10 +12607,18 @@ erDiagram
         e.stopPropagation();
         const b = e.target.closest('button[data-act]');
         if (!b) return;
+        // Make sure latest textarea content is reflected in overlay._responses
+        writeActiveToBackend();
+        const allResponses = overlay._responses.map(r => ({
+          status: r.status, label: r.label, body: r.body,
+        }));
+        const active = overlay._responses[overlay._activeRespIdx] || allResponses[0];
         const cur = {
           name: nameEl.value, description: descEl.value,
           method: methodEl.value, url: urlEl.value.trim(),
-          request: reqEl.value, response: respEl.value, status: 200,
+          request: reqEl.value,
+          response: allResponses[0].body, status: allResponses[0].status,
+          responses: allResponses,
         };
         if (b.dataset.act === 'copy-curl') {
           const parts = ['curl -X ' + cur.method, JSON.stringify(cur.url), '-H ' + JSON.stringify('Content-Type: application/json')];
@@ -12341,7 +12626,7 @@ erDiagram
           try { await navigator.clipboard.writeText(parts.join(' \\\n  ')); toast('已复制 curl'); } catch { toast('复制失败'); }
         } else if (b.dataset.act === 'copy-md') {
           const md = '```api\n' + serializeApiSpecYaml(cur) + '\n```\n';
-          try { await navigator.clipboard.writeText(md); toast('已复制 ```api MD（可粘到任意位置）'); } catch { toast('复制失败'); }
+          try { await navigator.clipboard.writeText(md); toast('已复制 ```api MD（含所有 status；可粘到任意位置）'); } catch { toast('复制失败'); }
         } else if (b.dataset.act === 'copy-postman') {
           const item = {
             name: cur.name, request: {
@@ -12351,20 +12636,26 @@ erDiagram
               url: { raw: cur.url },
               description: cur.description,
             },
-            response: cur.response ? [{ name: 'example 200', code: 200, body: cur.response }] : [],
+            response: allResponses.filter(r => r.body).map(r => ({
+              name: r.label ? (r.status + ' ' + r.label) : ('example ' + r.status),
+              status: r.label || 'OK',
+              code: r.status,
+              body: r.body,
+            })),
           };
           try { await navigator.clipboard.writeText(JSON.stringify(item, null, 2)); toast('已复制 Postman JSON'); } catch { toast('复制失败'); }
         } else if (b.dataset.act === 'to-mock') {
           if (typeof createMockAt === 'function') {
             createMockAt(overlay, {
-              title: cur.name || '接口 Mock',
+              title: (cur.name || '接口 Mock') + ' · ' + active.status,
               method: cur.method, url: cur.url,
+              status: active.status,
               responseHeaders: 'Content-Type: application/json',
-              responseBody: cur.response,
+              responseBody: active.body || '',
               sampleRequest: cur.request,
               silent: true, skipFocus: true,
             });
-            toast('已建 Mock 拦截：' + cur.method + ' ' + cur.url);
+            toast('已建 Mock 拦截：' + cur.method + ' ' + cur.url + ' → ' + active.status);
           }
         }
         pop.classList.remove('is-show');
