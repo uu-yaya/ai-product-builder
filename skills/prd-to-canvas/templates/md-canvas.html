@@ -586,6 +586,10 @@
     }
     .status-bar .sep { color: var(--on-dark-soft); }
     .status-bar .label { color: var(--on-dark-soft); }
+    .status-bar .label[data-kind="progress"] { color: #d4a017; animation: pulse-text 1.2s ease-in-out infinite; }
+    .status-bar .label[data-kind="ok"]       { color: #93c08c; }
+    .status-bar .label[data-kind="err"]      { color: #e88b8b; }
+    @keyframes pulse-text { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
 
     /* ============================================ Toast ============================================ */
     .toast {
@@ -4541,15 +4545,36 @@
     // ============================================================
     // Save (localStorage)
     // ============================================================
-    function save() {
+    // Detect server mode: page served from http://127.0.0.1 or http://localhost
+    // AND window.MD_CANVAS_PATH was injected by server.py. file:// mode falls
+    // back to localStorage (the original single-file canvas behavior).
+    function isServerMode() {
+      const isLocalhost = /^https?:\/\/(127\.0\.0\.1|localhost)(:|\/|$)/.test(window.location.href);
+      return isLocalhost && typeof window.MD_CANVAS_PATH === 'string' && window.MD_CANVAS_PATH.length > 0;
+    }
+
+    function setSaveStatus(text, kind) {
+      const el = document.getElementById('status-saved');
+      if (!el) return;
+      el.textContent = text;
+      el.dataset.kind = kind || '';
+    }
+
+    async function save() {
       commitBlockEdits();
       const newSource = serializeAllToMarkdown();
-      // Record which blocks are edited so checkRestore() can skip prompting
-      // when nothing was actually changed (serializeAllToMarkdown isn't fully
-      // idempotent and may produce trivial whitespace diffs vs ORIGINAL_SOURCE).
       const editedNodes = Array.from(document.querySelectorAll('.md-block[data-edited="true"]'));
       const allBlocks = Array.from(document.querySelectorAll('#content > .md-block'));
       const editedIndices = editedNodes.map(el => allBlocks.indexOf(el)).filter(i => i >= 0);
+
+      if (isServerMode()) {
+        await saveViaServer(newSource, editedIndices);
+      } else {
+        saveToLocalStorage(newSource, editedIndices);
+      }
+    }
+
+    function saveToLocalStorage(newSource, editedIndices) {
       const payload = {
         filename: FILENAME,
         savedAt: new Date().toISOString(),
@@ -4560,11 +4585,60 @@
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
         const t = new Date();
-        document.getElementById('status-saved').textContent =
-          '已保存 ' + t.toLocaleTimeString('zh-CN', { hour12: false });
+        setSaveStatus('已保存 ' + t.toLocaleTimeString('zh-CN', { hour12: false }), 'ok');
         toast('已保存到本地（仅本浏览器）');
       } catch (e) {
+        setSaveStatus('✗ 保存失败', 'err');
         toast('保存失败：' + e.message);
+      }
+    }
+
+    async function saveViaServer(newSource, editedIndices) {
+      setSaveStatus('保存中…', 'progress');
+      let resp, data;
+      try {
+        resp = await fetch('/api/save', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            path: window.MD_CANVAS_PATH,
+            content: newSource,
+            editedIndices,
+          }),
+        });
+        data = await resp.json();
+      } catch (e) {
+        setSaveStatus('✗ 网络失败', 'err');
+        toast('保存失败：' + (e.message || e));
+        return;
+      }
+      // Server completed write+commit+push (or failed at one of the stages)
+      if (data && data.ok && data.stage === 'noop') {
+        setSaveStatus('（无改动）', 'ok');
+        return;
+      }
+      if (data && data.ok && data.pushed) {
+        const sha = data.commit_sha ? '（' + data.commit_sha + '）' : '';
+        setSaveStatus('✓ 已推送' + sha, 'ok');
+        toast('已写入 .md 并推送' + sha);
+        // Clear any stale localStorage snapshot from prior file-mode use, so
+        // refresh doesn't trigger checkRestore (server will re-render with the
+        // updated .md content as the new ORIGINAL_SOURCE anyway).
+        try { localStorage.removeItem(STORAGE_KEY); } catch {}
+        return;
+      }
+      // Failure path — pick wording by stage
+      const stage = (data && data.stage) || 'unknown';
+      const err = (data && data.error) || '未知错误';
+      if (stage === 'pull-rebase' && data && data.conflict) {
+        setSaveStatus('⚠ 冲突，需手动解决', 'err');
+        toast('队友刚也改了。本地已 commit，去 terminal:\n  git pull --rebase → 解 conflict → git push');
+      } else if (stage === 'push') {
+        setSaveStatus('⚠ 推送失败（已 commit）', 'err');
+        toast('已本地 commit 但 push 失败：' + err);
+      } else {
+        setSaveStatus('✗ ' + stage + ' 失败', 'err');
+        toast('保存失败 [' + stage + ']：' + err);
       }
     }
 
