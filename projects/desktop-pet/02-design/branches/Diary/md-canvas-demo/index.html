@@ -2488,6 +2488,248 @@
     body.edit-mode .md-mockblock[data-edited]::after,
     body.edit-mode .md-mockblock::before { display: none; }
 
+    /* ============================================ 接口契约块 ============================================ */
+    /* When a code block has lang="api" we hide the raw pre and render a rich UI in its place. */
+    .md-block.md-code.is-api {
+      background: transparent;
+      border: none;
+      padding: 0;
+    }
+    .md-block.md-code.is-api > pre,
+    .md-block.md-code.is-api > .code-lang-toolbar { display: none !important; }
+
+    .api-spec {
+      position: relative;
+      margin: var(--sp-lg) 0;
+      border: 1px solid var(--hairline);
+      border-left: 4px solid var(--accent-teal);
+      border-radius: var(--r-lg);
+      background: var(--canvas);
+      overflow: hidden;
+    }
+    .api-spec-head {
+      display: flex; align-items: center; gap: 10px;
+      padding: 10px 14px 10px 16px;
+      background: var(--surface-soft);
+      border-bottom: 1px solid var(--hairline);
+      flex-wrap: wrap;
+    }
+    .api-spec-method {
+      padding: 5px 10px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      background: var(--canvas);
+      font-family: var(--font-mono);
+      font-size: 12px; font-weight: 600;
+      color: var(--accent-teal);
+      cursor: pointer; flex-shrink: 0;
+    }
+    .api-spec-url {
+      flex: 1; min-width: 0;
+      padding: 5px 10px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono); font-size: 12.5px;
+      color: var(--ink); background: var(--canvas);
+      outline: none;
+    }
+    .api-spec-url:focus { border-color: var(--primary); }
+    .api-spec-run {
+      background: var(--primary);
+      color: var(--on-primary);
+      border: none;
+      padding: 6px 14px;
+      border-radius: var(--r-md);
+      font-family: var(--font-sans);
+      font-size: 12px; font-weight: 500;
+      cursor: pointer;
+    }
+    .api-spec-run:hover { background: var(--primary-active); }
+    .api-spec-run:disabled { opacity: 0.55; cursor: not-allowed; }
+    .api-spec-menu-btn {
+      background: transparent; border: 1px solid var(--hairline);
+      cursor: pointer;
+      padding: 4px 9px; border-radius: var(--r-sm);
+      color: var(--muted); font-size: 13px;
+    }
+    .api-spec-menu-btn:hover { background: var(--surface-card); color: var(--ink); }
+    .api-spec-icon-btn {
+      background: transparent; border: none; cursor: pointer;
+      padding: 4px 7px; border-radius: var(--r-sm);
+      color: var(--muted); font-size: 13px;
+    }
+    .api-spec-icon-btn:hover { background: var(--surface-card); color: var(--ink); }
+    .api-spec-body { padding: 12px 16px; }
+    .api-spec-name-input {
+      width: 100%;
+      padding: 4px 0;
+      border: none; background: transparent; outline: none;
+      font-family: var(--font-serif);
+      font-size: 16px; font-weight: 500;
+      color: var(--ink);
+      margin-bottom: 4px;
+    }
+    .api-spec-name-input:focus { background: var(--surface-soft); padding: 4px 6px; border-radius: 3px; }
+    .api-spec-desc-input {
+      width: 100%;
+      padding: 4px 0;
+      border: none; background: transparent; outline: none;
+      font-family: var(--font-sans);
+      font-size: 12.5px; color: var(--muted);
+      resize: none;
+      min-height: 22px;
+    }
+    .api-spec-desc-input:focus { background: var(--surface-soft); padding: 4px 6px; border-radius: 3px; }
+    .api-spec-section { margin-top: 12px; }
+    .api-spec-section-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 6px;
+    }
+    .api-spec-section-label {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      font-family: var(--font-sans);
+    }
+    .api-spec-section-action {
+      background: transparent;
+      border: 1px solid var(--hairline);
+      color: var(--muted);
+      padding: 2px 8px;
+      border-radius: var(--r-sm);
+      font-size: 10.5px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+    }
+    .api-spec-section-action:hover { color: var(--ink); border-color: var(--ink); }
+    .api-spec-json {
+      width: 100%;
+      padding: 9px 11px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono);
+      font-size: 12.5px; line-height: 1.55;
+      color: var(--ink);
+      background: var(--surface-soft);
+      resize: vertical;
+      min-height: 90px;
+    }
+    .api-spec-json:focus { outline: none; border-color: var(--primary); background: var(--canvas); }
+    .api-spec-result {
+      border-top: 1px solid var(--hairline);
+      background: var(--surface-soft);
+      padding: 12px 16px;
+    }
+    .api-spec-result-head {
+      display: flex; align-items: center; gap: 10px;
+      margin-bottom: 8px;
+      font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    }
+    .api-spec-result-pill {
+      padding: 2px 8px;
+      border-radius: var(--r-pill);
+      font-family: var(--font-mono); font-weight: 500;
+      flex-shrink: 0;
+    }
+    .api-spec-result-pill.is-2xx { background: rgba(93, 184, 114, 0.15); color: var(--success); }
+    .api-spec-result-pill.is-3xx { background: rgba(212, 160, 23, 0.15); color: var(--warning); }
+    .api-spec-result-pill.is-4xx,
+    .api-spec-result-pill.is-5xx,
+    .api-spec-result-pill.is-err { background: rgba(198, 69, 69, 0.15); color: var(--error); }
+    .api-spec-result-body {
+      background: var(--canvas);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      padding: 10px 12px;
+      font-family: var(--font-mono); font-size: 12px;
+      line-height: 1.65; color: var(--ink);
+      max-height: 320px; overflow-y: auto;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .api-spec-result-body.is-empty { color: var(--muted-soft); font-style: italic; }
+    .api-spec-result-body.is-error { border-color: var(--error); background: rgba(198, 69, 69, 0.05); color: var(--error); }
+    /* Body mode tabs (JSON / form-data / form-urlencoded / raw) — own row below the section head */
+    .api-spec-body-mode-bar {
+      display: flex; align-items: center; gap: 8px;
+      margin: 4px 0 6px;
+      flex-wrap: wrap;
+    }
+    .api-spec-body-mode-tabs { display: inline-flex; gap: 4px; }
+    .api-spec-body-mode-btn {
+      background: transparent;
+      border: 1px solid var(--hairline);
+      padding: 2px 8px;
+      border-radius: var(--r-sm);
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 10.5px;
+      cursor: pointer;
+    }
+    .api-spec-body-mode-btn:hover { color: var(--ink); }
+    .api-spec-body-mode-btn.is-active {
+      background: var(--surface-card);
+      color: var(--ink);
+      border-color: var(--primary);
+    }
+    .api-spec-body-hint {
+      font-size: 10.5px;
+      color: var(--muted-soft);
+      font-family: var(--font-mono);
+      margin-top: 6px;
+    }
+    .api-spec-body-pane[hidden] { display: none; }
+    /* GET/HEAD: dim the body section since the body will be ignored */
+    .api-spec-section.is-no-body {
+      opacity: 0.55;
+      position: relative;
+    }
+    .api-spec-section.is-no-body::after {
+      content: 'GET / HEAD 不发送 body';
+      position: absolute; top: -2px; right: 0;
+      font-size: 10.5px; color: var(--warning);
+      font-family: var(--font-mono);
+      background: rgba(212, 160, 23, 0.12);
+      padding: 1px 8px;
+      border-radius: var(--r-pill);
+    }
+
+    .api-spec-popover {
+      position: absolute;
+      background: var(--canvas);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      box-shadow: 0 6px 18px rgba(20, 20, 19, 0.18);
+      padding: 4px;
+      z-index: 30;
+      min-width: 200px;
+      display: none;
+    }
+    .api-spec-popover.is-show { display: block; }
+    .api-spec-popover button {
+      display: block; width: 100%;
+      text-align: left;
+      background: transparent; border: none;
+      padding: 6px 10px; cursor: pointer;
+      font-family: var(--font-sans); font-size: 12px;
+      color: var(--ink); border-radius: var(--r-sm);
+    }
+    .api-spec-popover button:hover { background: var(--surface-card); }
+    .api-spec-popover .sep { height: 1px; background: var(--hairline); margin: 4px 0; }
+    body.edit-mode .md-block.md-code.is-api[data-edited]::after { display: none; }
+
+    /* B-mode overlay: contract block synthesized from heading + table + 输入JSON + 输出JSON.
+       Underlying sections get .is-api-group-member and hide until user toggles "展开". */
+    .is-api-group-member { display: none !important; }
+    .api-spec-overlay {
+      border-left-color: var(--accent-amber);  /* differentiate from A-mode (teal) */
+    }
+    .api-spec-overlay.is-expanded { border-left-color: var(--accent-teal); }
+    .api-spec-orig-hint {
+      font-size: 10px; color: var(--muted-soft);
+      font-family: var(--font-mono);
+      margin-left: auto;
+      padding: 2px 6px;
+    }
+
     /* Preset dropdown inside agent-lab head */
     .al-preset {
       padding: 5px 8px;
@@ -5051,6 +5293,7 @@ erDiagram
       renderAllPromptLabs();
       renderAllAgentLabs();
       renderAllMocks();
+      setupApiGroups();
     }
 
     // ============================================================
@@ -5268,6 +5511,11 @@ erDiagram
         return serializeTable(block, tok);
       }
       if (tok.type === 'code') {
+        // API contract block: serialize from DOM fields, not the hidden <pre>
+        if (block.classList.contains('is-api')) {
+          const cur = readApiSpecFromDom(block);
+          return '```api\n' + serializeApiSpecYaml(cur) + '\n```\n\n';
+        }
         const code = block.querySelector('pre > code') || block.querySelector('pre');
         if (!code) return tok.raw;
         // Prefer the user-set lang (from the toolbar input) over the original token lang
@@ -6163,6 +6411,7 @@ erDiagram
       { key: 'promptlab', icon: '', label: 'Prompt 实验', desc: '调真实大模型 (MiniMax) 看 system + user prompt 的输出；本地保存，不写入 .md', tags: 'prompt llm ai minimax system user run experiment 实验 提示词' },
       { key: 'agentlab',  icon: '', label: 'Agent 实验',  desc: '任意 HTTP 端点（method / headers / body / {{var}}），用于测后端 agent 接口；本地保存，不写入 .md', tags: 'agent http endpoint fetch api request curl rest 实验' },
       { key: 'mock',      icon: '○',  label: '接口 Mock',    desc: '前端拦截 fetch：定义假端点 + 假响应，没后端也能演 demo；本地保存，不写入 .md', tags: 'mock fake stub api intercept fetch response' },
+      { key: 'apispec',   icon: '⊙',  label: '接口契约',     desc: '渲染为接口契约块（method/url/请求示例/响应示例 + 一键运行）；序列化为 ```api fence 写入 .md', tags: 'api contract endpoint spec apifox 接口 契约' },
       { key: 'quote', icon: '"', label: '引用', desc: 'Blockquote', tags: 'quote blockquote' },
       { key: 'hr', icon: '—', label: '分隔线', desc: 'horizontal rule', tags: 'hr divider separator' },
       { key: 'callout-note',       icon: '', label: '注释 callout', desc: '一般补充信息',     tags: 'callout note 注释 alert admonition' },
@@ -6277,6 +6526,26 @@ erDiagram
         const ctx = slashContext;
         closeSlashMenu();
         createMockAt(ctx ? ctx.refSection : null);
+        return;
+      }
+      // API contract block — insert a ```api fence with skeleton fields
+      if (key === 'apispec') {
+        const ctx = slashContext;
+        closeSlashMenu();
+        const skeleton =
+          'name: 新接口\n' +
+          'method: POST\n' +
+          'url: /api/path\n' +
+          'description: 简短描述\n' +
+          'request: |\n' +
+          '  {\n' +
+          '    "field": "value"\n' +
+          '  }\n' +
+          'response: |\n' +
+          '  {\n' +
+          '    "result": "ok"\n' +
+          '  }';
+        insertNewBlock('```api\n' + skeleton + '\n```\n\n', 'after', ctx ? ctx.refSection : null);
         return;
       }
       // Special case: discussion callout needs a URL prompt
@@ -11078,6 +11347,7 @@ erDiagram
       const tok = getTok(section);
       if (!tok || tok.type !== 'code') return;
       if (tok.lang === 'mermaid' || tok.lang === 'mermaid-detail') return;
+      if (tok.lang === 'api') { setupApiSpecBlock(section, tok); return; }
       if (section.querySelector(':scope > .code-lang-toolbar')) {
         highlightCode(section);
         return;
@@ -11265,6 +11535,1085 @@ erDiagram
       if (window.Prism && typeof Prism.highlightElement === 'function') {
         try { Prism.highlightElement(code); } catch {}
       }
+    }
+
+    // ============================================================
+    // 接口契约块 (#70) — render ```api fences as rich, editable, runnable
+    // API contract blocks. PM writes YAML; we render fields with inline edit,
+    // run button, format/copy actions, and round-trip serialization.
+    // ============================================================
+
+    // Very small YAML reader for the fixed shape we accept:
+    //   key: value         → string
+    //   key: |             → followed by indented block, joined with \n
+    function parseApiSpecYaml(text) {
+      const out = {};
+      const lines = (text || '').replace(/\r\n/g, '\n').split('\n');
+      let i = 0;
+      while (i < lines.length) {
+        const line = lines[i];
+        if (!line.trim() || line.trim().startsWith('#')) { i++; continue; }
+        const m = line.match(/^([a-zA-Z_][a-zA-Z0-9_]*)\s*:\s*(.*)$/);
+        if (!m) { i++; continue; }
+        const key = m[1];
+        let val = m[2];
+        if (/^\|[-+]?$/.test(val.trim())) {
+          // Literal multi-line block; collect indented lines below
+          i++;
+          const buf = [];
+          let baseIndent = null;
+          while (i < lines.length) {
+            const next = lines[i];
+            if (!next.trim()) { buf.push(''); i++; continue; }
+            const indentMatch = next.match(/^(\s*)/);
+            const indent = indentMatch ? indentMatch[1].length : 0;
+            if (baseIndent === null) baseIndent = indent;
+            if (indent < baseIndent) break;
+            buf.push(next.slice(baseIndent));
+            i++;
+          }
+          val = buf.join('\n').replace(/\n+$/, '');
+        } else {
+          i++;
+        }
+        out[key] = val;
+      }
+      return out;
+    }
+
+    function serializeApiSpecYaml(spec) {
+      const lines = [];
+      ['name', 'method', 'url', 'status', 'body_mode'].forEach(k => {
+        if (spec[k] != null && spec[k] !== '') lines.push(k + ': ' + spec[k]);
+      });
+      ['description', 'request_headers', 'variables', 'request', 'response', 'notes'].forEach(k => {
+        if (spec[k] != null && spec[k] !== '') {
+          lines.push(k + ': |');
+          spec[k].split('\n').forEach(l => lines.push('  ' + l));
+        }
+      });
+      return lines.join('\n');
+    }
+
+    function prettyJsonOrSame(text) {
+      try { return JSON.stringify(JSON.parse(text), null, 2); }
+      catch { return text; }
+    }
+
+    // ----- helpers for KV rows + var interpolation inside api-spec blocks -----
+    function appendApiKvRow(listEl, kv, persistFn, opts) {
+      opts = opts || {};
+      const row = document.createElement('div');
+      row.className = 'al-kv-row';
+      row.innerHTML =
+        '<input type="text" class="al-kv-name"  placeholder="' + escapeHtml(opts.namePlaceholder || 'key') + '" value="' + escapeHtml((kv && kv.name) || '') + '">' +
+        '<input type="text" class="al-kv-value" placeholder="' + escapeHtml(opts.valuePlaceholder || 'value') + '" value="' + escapeHtml((kv && kv.value) || '') + '">' +
+        '<button type="button" class="al-kv-del" title="删除">×</button>';
+      row.querySelector('.al-kv-name').addEventListener('input', persistFn);
+      row.querySelector('.al-kv-value').addEventListener('input', persistFn);
+      row.querySelector('.al-kv-del').addEventListener('click', () => { row.remove(); persistFn(); });
+      listEl.appendChild(row);
+      return row;
+    }
+    // Parse "Key: Value\n..." or "name=value\n..." text into KV rows on a list
+    function loadKvIntoList(listEl, text, sep, persistFn, rowOpts) {
+      (text || '').split(/\r?\n/).forEach(line => {
+        const t = line.trim();
+        if (!t || t.startsWith('#')) return;
+        const i = sep === ':' ? t.indexOf(':') : t.indexOf('=');
+        if (i < 0) return;
+        appendApiKvRow(listEl, { name: t.slice(0, i).trim(), value: t.slice(i + 1).trim() }, persistFn, rowOpts);
+      });
+    }
+    // Serialize a KV row list back to "Key{sep}Value\n..." text
+    function readKvListAsText(listEl, sep) {
+      if (!listEl) return '';
+      return Array.from(listEl.querySelectorAll('.al-kv-row'))
+        .map(r => {
+          const k = r.querySelector('.al-kv-name').value.trim();
+          const v = r.querySelector('.al-kv-value').value;
+          return k ? k + sep + v : '';
+        })
+        .filter(Boolean)
+        .join('\n');
+    }
+    // Read a KV list as a {name: value} dict (used at run time for {{var}} substitution)
+    function readKvListAsDict(listEl) {
+      const out = {};
+      if (!listEl) return out;
+      Array.from(listEl.querySelectorAll('.al-kv-row')).forEach(r => {
+        const k = r.querySelector('.al-kv-name').value.trim();
+        if (k) out[k] = r.querySelector('.al-kv-value').value;
+      });
+      return out;
+    }
+    // Substitute {{name}} placeholders. Unknown names left as-is.
+    function interpolateApiVars(text, vars) {
+      if (!text) return text || '';
+      return text.replace(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g, (m, name) =>
+        vars && Object.prototype.hasOwnProperty.call(vars, name) ? vars[name] : m
+      );
+    }
+    // Body-mode helpers — text format for form modes: "k=v\nk2=v2\n..."
+    function kvTextToArr(text) {
+      const out = [];
+      (text || '').split(/\r?\n/).forEach(line => {
+        const t = line.trim();
+        if (!t || t.startsWith('#')) return;
+        const eq = t.indexOf('=');
+        if (eq < 0) return;
+        out.push({ name: t.slice(0, eq).trim(), value: t.slice(eq + 1).trim() });
+      });
+      return out;
+    }
+    function kvArrToText(arr) { return arr.map(kv => kv.name + '=' + kv.value).join('\n'); }
+    function jsonTextToKvText(jsonText) {
+      try {
+        const obj = JSON.parse(jsonText);
+        if (obj && typeof obj === 'object' && !Array.isArray(obj)) {
+          return Object.entries(obj).map(([k, v]) => k + '=' + (typeof v === 'string' ? v : JSON.stringify(v))).join('\n');
+        }
+      } catch {}
+      return jsonText;
+    }
+    function kvTextToJsonText(kvText) {
+      const arr = kvTextToArr(kvText);
+      if (!arr.length) return kvText;
+      const obj = {}; arr.forEach(kv => { obj[kv.name] = kv.value; });
+      return JSON.stringify(obj, null, 2);
+    }
+    // Dim body section + show "GET/HEAD 不发 body" hint when method is read-only.
+    function updateApiSpecBodyVisibility(wrap, method) {
+      const sec = wrap.querySelector('[data-section="body"]');
+      if (!sec) return;
+      sec.classList.toggle('is-no-body', method === 'GET' || method === 'HEAD');
+    }
+
+    function hasHeader(headers, name) {
+      const n = name.toLowerCase();
+      return Object.keys(headers).some(k => k.toLowerCase() === n);
+    }
+    function deleteHeader(headers, name) {
+      const n = name.toLowerCase();
+      Object.keys(headers).forEach(k => { if (k.toLowerCase() === n) delete headers[k]; });
+    }
+
+    // Build a fetch init from URL-replaced parts. body_mode controls how the
+    // body is serialized + which Content-Type the browser uses.
+    function buildApiSpecFetchInit(method, headersText, bodyText, vars, bodyMode) {
+      bodyMode = bodyMode || 'json';
+      const headers = {};
+      (headersText || '').split(/\r?\n/).forEach(line => {
+        const t = line.trim();
+        if (!t || t.startsWith('#')) return;
+        const i = t.indexOf(':');
+        if (i < 0) return;
+        const k = t.slice(0, i).trim();
+        const v = interpolateApiVars(t.slice(i + 1).trim(), vars);
+        if (k) headers[k] = v;
+      });
+      const init = { method, headers };
+      if (method === 'GET' || method === 'HEAD') return init;
+      const interpolated = interpolateApiVars(bodyText, vars);
+      if (!interpolated) return init;
+      if (bodyMode === 'form-urlencoded') {
+        const params = new URLSearchParams();
+        kvTextToArr(interpolated).forEach(kv => params.append(kv.name, kv.value));
+        init.body = params.toString();
+        if (!hasHeader(headers, 'content-type')) headers['Content-Type'] = 'application/x-www-form-urlencoded';
+      } else if (bodyMode === 'form-data') {
+        const fd = new FormData();
+        kvTextToArr(interpolated).forEach(kv => fd.append(kv.name, kv.value));
+        init.body = fd;
+        // Browser sets multipart Content-Type with boundary — must NOT set manually
+        deleteHeader(headers, 'content-type');
+      } else if (bodyMode === 'raw') {
+        init.body = interpolated;
+        // Raw mode respects user-defined Content-Type; only default if missing
+        if (!hasHeader(headers, 'content-type')) headers['Content-Type'] = 'text/plain';
+      } else {
+        // json (default)
+        init.body = interpolated;
+        if (!hasHeader(headers, 'content-type')) headers['Content-Type'] = 'application/json';
+      }
+      return init;
+    }
+
+    function setupApiSpecBlock(section, tok) {
+      if (section.dataset.apiSpecReady === '1') {
+        // Already set up; just re-attach edit-mode visibility if needed
+        return;
+      }
+      section.dataset.apiSpecReady = '1';
+      section.classList.add('is-api');
+      section.dataset.editable = 'true';
+      if (!section.dataset.codeLang) section.dataset.codeLang = 'api';
+
+      const codeEl = section.querySelector('pre > code');
+      const yamlText = codeEl ? (codeEl.textContent || '') : (tok && tok.text) || '';
+      const spec = parseApiSpecYaml(yamlText);
+
+      const wrap = document.createElement('div');
+      wrap.className = 'api-spec';
+      wrap.contentEditable = 'false';
+      wrap.dataset.skipSerialize = 'true';
+
+      const method = (spec.method || 'POST').toUpperCase();
+      const status = spec.status || 200;
+      wrap.innerHTML =
+        '<div class="api-spec-head">' +
+          '<select class="api-spec-method" data-field="method" title="HTTP method">' +
+            ['GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS'].map(m =>
+              '<option value="' + m + '"' + (m === method ? ' selected' : '') + '>' + m + '</option>'
+            ).join('') +
+          '</select>' +
+          '<input type="text" class="api-spec-url" data-field="url" placeholder="/api/path（支持 {{var}} 替换）" value="' + escapeHtml(spec.url || '') + '">' +
+          '<button type="button" class="api-spec-run" title="按当前变量替换后真发；命中 Mock 块走 mock，否则真发">运行</button>' +
+          '<button type="button" class="api-spec-menu-btn" title="导出 / 复制">⋯</button>' +
+          '<button type="button" class="api-spec-icon-btn api-spec-comment" title="给这块加评论">评</button>' +
+          '<button type="button" class="api-spec-icon-btn api-spec-delete" title="删除此块">删</button>' +
+        '</div>' +
+        '<div class="api-spec-body">' +
+          '<input type="text" class="api-spec-name-input" data-field="name" placeholder="接口名称（如：日记生成接口）" value="' + escapeHtml(spec.name || '') + '">' +
+          '<textarea class="api-spec-desc-input" data-field="description" placeholder="接口说明（一句话）" rows="1">' + escapeHtml(spec.description || '') + '</textarea>' +
+          '<div class="api-spec-section">' +
+            '<div class="api-spec-section-head">' +
+              '<span class="api-spec-section-label">变量 · URL / Headers / Body 中用 {{name}} 引用</span>' +
+              '<button type="button" class="api-spec-section-action" data-act="add-var">+ 加变量</button>' +
+            '</div>' +
+            '<div class="al-kv-list api-spec-vars-list"></div>' +
+          '</div>' +
+          '<div class="api-spec-section">' +
+            '<div class="api-spec-section-head">' +
+              '<span class="api-spec-section-label">请求 Headers</span>' +
+              '<span>' +
+                '<button type="button" class="api-spec-section-action" data-act="add-bearer">+ Bearer Token</button> ' +
+                '<button type="button" class="api-spec-section-action" data-act="add-json">+ JSON</button> ' +
+                '<button type="button" class="api-spec-section-action" data-act="add-header">+ 加 Header</button>' +
+              '</span>' +
+            '</div>' +
+            '<div class="al-kv-list api-spec-headers-list"></div>' +
+          '</div>' +
+          '<div class="api-spec-section" data-section="body">' +
+            '<div class="api-spec-section-head">' +
+              '<span class="api-spec-section-label">请求 body · 运行时实际发出（GET/HEAD 忽略）</span>' +
+              '<button type="button" class="api-spec-section-action" data-act="format-request">格式化 JSON</button>' +
+            '</div>' +
+            '<div class="api-spec-body-mode-bar">' +
+              '<span class="api-spec-body-mode-tabs">' +
+                ['json','form-data','form-urlencoded','raw'].map(m =>
+                  '<button type="button" class="api-spec-body-mode-btn" data-mode="' + m + '">' +
+                    m + '</button>'
+                ).join('') +
+              '</span>' +
+            '</div>' +
+            '<div class="api-spec-body-pane" data-pane="textarea">' +
+              '<textarea class="api-spec-json" data-field="request" placeholder=\'{"user_id": "u_001", ...}\'>' + escapeHtml(spec.request || '') + '</textarea>' +
+            '</div>' +
+            '<div class="api-spec-body-pane" data-pane="kv" hidden>' +
+              '<div style="font-size:10.5px;color:var(--muted);font-family:var(--font-sans);margin:6px 0 4px">' +
+                '↓ form 字段辅助编辑器 · 添加字段会覆盖上方 textarea 为 k=v 格式' +
+              '</div>' +
+              '<div class="al-kv-list api-spec-body-kv-list"></div>' +
+              '<button type="button" class="al-kv-add" data-act="add-body-field">+ 加字段</button>' +
+            '</div>' +
+            '<div class="api-spec-body-hint" data-hint></div>' +
+          '</div>' +
+          '<div class="api-spec-section">' +
+            '<div class="api-spec-section-head">' +
+              '<span class="api-spec-section-label">响应契约（' + status + '）· 实跑后被真实响应覆盖显示</span>' +
+              '<button type="button" class="api-spec-section-action" data-act="format-response">格式化 JSON</button>' +
+            '</div>' +
+            '<textarea class="api-spec-json" data-field="response" placeholder=\'{"diary_id": "d_001", ...}\'>' + escapeHtml(spec.response || '') + '</textarea>' +
+          '</div>' +
+        '</div>' +
+        '<div class="api-spec-result">' +
+          '<div class="api-spec-result-head">' +
+            '<span class="api-spec-result-pill" hidden></span>' +
+            '<span class="api-spec-result-meta">点 [运行] 用上面 body 真发一次（命中 Mock 走 mock）</span>' +
+          '</div>' +
+          '<div class="api-spec-result-body is-empty">（尚无实跑结果）</div>' +
+        '</div>' +
+        '<div class="api-spec-popover" hidden>' +
+          '<button type="button" data-act="copy-curl">复制为 curl</button>' +
+          '<button type="button" data-act="copy-md">复制为 ```api MD</button>' +
+          '<button type="button" data-act="copy-postman">复制为 Postman JSON</button>' +
+          '<div class="sep"></div>' +
+          '<button type="button" data-act="to-mock">用响应注册为 Mock 拦截</button>' +
+        '</div>';
+      section.appendChild(wrap);
+
+      // Mark block as edited whenever any field or KV row changes
+      const markEdited = () => {
+        section.dataset.edited = 'true';
+        if (typeof updateEditCount === 'function') updateEditCount();
+      };
+      // Populate KV sections from YAML spec
+      const varsList = wrap.querySelector('.api-spec-vars-list');
+      const headersList = wrap.querySelector('.api-spec-headers-list');
+      loadKvIntoList(varsList, spec.variables || '', '=', markEdited, { namePlaceholder: 'var_name', valuePlaceholder: '值' });
+      loadKvIntoList(headersList, spec.request_headers || '', ':', markEdited, { namePlaceholder: 'Content-Type', valuePlaceholder: 'application/json' });
+      // Quick-add buttons
+      wrap.querySelector('[data-act="add-var"]').addEventListener('click', () => {
+        appendApiKvRow(varsList, { name: '', value: '' }, markEdited, { namePlaceholder: 'var_name', valuePlaceholder: '值' });
+        markEdited();
+        const last = varsList.lastElementChild;
+        if (last) last.querySelector('.al-kv-name').focus();
+      });
+      wrap.querySelector('[data-act="add-header"]').addEventListener('click', () => {
+        appendApiKvRow(headersList, { name: '', value: '' }, markEdited, { namePlaceholder: 'Content-Type', valuePlaceholder: 'application/json' });
+        markEdited();
+        const last = headersList.lastElementChild;
+        if (last) last.querySelector('.al-kv-name').focus();
+      });
+      wrap.querySelector('[data-act="add-bearer"]').addEventListener('click', () => {
+        const exists = Array.from(headersList.querySelectorAll('.al-kv-name')).some(i => i.value.trim().toLowerCase() === 'authorization');
+        if (exists) { toast('已有 Authorization 头'); return; }
+        appendApiKvRow(headersList, { name: 'Authorization', value: 'Bearer {{token}}' }, markEdited, { namePlaceholder: 'Content-Type', valuePlaceholder: 'application/json' });
+        // Make sure {{token}} var exists in vars list
+        const haveTokenVar = Array.from(varsList.querySelectorAll('.al-kv-name')).some(i => i.value.trim() === 'token');
+        if (!haveTokenVar) appendApiKvRow(varsList, { name: 'token', value: '' }, markEdited, { namePlaceholder: 'var_name', valuePlaceholder: '值' });
+        markEdited();
+      });
+      wrap.querySelector('[data-act="add-json"]').addEventListener('click', () => {
+        const exists = Array.from(headersList.querySelectorAll('.al-kv-name')).some(i => i.value.trim().toLowerCase() === 'content-type');
+        if (exists) { toast('已有 Content-Type 头'); return; }
+        appendApiKvRow(headersList, { name: 'Content-Type', value: 'application/json' }, markEdited, { namePlaceholder: 'Content-Type', valuePlaceholder: 'application/json' });
+        markEdited();
+      });
+      wrap.querySelectorAll('[data-field]').forEach(el => {
+        el.addEventListener('input', markEdited);
+        el.addEventListener('change', markEdited);
+      });
+
+      // Method change → dim/un-dim body section
+      const methodSelA = wrap.querySelector('[data-field="method"]');
+      const reflectMethodA = () => updateApiSpecBodyVisibility(wrap, methodSelA.value);
+      methodSelA.addEventListener('change', reflectMethodA);
+      reflectMethodA();
+
+      // Body mode tabs (JSON / form-data / form-urlencoded / raw)
+      const bodySection = wrap.querySelector('[data-section="body"]');
+      const reqTa = wrap.querySelector('[data-field="request"]');
+      const bodyKvList = bodySection.querySelector('.api-spec-body-kv-list');
+      const textPane = bodySection.querySelector('[data-pane="textarea"]');
+      const kvPane = bodySection.querySelector('[data-pane="kv"]');
+      const bodyHint = bodySection.querySelector('[data-hint]');
+      const fmtBtn = bodySection.querySelector('[data-act="format-request"]');
+      const BODY_MODE_HINTS = {
+        'json': '发送时自动加 Content-Type: application/json · 上方 textarea 就是要发的 body',
+        'form-data': '浏览器自动加 Content-Type: multipart/form-data; boundary=... · 下方 KV 是辅助编辑器，添加字段会写回上方 textarea（覆盖原内容）',
+        'form-urlencoded': '发送时自动加 Content-Type: application/x-www-form-urlencoded · 下方 KV 添加字段会写回上方 textarea（覆盖原内容）',
+        'raw': 'Content-Type 从上方 Headers 取（默认 text/plain）· textarea 内容原样发出',
+      };
+      function renderBodyKv() {
+        bodyKvList.innerHTML = '';
+        const persistKv = () => {
+          const arr = Array.from(bodyKvList.querySelectorAll('.al-kv-row')).map(r => ({
+            name: r.querySelector('.al-kv-name').value,
+            value: r.querySelector('.al-kv-value').value,
+          }));
+          reqTa.value = kvArrToText(arr);
+          markEdited();
+        };
+        kvTextToArr(reqTa.value).forEach(kv => appendApiKvRow(bodyKvList, kv, persistKv, {
+          namePlaceholder: 'field', valuePlaceholder: '值',
+        }));
+        bodySection.querySelector('[data-act="add-body-field"]').onclick = () => {
+          const r = appendApiKvRow(bodyKvList, { name: '', value: '' }, persistKv, {
+            namePlaceholder: 'field', valuePlaceholder: '值',
+          });
+          persistKv();
+          r.querySelector('.al-kv-name').focus();
+        };
+      }
+      function applyBodyMode(newMode, opts) {
+        // Mode switch never rewrites text. textarea is always visible + editable;
+        // form modes ADD a KV helper below the textarea (edits in KV sync to text).
+        bodySection.dataset.bodyMode = newMode;
+        bodySection.querySelectorAll('.api-spec-body-mode-btn').forEach(b => {
+          b.classList.toggle('is-active', b.dataset.mode === newMode);
+        });
+        const useKv = (newMode === 'form-data' || newMode === 'form-urlencoded');
+        textPane.hidden = false;       // textarea always visible
+        kvPane.hidden = !useKv;
+        if (useKv) renderBodyKv();
+        bodyHint.textContent = BODY_MODE_HINTS[newMode] || '';
+        if (fmtBtn) fmtBtn.style.display = newMode === 'json' ? '' : 'none';
+      }
+      bodySection.querySelectorAll('.api-spec-body-mode-btn').forEach(b => {
+        b.addEventListener('click', () => applyBodyMode(b.dataset.mode));
+      });
+      applyBodyMode(spec.body_mode || 'json', { initial: true });
+
+      // Format JSON buttons
+      wrap.querySelectorAll('.api-spec-section-action').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const field = btn.dataset.act === 'format-request' ? 'request' : 'response';
+          const ta = wrap.querySelector('[data-field="' + field + '"]');
+          if (!ta) return;
+          const pretty = prettyJsonOrSame(ta.value);
+          if (pretty !== ta.value) { ta.value = pretty; markEdited(); }
+        });
+      });
+
+      // Run button: interpolate {{vars}} in url/headers/body, then fetch
+      wrap.querySelector('.api-spec-run').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const method = wrap.querySelector('[data-field="method"]').value;
+        const urlRaw = wrap.querySelector('[data-field="url"]').value.trim();
+        const reqBody = wrap.querySelector('[data-field="request"]').value;
+        const bodyMode = bodySection.dataset.bodyMode || 'json';
+        if (!urlRaw) { toast('先填 URL'); return; }
+        const vars = readKvListAsDict(varsList);
+        const url = interpolateApiVars(urlRaw, vars);
+        const headersText = readKvListAsText(headersList, ': ');
+        const init = buildApiSpecFetchInit(method, headersText, reqBody, vars, bodyMode);
+        const resultPill = wrap.querySelector('.api-spec-result-pill');
+        const resultMeta = wrap.querySelector('.api-spec-result-meta');
+        const resultBody = wrap.querySelector('.api-spec-result-body');
+        resultBody.className = 'api-spec-result-body';
+        resultBody.textContent = '请求中…';
+        resultPill.hidden = true;
+        resultMeta.textContent = '… ' + method + ' ' + url;
+        btn.disabled = true;
+        const t0 = performance.now();
+        try {
+          const resp = await fetch(url, init);
+          const text = await resp.text();
+          const dt = Math.round(performance.now() - t0);
+          const cls = resp.status >= 200 && resp.status < 300 ? 'is-2xx'
+                    : resp.status >= 300 && resp.status < 400 ? 'is-3xx'
+                    : resp.status >= 400 && resp.status < 500 ? 'is-4xx' : 'is-5xx';
+          resultPill.hidden = false;
+          resultPill.className = 'api-spec-result-pill ' + cls;
+          resultPill.textContent = resp.status + ' ' + (resp.statusText || '');
+          resultMeta.textContent = (dt / 1000).toFixed(2) + 's · ' + new Date().toLocaleTimeString();
+          resultBody.className = 'api-spec-result-body' + (resp.status >= 400 ? ' is-error' : '');
+          resultBody.textContent = prettyJsonOrSame(text);
+        } catch (err) {
+          resultPill.hidden = false;
+          resultPill.className = 'api-spec-result-pill is-err';
+          resultPill.textContent = 'CORS / network';
+          resultMeta.textContent = '失败';
+          resultBody.className = 'api-spec-result-body is-error';
+          resultBody.textContent = (err.message || String(err));
+        } finally { btn.disabled = false; }
+      });
+
+      // Comment / delete
+      wrap.querySelector('.api-spec-comment').addEventListener('click', () => {
+        const name = wrap.querySelector('[data-field="name"]').value || '未命名接口';
+        if (typeof openCommentComposerForBlock === 'function') {
+          openCommentComposerForBlock(section, '（接口：' + name + '）');
+        }
+      });
+      wrap.querySelector('.api-spec-delete').addEventListener('click', () => {
+        if (!confirm('删除这个接口契约块？')) return;
+        if (typeof deleteBlock === 'function') deleteBlock(section);
+        else section.remove();
+      });
+
+      // ⋯ menu (popover)
+      const menuBtn = wrap.querySelector('.api-spec-menu-btn');
+      const pop = wrap.querySelector('.api-spec-popover');
+      menuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (pop.classList.contains('is-show')) { pop.classList.remove('is-show'); return; }
+        const rect = menuBtn.getBoundingClientRect();
+        const wrapRect = wrap.getBoundingClientRect();
+        pop.style.top = (rect.bottom - wrapRect.top + 4) + 'px';
+        pop.style.right = '12px';
+        pop.style.left = 'auto';
+        pop.classList.add('is-show');
+        pop.hidden = false;
+      });
+      document.addEventListener('click', () => pop.classList.remove('is-show'));
+      pop.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const b = e.target.closest('button[data-act]');
+        if (!b) return;
+        const cur = readApiSpecFromDom(section);
+        if (b.dataset.act === 'copy-curl') {
+          const parts = ['curl -X ' + (cur.method || 'POST')];
+          parts.push(JSON.stringify(cur.url || ''));
+          (cur.request_headers || 'Content-Type: application/json').split('\n').forEach(h => {
+            if (h.trim()) parts.push("-H " + JSON.stringify(h.trim()));
+          });
+          if ((cur.method || 'POST') !== 'GET' && cur.request) {
+            parts.push("-d " + JSON.stringify(cur.request));
+          }
+          try { await navigator.clipboard.writeText(parts.join(' \\\n  ')); toast('已复制 curl'); } catch { toast('复制失败'); }
+        } else if (b.dataset.act === 'copy-md') {
+          const md = '```api\n' + serializeApiSpecYaml(cur) + '\n```\n';
+          try { await navigator.clipboard.writeText(md); toast('已复制 MD'); } catch { toast('复制失败'); }
+        } else if (b.dataset.act === 'copy-postman') {
+          const item = {
+            name: cur.name || '未命名接口',
+            request: {
+              method: cur.method || 'POST',
+              header: (cur.request_headers || 'Content-Type: application/json').split('\n')
+                .filter(l => l.trim()).map(l => {
+                  const i = l.indexOf(':');
+                  return { key: l.slice(0, i).trim(), value: l.slice(i + 1).trim() };
+                }),
+              body: cur.request ? { mode: 'raw', raw: cur.request } : undefined,
+              url: { raw: cur.url || '' },
+              description: cur.description || '',
+            },
+            response: cur.response ? [{
+              name: 'example ' + (cur.status || 200),
+              status: 'OK',
+              code: parseInt(cur.status, 10) || 200,
+              body: cur.response,
+            }] : [],
+          };
+          try { await navigator.clipboard.writeText(JSON.stringify(item, null, 2)); toast('已复制 Postman JSON'); } catch { toast('复制失败'); }
+        } else if (b.dataset.act === 'to-mock') {
+          if (typeof createMockAt === 'function') {
+            createMockAt(section, {
+              title: cur.name || '接口 Mock',
+              method: cur.method || 'POST',
+              url: cur.url || '',
+              responseHeaders: 'Content-Type: application/json',
+              responseBody: cur.response || '',
+              sampleRequest: cur.request || '',
+              silent: true,
+              skipFocus: true,
+            });
+            toast('已建 Mock 拦截：' + (cur.method || 'POST') + ' ' + (cur.url || ''));
+          }
+        }
+        pop.classList.remove('is-show');
+      });
+    }
+
+    function readApiSpecFromDom(section) {
+      const out = {};
+      const wrap = section.querySelector('.api-spec:not(.api-spec-overlay)');
+      if (!wrap) return out;
+      wrap.querySelectorAll('[data-field]').forEach(el => {
+        const v = el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
+          ? el.value : el.textContent;
+        if (v !== '') out[el.dataset.field] = v;
+      });
+      const varsList = wrap.querySelector('.api-spec-vars-list');
+      const headersList = wrap.querySelector('.api-spec-headers-list');
+      const varsText = readKvListAsText(varsList, '=');
+      const headersText = readKvListAsText(headersList, ': ');
+      if (varsText) out.variables = varsText;
+      if (headersText) out.request_headers = headersText;
+      const bodySection = wrap.querySelector('[data-section="body"]');
+      const mode = bodySection ? (bodySection.dataset.bodyMode || 'json') : 'json';
+      if (mode !== 'json') out.body_mode = mode; // omit default 'json'
+      return out;
+    }
+
+    // ============================================================
+    // 接口契约块 B 模式 (#71) — auto-detect PRD pattern:
+    //   "## X. xxx 接口"  + (table) + "输入数据：" + json + "输出数据：" + json
+    // and overlay a contract block UI; edits sync back to the original DOM,
+    // so round-trip serialization just uses existing tokens.
+    // ============================================================
+    function getHeadingTitle(headingBlock) {
+      const h = headingBlock.querySelector('h1, h2, h3, h4, h5, h6');
+      if (!h) return '';
+      const clone = h.cloneNode(true);
+      const tog = clone.querySelector('.fold-toggle');
+      if (tog) tog.remove();
+      return clone.textContent.trim();
+    }
+    function setHeadingTitle(headingBlock, newText) {
+      const h = headingBlock.querySelector('h1, h2, h3, h4, h5, h6');
+      if (!h) return;
+      const toggle = h.querySelector('.fold-toggle');
+      Array.from(h.childNodes).forEach(n => { if (n !== toggle) n.remove(); });
+      h.appendChild(document.createTextNode(newText));
+      headingBlock.dataset.edited = 'true';
+      if (typeof updateEditCount === 'function') updateEditCount();
+    }
+    function findTableRow(tableBlock, keyRegex) {
+      if (!tableBlock) return null;
+      const rows = tableBlock.querySelectorAll('tr');
+      for (const tr of rows) {
+        if (tr.children.length < 2) continue;
+        if (keyRegex.test((tr.children[0].textContent || '').trim())) {
+          return { row: tr, keyCell: tr.children[0], valueCell: tr.children[1] };
+        }
+      }
+      return null;
+    }
+    function readTableValue(tableBlock, keyRegex) {
+      const r = findTableRow(tableBlock, keyRegex);
+      return r ? (r.valueCell.textContent || '').trim() : '';
+    }
+    function writeTableValue(tableBlock, keyLabel, newValue) {
+      if (!tableBlock) return false;
+      const re = new RegExp('^\\s*' + keyLabel.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*$', 'i');
+      const existing = findTableRow(tableBlock, re);
+      if (existing) {
+        existing.valueCell.textContent = newValue;
+        tableBlock.dataset.edited = 'true';
+        return true;
+      }
+      // Insert a new row at the end of tbody
+      const tbody = tableBlock.querySelector('tbody');
+      if (!tbody) return false;
+      const tr = document.createElement('tr');
+      const td1 = document.createElement('td');
+      td1.contentEditable = 'true';
+      td1.textContent = keyLabel;
+      const td2 = document.createElement('td');
+      td2.contentEditable = 'true';
+      td2.textContent = newValue;
+      tr.appendChild(td1); tr.appendChild(td2);
+      tbody.appendChild(tr);
+      tableBlock.dataset.edited = 'true';
+      return true;
+    }
+    function getCodeText(codeBlock) {
+      const code = codeBlock && codeBlock.querySelector('pre > code');
+      return code ? (code.textContent || '') : '';
+    }
+    function setCodeText(codeBlock, newText) {
+      const code = codeBlock && codeBlock.querySelector('pre > code');
+      if (!code) return;
+      code.textContent = newText;
+      codeBlock.dataset.edited = 'true';
+      if (typeof highlightCode === 'function') highlightCode(codeBlock);
+      if (typeof updateEditCount === 'function') updateEditCount();
+    }
+
+    function detectApiGroups() {
+      const content = document.getElementById('content');
+      if (!content) return [];
+      const groups = [];
+      content.querySelectorAll(':scope > .md-heading').forEach(h => {
+        const title = getHeadingTitle(h);
+        if (!/接口|API\b|Endpoint/i.test(title)) return;
+        let table = null, reqPara = null, reqJson = null, respPara = null, respJson = null;
+        let cur = h.nextElementSibling;
+        while (cur && !cur.classList.contains('md-heading')) {
+          if (cur.classList.contains('md-table') && !table) {
+            table = cur;
+          } else if (cur.classList.contains('md-paragraph')) {
+            const t = (cur.textContent || '').slice(0, 30);
+            if (!reqPara && /输入|请求|入参/.test(t)) reqPara = cur;
+            else if (!respPara && /输出|响应|返回/.test(t)) respPara = cur;
+          } else if (cur.classList.contains('md-code')) {
+            const lang = cur.dataset.codeLang || '';
+            if (lang === 'json' || lang === 'jsonl') {
+              if (reqPara && !reqJson) reqJson = cur;
+              else if (respPara && !respJson) respJson = cur;
+            }
+          }
+          cur = cur.nextElementSibling;
+        }
+        if (reqJson && respJson) {
+          groups.push({ heading: h, name: title, table, reqPara, reqJson, respPara, respJson });
+        }
+      });
+      return groups;
+    }
+
+    function createApiGroupOverlay(group) {
+      const initialName        = group.name;
+      const initialMethod      = (group.table ? readTableValue(group.table, /^\s*method\s*$/i) : '').toUpperCase() || 'POST';
+      const initialUrl         = group.table ? readTableValue(group.table, /^\s*url\s*$/i) : '';
+      const initialDescription = group.table ? readTableValue(group.table, /^\s*(接口用途|description|说明)\s*$/i) : '';
+      const initialRequest     = getCodeText(group.reqJson);
+      const initialResponse    = getCodeText(group.respJson);
+
+      const overlay = document.createElement('section');
+      overlay.className = 'md-block md-apispec-overlay api-spec api-spec-overlay is-revealed';
+      overlay.dataset.skipSerialize = 'true'; // not in TOKENS — original sections handle round-trip
+      overlay.contentEditable = 'false';
+
+      const methodOptions = ['GET','POST','PUT','PATCH','DELETE','HEAD','OPTIONS']
+        .map(m => '<option value="' + m + '"' + (m === initialMethod ? ' selected' : '') + '>' + m + '</option>').join('');
+      overlay.innerHTML =
+        '<div class="api-spec-head">' +
+          '<select class="api-spec-method" data-field="method">' + methodOptions + '</select>' +
+          '<input type="text" class="api-spec-url" data-field="url" placeholder="/api/path（支持 {{var}} 替换）" value="' + escapeHtml(initialUrl) + '">' +
+          '<button type="button" class="api-spec-run">运行</button>' +
+          '<button type="button" class="api-spec-menu-btn" title="导出 / 升级为 ```api">⋯</button>' +
+          '<button type="button" class="api-spec-icon-btn api-spec-expand-orig" title="显示/隐藏原始 PRD 写法">展开</button>' +
+        '</div>' +
+        '<div class="api-spec-body">' +
+          '<input type="text" class="api-spec-name-input" data-field="name" value="' + escapeHtml(initialName) + '">' +
+          '<textarea class="api-spec-desc-input" data-field="description" rows="1" placeholder="接口说明">' + escapeHtml(initialDescription) + '</textarea>' +
+          '<div class="api-spec-section">' +
+            '<div class="api-spec-section-head">' +
+              '<span class="api-spec-section-label">变量 · URL / Headers / Body 中用 {{name}} 引用（B 模式 session-only，刷新丢失）</span>' +
+              '<button type="button" class="api-spec-section-action" data-act="add-var">+ 加变量</button>' +
+            '</div>' +
+            '<div class="al-kv-list api-spec-vars-list"></div>' +
+          '</div>' +
+          '<div class="api-spec-section">' +
+            '<div class="api-spec-section-head">' +
+              '<span class="api-spec-section-label">请求 Headers（B 模式 session-only）</span>' +
+              '<span>' +
+                '<button type="button" class="api-spec-section-action" data-act="add-bearer">+ Bearer Token</button> ' +
+                '<button type="button" class="api-spec-section-action" data-act="add-json">+ JSON</button> ' +
+                '<button type="button" class="api-spec-section-action" data-act="add-header">+ 加 Header</button>' +
+              '</span>' +
+            '</div>' +
+            '<div class="al-kv-list api-spec-headers-list"></div>' +
+          '</div>' +
+          '<div class="api-spec-section" data-section="body">' +
+            '<div class="api-spec-section-head">' +
+              '<span class="api-spec-section-label">请求 body · 运行时实际发出（GET/HEAD 忽略；JSON 模式同步到下方"输入数据" JSON）</span>' +
+              '<button type="button" class="api-spec-section-action" data-act="format-request">格式化 JSON</button>' +
+            '</div>' +
+            '<div class="api-spec-body-mode-bar">' +
+              '<span class="api-spec-body-mode-tabs">' +
+                ['json','form-data','form-urlencoded','raw'].map(m =>
+                  '<button type="button" class="api-spec-body-mode-btn" data-mode="' + m + '">' +
+                    m + '</button>'
+                ).join('') +
+              '</span>' +
+              '<button type="button" class="api-spec-section-action" data-act="reset-from-underlying" title="撤销 overlay 里的所有 body 改动，恢复到 PRD 加载时的初始值">还原为 PRD 原值</button>' +
+            '</div>' +
+            '<div class="api-spec-body-pane" data-pane="textarea">' +
+              '<textarea class="api-spec-json" data-field="request">' + escapeHtml(initialRequest) + '</textarea>' +
+            '</div>' +
+            '<div class="api-spec-body-pane" data-pane="kv" hidden>' +
+              '<div style="font-size:10.5px;color:var(--muted);font-family:var(--font-sans);margin:6px 0 4px">' +
+                '↓ form 字段辅助编辑器 · 添加字段会覆盖上方 textarea 为 k=v 格式' +
+              '</div>' +
+              '<div class="al-kv-list api-spec-body-kv-list"></div>' +
+              '<button type="button" class="al-kv-add" data-act="add-body-field">+ 加字段</button>' +
+            '</div>' +
+            '<div class="api-spec-body-hint" data-hint></div>' +
+          '</div>' +
+          '<div class="api-spec-section">' +
+            '<div class="api-spec-section-head">' +
+              '<span class="api-spec-section-label">响应契约 · 实跑后被真实响应覆盖（同步到下方"输出数据" JSON）</span>' +
+              '<button type="button" class="api-spec-section-action" data-act="format-response">格式化 JSON</button>' +
+            '</div>' +
+            '<textarea class="api-spec-json" data-field="response">' + escapeHtml(initialResponse) + '</textarea>' +
+          '</div>' +
+        '</div>' +
+        '<div class="api-spec-result">' +
+          '<div class="api-spec-result-head">' +
+            '<span class="api-spec-result-pill" hidden></span>' +
+            '<span class="api-spec-result-meta">点 [运行] 用上面 body 真发一次（命中 Mock 走 mock，否则真发）</span>' +
+          '</div>' +
+          '<div class="api-spec-result-body is-empty">（尚无实跑结果）</div>' +
+        '</div>' +
+        '<div class="api-spec-popover" hidden>' +
+          '<button type="button" data-act="copy-curl">复制为 curl</button>' +
+          '<button type="button" data-act="copy-md">复制为 ```api MD</button>' +
+          '<button type="button" data-act="copy-postman">复制为 Postman JSON</button>' +
+          '<div class="sep"></div>' +
+          '<button type="button" data-act="to-mock">用响应注册为 Mock 拦截</button>' +
+        '</div>';
+
+      // Insert AFTER heading
+      group.heading.parentNode.insertBefore(overlay, group.heading.nextSibling);
+      // Hide members
+      [group.table, group.reqPara, group.reqJson, group.respPara, group.respJson].forEach(el => {
+        if (el) el.classList.add('is-api-group-member');
+      });
+
+      // Wire bidirectional sync (overlay edit → underlying DOM)
+      const nameEl  = overlay.querySelector('[data-field="name"]');
+      const descEl  = overlay.querySelector('[data-field="description"]');
+      const methodEl = overlay.querySelector('[data-field="method"]');
+      const urlEl   = overlay.querySelector('[data-field="url"]');
+      const reqEl   = overlay.querySelector('[data-field="request"]');
+      const respEl  = overlay.querySelector('[data-field="response"]');
+
+      nameEl.addEventListener('input',  () => setHeadingTitle(group.heading, nameEl.value));
+      descEl.addEventListener('input',  () => {
+        if (group.table) writeTableValue(group.table, '接口用途', descEl.value);
+      });
+      methodEl.addEventListener('change', () => {
+        if (group.table) writeTableValue(group.table, 'method', methodEl.value);
+      });
+      urlEl.addEventListener('input', () => {
+        if (group.table) writeTableValue(group.table, 'url', urlEl.value);
+      });
+      // Snapshot initial PRD values so "还原为 PRD 原值" can restore them later
+      overlay.dataset.originalRequest = initialRequest;
+      overlay.dataset.originalResponse = initialResponse;
+
+      // Flag flipped during programmatic writes to prevent feedback loops
+      // between overlay textareas and the underlying <pre><code> elements.
+      let syncingFromUnderlying = false;
+
+      reqEl.addEventListener('input',  () => {
+        if (syncingFromUnderlying) return;
+        // Always sync to underlying so download reflects overlay's latest content.
+        // Form modes → convert k=v back to JSON object before writing to JSON code block.
+        // Raw mode → write as-is (PM accepted that code block may not be valid JSON).
+        const mode = bodySectionB.dataset.bodyMode || 'json';
+        let toWrite = reqEl.value;
+        if (mode === 'form-data' || mode === 'form-urlencoded') {
+          toWrite = kvTextToJsonText(reqEl.value);
+        }
+        setCodeText(group.reqJson, toWrite);
+      });
+      respEl.addEventListener('input', () => {
+        if (syncingFromUnderlying) return;
+        setCodeText(group.respJson, respEl.value);
+      });
+
+      // Method change → dim body section for GET/HEAD
+      const reflectMethodB = () => updateApiSpecBodyVisibility(overlay, methodEl.value);
+      methodEl.addEventListener('change', reflectMethodB);
+      reflectMethodB();
+
+      // Body mode tabs (B mode: session-only; non-JSON modes don't sync to underlying JSON)
+      const bodySectionB = overlay.querySelector('[data-section="body"]');
+      const bodyKvListB = bodySectionB.querySelector('.api-spec-body-kv-list');
+      const textPaneB = bodySectionB.querySelector('[data-pane="textarea"]');
+      const kvPaneB = bodySectionB.querySelector('[data-pane="kv"]');
+      const bodyHintB = bodySectionB.querySelector('[data-hint]');
+      const fmtBtnB = bodySectionB.querySelector('[data-act="format-request"]');
+      const B_BODY_HINTS = {
+        'json': '发送时自动加 Content-Type: application/json · 上方 textarea 就是要发的 body · 下载时同步覆盖 PRD 中的"输入数据" JSON',
+        'form-data': '浏览器自动加 multipart/form-data; boundary=... · 下方 KV 写回上方 textarea · 下载时把 k=v 转回 JSON 对象覆盖 PRD（嵌套结构会被压平）',
+        'form-urlencoded': '发送时自动加 application/x-www-form-urlencoded · 下方 KV 写回上方 textarea · 下载时转 JSON 覆盖 PRD',
+        'raw': 'Content-Type 从 Headers 取 · textarea 内容原样发出 · 下载时原样覆盖 PRD（可能不是合法 JSON）',
+      };
+      function renderBodyKvB() {
+        bodyKvListB.innerHTML = '';
+        const persistKv = () => {
+          const arr = Array.from(bodyKvListB.querySelectorAll('.al-kv-row')).map(r => ({
+            name: r.querySelector('.al-kv-name').value,
+            value: r.querySelector('.al-kv-value').value,
+          }));
+          reqEl.value = kvArrToText(arr);
+          // Don't sync to underlying when in non-JSON mode
+        };
+        kvTextToArr(reqEl.value).forEach(kv => appendApiKvRow(bodyKvListB, kv, persistKv, {
+          namePlaceholder: 'field', valuePlaceholder: '值',
+        }));
+        bodySectionB.querySelector('[data-act="add-body-field"]').onclick = () => {
+          const r = appendApiKvRow(bodyKvListB, { name: '', value: '' }, persistKv, {
+            namePlaceholder: 'field', valuePlaceholder: '值',
+          });
+          persistKv();
+          r.querySelector('.al-kv-name').focus();
+        };
+      }
+      function applyBodyModeB(newMode, opts) {
+        // textarea always visible; form modes add KV helper below
+        bodySectionB.dataset.bodyMode = newMode;
+        bodySectionB.querySelectorAll('.api-spec-body-mode-btn').forEach(b => {
+          b.classList.toggle('is-active', b.dataset.mode === newMode);
+        });
+        const useKv = (newMode === 'form-data' || newMode === 'form-urlencoded');
+        textPaneB.hidden = false;
+        kvPaneB.hidden = !useKv;
+        if (useKv) renderBodyKvB();
+        bodyHintB.textContent = B_BODY_HINTS[newMode] || '';
+        if (fmtBtnB) fmtBtnB.style.display = newMode === 'json' ? '' : 'none';
+      }
+      bodySectionB.querySelectorAll('.api-spec-body-mode-btn').forEach(b => {
+        b.addEventListener('click', () => applyBodyModeB(b.dataset.mode));
+      });
+      // "还原为 PRD 原值": restore body (and underlying request JSON code block)
+      // to the snapshot captured when the overlay was first created.
+      const resetBtn = bodySectionB.querySelector('[data-act="reset-from-underlying"]');
+      if (resetBtn) {
+        resetBtn.addEventListener('click', () => {
+          if (!confirm('撤销 overlay 里 body 的所有改动，恢复到 PRD 加载时的初始值？')) return;
+          const orig = overlay.dataset.originalRequest || '';
+          reqEl.value = orig;
+          setCodeText(group.reqJson, orig);
+          applyBodyModeB('json');
+          toast('已还原为 PRD 原值');
+        });
+      }
+      applyBodyModeB('json', { initial: true });
+
+      // Two-way sync: if user expands originals and edits the underlying JSON
+      // directly, propagate into overlay (JSON mode only — form/raw modes might
+      // be holding non-JSON text we don't want to overwrite).
+      const reqCodeEl = group.reqJson && group.reqJson.querySelector('pre > code');
+      const respCodeEl = group.respJson && group.respJson.querySelector('pre > code');
+      if (reqCodeEl) {
+        reqCodeEl.addEventListener('input', () => {
+          if (syncingFromUnderlying) return;
+          const mode = bodySectionB.dataset.bodyMode || 'json';
+          if (mode !== 'json') return;
+          syncingFromUnderlying = true;
+          reqEl.value = reqCodeEl.textContent || '';
+          syncingFromUnderlying = false;
+        });
+      }
+      if (respCodeEl) {
+        respCodeEl.addEventListener('input', () => {
+          if (syncingFromUnderlying) return;
+          syncingFromUnderlying = true;
+          respEl.value = respCodeEl.textContent || '';
+          syncingFromUnderlying = false;
+        });
+      }
+      // Guard the overlay→underlying writes with the same flag to avoid feedback
+      // loops on programmatic sync. (overlay edits already use setCodeText which
+      // triggers Prism highlight + 'input' event, hence the guard above.)
+
+      // KV sections (session-only for B mode)
+      const markB = () => { /* B-mode KV is overlay-local; underlying tokens unchanged */ };
+      const varsList = overlay.querySelector('.api-spec-vars-list');
+      const headersList = overlay.querySelector('.api-spec-headers-list');
+      overlay.querySelector('[data-act="add-var"]').addEventListener('click', () => {
+        const r = appendApiKvRow(varsList, { name: '', value: '' }, markB, { namePlaceholder: 'var_name', valuePlaceholder: '值' });
+        r.querySelector('.al-kv-name').focus();
+      });
+      overlay.querySelector('[data-act="add-header"]').addEventListener('click', () => {
+        const r = appendApiKvRow(headersList, { name: '', value: '' }, markB, { namePlaceholder: 'Content-Type', valuePlaceholder: 'application/json' });
+        r.querySelector('.al-kv-name').focus();
+      });
+      overlay.querySelector('[data-act="add-bearer"]').addEventListener('click', () => {
+        const exists = Array.from(headersList.querySelectorAll('.al-kv-name')).some(i => i.value.trim().toLowerCase() === 'authorization');
+        if (exists) { toast('已有 Authorization 头'); return; }
+        appendApiKvRow(headersList, { name: 'Authorization', value: 'Bearer {{token}}' }, markB);
+        const haveTokenVar = Array.from(varsList.querySelectorAll('.al-kv-name')).some(i => i.value.trim() === 'token');
+        if (!haveTokenVar) appendApiKvRow(varsList, { name: 'token', value: '' }, markB);
+      });
+      overlay.querySelector('[data-act="add-json"]').addEventListener('click', () => {
+        const exists = Array.from(headersList.querySelectorAll('.al-kv-name')).some(i => i.value.trim().toLowerCase() === 'content-type');
+        if (exists) { toast('已有 Content-Type 头'); return; }
+        appendApiKvRow(headersList, { name: 'Content-Type', value: 'application/json' }, markB);
+      });
+
+      // Format JSON
+      overlay.querySelectorAll('.api-spec-section-action[data-act^="format-"]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          const field = btn.dataset.act === 'format-request' ? 'request' : 'response';
+          const ta = overlay.querySelector('[data-field="' + field + '"]');
+          if (!ta) return;
+          const pretty = prettyJsonOrSame(ta.value);
+          if (pretty !== ta.value) {
+            ta.value = pretty;
+            ta.dispatchEvent(new Event('input', { bubbles: true }));
+          }
+        });
+      });
+
+      // Run — interpolate {{vars}} in URL/headers/body, then fetch
+      overlay.querySelector('.api-spec-run').addEventListener('click', async (e) => {
+        const btn = e.currentTarget;
+        const method = methodEl.value;
+        const urlRaw = urlEl.value.trim();
+        const reqBody = reqEl.value;
+        const bodyMode = bodySectionB.dataset.bodyMode || 'json';
+        if (!urlRaw) { toast('先填 URL（会自动加到上方表格中）'); urlEl.focus(); return; }
+        const vars = readKvListAsDict(varsList);
+        const url = interpolateApiVars(urlRaw, vars);
+        const headersText = readKvListAsText(headersList, ': ');
+        const init = buildApiSpecFetchInit(method, headersText, reqBody, vars, bodyMode);
+        const resultPill = overlay.querySelector('.api-spec-result-pill');
+        const resultMeta = overlay.querySelector('.api-spec-result-meta');
+        const resultBody = overlay.querySelector('.api-spec-result-body');
+        resultBody.className = 'api-spec-result-body';
+        resultBody.textContent = '请求中…';
+        resultPill.hidden = true;
+        resultMeta.textContent = '… ' + method + ' ' + url;
+        btn.disabled = true;
+        const t0 = performance.now();
+        try {
+          const resp = await fetch(url, init);
+          const text = await resp.text();
+          const dt = Math.round(performance.now() - t0);
+          const cls = resp.status >= 200 && resp.status < 300 ? 'is-2xx'
+                    : resp.status >= 300 && resp.status < 400 ? 'is-3xx'
+                    : resp.status >= 400 && resp.status < 500 ? 'is-4xx' : 'is-5xx';
+          resultPill.hidden = false;
+          resultPill.className = 'api-spec-result-pill ' + cls;
+          resultPill.textContent = resp.status + ' ' + (resp.statusText || '');
+          resultMeta.textContent = (dt / 1000).toFixed(2) + 's · ' + new Date().toLocaleTimeString();
+          resultBody.className = 'api-spec-result-body' + (resp.status >= 400 ? ' is-error' : '');
+          resultBody.textContent = prettyJsonOrSame(text);
+        } catch (err) {
+          resultPill.hidden = false;
+          resultPill.className = 'api-spec-result-pill is-err';
+          resultPill.textContent = 'CORS / network';
+          resultMeta.textContent = '失败';
+          resultBody.className = 'api-spec-result-body is-error';
+          resultBody.textContent = err.message || String(err);
+        } finally { btn.disabled = false; }
+      });
+
+      // Expand / collapse originals
+      overlay.querySelector('.api-spec-expand-orig').addEventListener('click', (e) => {
+        const expanded = !overlay.classList.contains('is-expanded');
+        overlay.classList.toggle('is-expanded', expanded);
+        [group.table, group.reqPara, group.reqJson, group.respPara, group.respJson].forEach(el => {
+          if (el) el.classList.toggle('is-api-group-member', !expanded);
+        });
+        e.currentTarget.textContent = expanded ? '折叠' : '展开';
+      });
+
+      // ⋯ menu — copy / convert
+      const menuBtn = overlay.querySelector('.api-spec-menu-btn');
+      const pop = overlay.querySelector('.api-spec-popover');
+      menuBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        if (pop.classList.contains('is-show')) { pop.classList.remove('is-show'); return; }
+        const rect = menuBtn.getBoundingClientRect();
+        const wrapRect = overlay.getBoundingClientRect();
+        pop.style.top = (rect.bottom - wrapRect.top + 4) + 'px';
+        pop.style.right = '12px';
+        pop.style.left = 'auto';
+        pop.classList.add('is-show');
+        pop.hidden = false;
+      });
+      document.addEventListener('click', () => pop.classList.remove('is-show'));
+      pop.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const b = e.target.closest('button[data-act]');
+        if (!b) return;
+        const cur = {
+          name: nameEl.value, description: descEl.value,
+          method: methodEl.value, url: urlEl.value.trim(),
+          request: reqEl.value, response: respEl.value, status: 200,
+        };
+        if (b.dataset.act === 'copy-curl') {
+          const parts = ['curl -X ' + cur.method, JSON.stringify(cur.url), '-H ' + JSON.stringify('Content-Type: application/json')];
+          if (cur.method !== 'GET' && cur.request) parts.push('-d ' + JSON.stringify(cur.request));
+          try { await navigator.clipboard.writeText(parts.join(' \\\n  ')); toast('已复制 curl'); } catch { toast('复制失败'); }
+        } else if (b.dataset.act === 'copy-md') {
+          const md = '```api\n' + serializeApiSpecYaml(cur) + '\n```\n';
+          try { await navigator.clipboard.writeText(md); toast('已复制 ```api MD（可粘到任意位置）'); } catch { toast('复制失败'); }
+        } else if (b.dataset.act === 'copy-postman') {
+          const item = {
+            name: cur.name, request: {
+              method: cur.method,
+              header: [{ key: 'Content-Type', value: 'application/json' }],
+              body: cur.request ? { mode: 'raw', raw: cur.request } : undefined,
+              url: { raw: cur.url },
+              description: cur.description,
+            },
+            response: cur.response ? [{ name: 'example 200', code: 200, body: cur.response }] : [],
+          };
+          try { await navigator.clipboard.writeText(JSON.stringify(item, null, 2)); toast('已复制 Postman JSON'); } catch { toast('复制失败'); }
+        } else if (b.dataset.act === 'to-mock') {
+          if (typeof createMockAt === 'function') {
+            createMockAt(overlay, {
+              title: cur.name || '接口 Mock',
+              method: cur.method, url: cur.url,
+              responseHeaders: 'Content-Type: application/json',
+              responseBody: cur.response,
+              sampleRequest: cur.request,
+              silent: true, skipFocus: true,
+            });
+            toast('已建 Mock 拦截：' + cur.method + ' ' + cur.url);
+          }
+        }
+        pop.classList.remove('is-show');
+      });
+    }
+
+    function setupApiGroups() {
+      // Idempotent: clear old overlays + un-hide members first
+      document.querySelectorAll('.api-spec-overlay').forEach(o => o.remove());
+      document.querySelectorAll('.is-api-group-member').forEach(n => n.classList.remove('is-api-group-member'));
+      detectApiGroups().forEach(createApiGroupOverlay);
     }
 
     // ----------------------------------------------------------------
