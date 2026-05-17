@@ -234,30 +234,77 @@ options:
 
 ### 缺 Flask
 
-```
-question: "需要装 Flask（server 模式必备的 python web 框架）。怎么装？"
-header: "装 Flask"
-options:
-  - label: "我帮你跑 pip3 install flask"
-    description:
-      "agent 直接在你 terminal 跑 `pip3 install flask`，装到当前 python
-       全局环境。装完会 import 验证一次。如果你用的是系统 python 可能
-       需要 sudo / --user，遇到权限报错我会告诉你。"
-  - label: "我自己装"
-    description:
-      "agent 不动你环境，只给你命令。装完回来按继续。"
-  - label: "用 venv 隔离"
-    description:
-      "推荐用 venv 隔离依赖。agent 贴一份 3 行命令：python3 -m venv
-       .venv && source .venv/bin/activate && pip install flask。你自己
-       跑。后续 server 也要在这个 venv 里跑。"
-  - label: "跳过，先用 file 模式"
-    description:
-      "不装 Flask。skill 退回 file 模式跑完 4 phase 生成 HTML 双击看。
-       以后想升级 server 再说。"
+**先自检 venv 状态**，再决定 prompt 的选项。venv vs 全局是 WHERE，agent vs 你 是 WHO——这两个轴是正交的。
+
+```bash
+# 检查环境变量 + 当前 python 位置
+echo "$VIRTUAL_ENV"
+which python3
+ls .venv 2>/dev/null || ls venv 2>/dev/null
 ```
 
-如果用户选第一个，agent 跑 `pip3 install flask` 并等结果，再次验证 `import flask` 成功。如果失败（权限 / 网络），告诉用户错误并退回第二个选项。
+#### 情况 A: 已经在 venv 里（$VIRTUAL_ENV 非空）
+
+```
+question: "需要装 Flask。检测到你在 venv: <venv 路径>。装到哪？"
+header: "装 Flask"
+options:
+  - label: "agent 装到当前 venv (推荐)"
+    description:
+      "agent 跑 `pip install flask`（继承当前 venv），装完 import 验证。
+       后续 server 也要在这个 venv 里跑（我会记住）。"
+  - label: "我自己跑 pip install flask"
+    description: "agent 不动，你 terminal 自己装。装完按继续。"
+  - label: "跳过，用 file 模式"
+    description: "不装。skill 退回 file 模式跑完。"
+```
+
+#### 情况 B: 目录里有 .venv/ 或 venv/ 但没 activate
+
+```
+question: "需要装 Flask。你目录里有 .venv/ 但没 activate。怎么处理？"
+header: "装 Flask"
+options:
+  - label: "agent 帮你 activate + 装到这个 venv (推荐)"
+    description:
+      "agent 在新 shell 里跑 `source .venv/bin/activate && pip install
+       flask`。后续 server 启动命令我会自动加上 venv 前缀。"
+  - label: "我自己 activate 再装"
+    description: "你 terminal 跑 `source .venv/bin/activate && pip install flask`。装完按继续。"
+  - label: "忽略 venv，装到全局 python"
+    description:
+      "agent 跑 `pip3 install flask`（不进 venv），装到系统全局。
+       如果你之后想用 venv，记得自己装一遍。"
+  - label: "跳过，用 file 模式"
+    description: "不装。"
+```
+
+#### 情况 C: 完全没 venv（既没 $VIRTUAL_ENV 也没 .venv/）
+
+```
+question: "需要装 Flask。检测到你没 venv。要建一个隔离环境还是装到全局？"
+header: "装 Flask"
+options:
+  - label: "建 venv 再装到 venv (推荐)"
+    description:
+      "agent 跑 3 条命令: `python3 -m venv .venv` + `source .venv/bin/activate`
+       + `pip install flask`。从此 server 也在这个 venv 里跑。优点：不污染
+       系统 python；缺点：每次开新 terminal 要 `source .venv/bin/activate`。"
+  - label: "直接装到系统全局 python"
+    description:
+      "agent 跑 `pip3 install flask`，装到全局 site-packages。优点：简单，
+       不需要 activate；缺点：会污染系统 python（如果你有别的 python 项目
+       可能冲突）。"
+  - label: "我自己装"
+    description: "agent 给你命令，你 terminal 自己处理。"
+  - label: "跳过，用 file 模式"
+    description: "不装。"
+```
+
+**执行原则**：
+- agent 跑 install 失败（权限 / 网络）→ 报告错误 + 退回"我自己装"那个选项
+- 装完一定 `python3 -c "import flask; print(flask.__version__)"` 验证一次
+- 如果用了 venv，**记到 session state**，后续 server 启动命令自动加 venv 激活前缀（`source .venv/bin/activate && python3 server.py`）
 
 ### 不是 git 仓库
 
