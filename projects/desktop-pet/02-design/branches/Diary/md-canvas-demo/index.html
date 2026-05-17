@@ -2646,6 +2646,57 @@
       margin-top: 6px;
     }
     .api-spec-body-pane[hidden] { display: none; }
+    /* Response status tabs */
+    .api-spec-resp-tabs {
+      display: flex; align-items: center; gap: 4px;
+      margin: 6px 0;
+      flex-wrap: wrap;
+    }
+    .api-spec-resp-tab {
+      background: transparent;
+      border: 1px solid var(--hairline);
+      padding: 2px 10px 2px 10px;
+      border-radius: var(--r-sm);
+      color: var(--muted);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      display: inline-flex; align-items: center; gap: 6px;
+      position: relative;
+    }
+    .api-spec-resp-tab:hover { color: var(--ink); }
+    .api-spec-resp-tab.is-active {
+      background: var(--surface-card);
+      color: var(--ink);
+      border-color: var(--primary);
+    }
+    .api-spec-resp-tab[data-bucket="2xx"].is-active { border-color: #5db872; }
+    .api-spec-resp-tab[data-bucket="3xx"].is-active { border-color: #7aa4d4; }
+    .api-spec-resp-tab[data-bucket="4xx"].is-active { border-color: #d4a017; }
+    .api-spec-resp-tab[data-bucket="5xx"].is-active { border-color: var(--error); }
+    .api-spec-resp-tab .api-spec-resp-x {
+      opacity: 0; transition: opacity 0.12s;
+      background: none; border: none;
+      color: var(--muted-soft); cursor: pointer;
+      font-size: 13px; padding: 0; margin-left: 2px;
+    }
+    .api-spec-resp-tab:hover .api-spec-resp-x { opacity: 1; }
+    .api-spec-resp-tab .api-spec-resp-x:hover { color: var(--error); }
+    .api-spec-resp-tab.has-actual::before {
+      content: ''; width: 6px; height: 6px;
+      border-radius: 50%; background: #5db872;
+    }
+    .api-spec-resp-add {
+      background: transparent;
+      border: 1px dashed var(--hairline);
+      color: var(--muted-soft);
+      padding: 2px 10px;
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+    }
+    .api-spec-resp-add:hover { color: var(--ink); border-color: var(--ink); }
     /* GET/HEAD: dim the body section since the body will be ignored */
     .api-spec-section.is-no-body {
       opacity: 0.55;
@@ -6429,6 +6480,7 @@ erDiagram
           'name: 新接口\n' +
           'method: POST\n' +
           'url: /api/path\n' +
+          'status: 200\n' +
           'description: 简短描述\n' +
           'request: |\n' +
           '  {\n' +
@@ -6437,7 +6489,9 @@ erDiagram
           'response: |\n' +
           '  {\n' +
           '    "result": "ok"\n' +
-          '  }';
+          '  }\n' +
+          '# 多状态码：加 response_401: | / response_500: | 等\n' +
+          '# 可选 response_401_label: token 失效';
         insertNewBlock('```api\n' + skeleton + '\n```\n\n', 'after', ctx ? ctx.refSection : null);
         return;
       }
@@ -11124,20 +11178,65 @@ erDiagram
         }
         out[key] = val;
       }
+      // Normalize responses: primary = status + response (+ response_label),
+      // extras = response_<NNN> (+ response_<NNN>_label). Preserve PM's writing order.
+      const responses = [{
+        status: parseInt(out.status, 10) || 200,
+        label: out.response_label || '',
+        body: out.response || '',
+      }];
+      Object.keys(out).forEach(k => {
+        const m2 = k.match(/^response_(\d{3})$/);
+        if (m2) {
+          const code = parseInt(m2[1], 10);
+          responses.push({
+            status: code,
+            label: out['response_' + code + '_label'] || '',
+            body: out[k] || '',
+          });
+        }
+      });
+      out.responses = responses;
       return out;
     }
 
     function serializeApiSpecYaml(spec) {
       const lines = [];
-      ['name', 'method', 'url', 'status', 'body_mode'].forEach(k => {
-        if (spec[k] != null && spec[k] !== '') lines.push(k + ': ' + spec[k]);
-      });
-      ['description', 'request_headers', 'variables', 'request', 'response', 'notes'].forEach(k => {
+      const responses = (spec.responses && spec.responses.length)
+        ? spec.responses
+        : [{ status: spec.status || 200, label: spec.response_label || '', body: spec.response || '' }];
+      const primary = responses[0];
+      if (spec.name != null && spec.name !== '') lines.push('name: ' + spec.name);
+      if (spec.method != null && spec.method !== '') lines.push('method: ' + spec.method);
+      if (spec.url != null && spec.url !== '') lines.push('url: ' + spec.url);
+      if (primary.status != null) lines.push('status: ' + primary.status);
+      if (spec.body_mode != null && spec.body_mode !== '') lines.push('body_mode: ' + spec.body_mode);
+      ['description', 'request_headers', 'variables', 'request'].forEach(k => {
         if (spec[k] != null && spec[k] !== '') {
           lines.push(k + ': |');
           spec[k].split('\n').forEach(l => lines.push('  ' + l));
         }
       });
+      // Primary response body + optional label
+      if (primary.body) {
+        lines.push('response: |');
+        primary.body.split('\n').forEach(l => lines.push('  ' + l));
+      }
+      if (primary.label) lines.push('response_label: ' + primary.label);
+      // Secondary responses (blank line each for readability)
+      responses.slice(1).forEach(r => {
+        if (!r.body && !r.label) return;
+        lines.push('');
+        if (r.label) lines.push('response_' + r.status + '_label: ' + r.label);
+        if (r.body) {
+          lines.push('response_' + r.status + ': |');
+          r.body.split('\n').forEach(l => lines.push('  ' + l));
+        }
+      });
+      if (spec.notes != null && spec.notes !== '') {
+        lines.push('notes: |');
+        spec.notes.split('\n').forEach(l => lines.push('  ' + l));
+      }
       return lines.join('\n');
     }
 
@@ -11305,7 +11404,6 @@ erDiagram
       wrap.dataset.skipSerialize = 'true';
 
       const method = (spec.method || 'POST').toUpperCase();
-      const status = spec.status || 200;
       wrap.innerHTML =
         '<div class="api-spec-head">' +
           '<select class="api-spec-method" data-field="method" title="HTTP method">' +
@@ -11365,12 +11463,13 @@ erDiagram
             '</div>' +
             '<div class="api-spec-body-hint" data-hint></div>' +
           '</div>' +
-          '<div class="api-spec-section">' +
+          '<div class="api-spec-section" data-section="response">' +
             '<div class="api-spec-section-head">' +
-              '<span class="api-spec-section-label">响应契约（' + status + '）· 实跑后被真实响应覆盖显示</span>' +
+              '<span class="api-spec-section-label">响应契约 · 点 tab 切换状态码 · 实跑后命中的 tab 显示绿点</span>' +
               '<button type="button" class="api-spec-section-action" data-act="format-response">格式化 JSON</button>' +
             '</div>' +
-            '<textarea class="api-spec-json" data-field="response" placeholder=\'{"diary_id": "d_001", ...}\'>' + escapeHtml(spec.response || '') + '</textarea>' +
+            '<div class="api-spec-resp-tabs" data-resp-tabs></div>' +
+            '<textarea class="api-spec-json" data-field="response" placeholder=\'{"diary_id": "d_001", ...}\'></textarea>' +
           '</div>' +
         '</div>' +
         '<div class="api-spec-result">' +
@@ -11492,6 +11591,92 @@ erDiagram
       });
       applyBodyMode(spec.body_mode || 'json', { initial: true });
 
+      // ---------- Response status tabs ----------
+      // Source of truth lives on wrap._responses; the visible textarea always
+      // reflects the active tab. On tab switch we save textarea → active entry,
+      // then load new entry → textarea.
+      wrap._responses = (spec.responses && spec.responses.length)
+        ? spec.responses.map(r => ({ status: r.status, label: r.label || '', body: r.body || '' }))
+        : [{ status: 200, label: '', body: '' }];
+      wrap._activeRespIdx = 0;
+      const respTabs = wrap.querySelector('[data-resp-tabs]');
+      const respTa = wrap.querySelector('[data-field="response"]');
+      function statusBucket(code) {
+        if (code >= 200 && code < 300) return '2xx';
+        if (code >= 300 && code < 400) return '3xx';
+        if (code >= 400 && code < 500) return '4xx';
+        return '5xx';
+      }
+      function renderRespTabs() {
+        respTabs.innerHTML = '';
+        wrap._responses.forEach((r, idx) => {
+          const tab = document.createElement('button');
+          tab.type = 'button';
+          tab.className = 'api-spec-resp-tab' + (idx === wrap._activeRespIdx ? ' is-active' : '');
+          tab.dataset.respIdx = String(idx);
+          tab.dataset.bucket = statusBucket(r.status);
+          tab.title = '点击切换 · 悬停右上角 × 删除';
+          const lbl = document.createElement('span');
+          lbl.textContent = r.status + (r.label ? ' ' + r.label : '');
+          tab.appendChild(lbl);
+          if (wrap._responses.length > 1) {
+            const x = document.createElement('button');
+            x.type = 'button';
+            x.className = 'api-spec-resp-x';
+            x.textContent = '×';
+            x.title = '删除这个状态码';
+            x.addEventListener('click', (e) => {
+              e.stopPropagation();
+              const cur = wrap._responses[idx];
+              if (cur.body && !confirm('删除 ' + cur.status + ' 的响应？body 不为空')) return;
+              wrap._responses.splice(idx, 1);
+              if (wrap._activeRespIdx >= wrap._responses.length) wrap._activeRespIdx = wrap._responses.length - 1;
+              respTa.value = wrap._responses[wrap._activeRespIdx].body;
+              renderRespTabs();
+              markEdited();
+            });
+            tab.appendChild(x);
+          }
+          tab.addEventListener('click', () => {
+            // Save current textarea into the *previously* active entry
+            wrap._responses[wrap._activeRespIdx].body = respTa.value;
+            wrap._activeRespIdx = idx;
+            respTa.value = wrap._responses[idx].body;
+            renderRespTabs();
+          });
+          respTabs.appendChild(tab);
+        });
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'api-spec-resp-add';
+        addBtn.textContent = '+';
+        addBtn.title = '新增状态码（如 401 / 429 / 500）';
+        addBtn.addEventListener('click', () => {
+          const codeStr = (prompt('状态码（3 位数字，如 401 / 429 / 500）：', '400') || '').trim();
+          const code = parseInt(codeStr, 10);
+          if (!code || code < 100 || code > 599) { toast('状态码必须是 100-599 之间的 3 位数字'); return; }
+          if (wrap._responses.some(r => r.status === code)) { toast('已有 ' + code + ' 这个状态码'); return; }
+          const label = (prompt('简短说明（可选，如 "token 失效" / "限流"）：', '') || '').trim();
+          // Save current textarea before adding
+          wrap._responses[wrap._activeRespIdx].body = respTa.value;
+          wrap._responses.push({ status: code, label, body: '' });
+          wrap._activeRespIdx = wrap._responses.length - 1;
+          respTa.value = '';
+          renderRespTabs();
+          markEdited();
+          respTa.focus();
+        });
+        respTabs.appendChild(addBtn);
+      }
+      respTabs.dataset.wired = '1';
+      respTa.value = wrap._responses[wrap._activeRespIdx].body;
+      renderRespTabs();
+      // Persist textarea edits back into the active entry on every keystroke,
+      // so readApiSpecFromDom always sees the latest content.
+      respTa.addEventListener('input', () => {
+        wrap._responses[wrap._activeRespIdx].body = respTa.value;
+      });
+
       // Format JSON buttons
       wrap.querySelectorAll('.api-spec-section-action').forEach(btn => {
         btn.addEventListener('click', () => {
@@ -11537,6 +11722,14 @@ erDiagram
           resultMeta.textContent = (dt / 1000).toFixed(2) + 's · ' + new Date().toLocaleTimeString();
           resultBody.className = 'api-spec-result-body' + (resp.status >= 400 ? ' is-error' : '');
           resultBody.textContent = prettyJsonOrSame(text);
+          // Mark matching response tab with a green dot. Clears previous mark.
+          respTabs.querySelectorAll('.api-spec-resp-tab.has-actual')
+            .forEach(t => t.classList.remove('has-actual'));
+          const matchIdx = wrap._responses.findIndex(r => r.status === resp.status);
+          if (matchIdx >= 0) {
+            const tab = respTabs.querySelector('[data-resp-idx="' + matchIdx + '"]');
+            if (tab) tab.classList.add('has-actual');
+          }
         } catch (err) {
           resultPill.hidden = false;
           resultPill.className = 'api-spec-result-pill is-err';
@@ -11594,6 +11787,9 @@ erDiagram
           const md = '```api\n' + serializeApiSpecYaml(cur) + '\n```\n';
           try { await navigator.clipboard.writeText(md); toast('已复制 MD'); } catch { toast('复制失败'); }
         } else if (b.dataset.act === 'copy-postman') {
+          const allResponses = (cur.responses && cur.responses.length)
+            ? cur.responses
+            : [{ status: cur.status || 200, label: '', body: cur.response || '' }];
           const item = {
             name: cur.name || '未命名接口',
             request: {
@@ -11607,27 +11803,31 @@ erDiagram
               url: { raw: cur.url || '' },
               description: cur.description || '',
             },
-            response: cur.response ? [{
-              name: 'example ' + (cur.status || 200),
-              status: 'OK',
-              code: parseInt(cur.status, 10) || 200,
-              body: cur.response,
-            }] : [],
+            response: allResponses.filter(r => r.body).map(r => ({
+              name: r.label ? (r.status + ' ' + r.label) : ('example ' + r.status),
+              status: r.label || 'OK',
+              code: r.status,
+              body: r.body,
+            })),
           };
           try { await navigator.clipboard.writeText(JSON.stringify(item, null, 2)); toast('已复制 Postman JSON'); } catch { toast('复制失败'); }
         } else if (b.dataset.act === 'to-mock') {
           if (typeof createMockAt === 'function') {
+            // Use the currently active response tab as the mock template
+            const active = (cur.responses && cur.responses[cur.activeRespIdx || 0])
+              || { status: cur.status || 200, body: cur.response || '' };
             createMockAt(section, {
-              title: cur.name || '接口 Mock',
+              title: cur.name ? (cur.name + ' · ' + active.status) : ('接口 Mock · ' + active.status),
               method: cur.method || 'POST',
               url: cur.url || '',
+              status: active.status,
               responseHeaders: 'Content-Type: application/json',
-              responseBody: cur.response || '',
+              responseBody: active.body || '',
               sampleRequest: cur.request || '',
               silent: true,
               skipFocus: true,
             });
-            toast('已建 Mock 拦截：' + (cur.method || 'POST') + ' ' + (cur.url || ''));
+            toast('已建 Mock 拦截：' + (cur.method || 'POST') + ' ' + (cur.url || '') + ' → ' + active.status);
           }
         }
         pop.classList.remove('is-show');
@@ -11639,6 +11839,7 @@ erDiagram
       const wrap = section.querySelector('.api-spec:not(.api-spec-overlay)');
       if (!wrap) return out;
       wrap.querySelectorAll('[data-field]').forEach(el => {
+        if (el.dataset.field === 'response') return; // handled via wrap._responses below
         const v = el.tagName === 'SELECT' || el.tagName === 'INPUT' || el.tagName === 'TEXTAREA'
           ? el.value : el.textContent;
         if (v !== '') out[el.dataset.field] = v;
@@ -11652,6 +11853,21 @@ erDiagram
       const bodySection = wrap.querySelector('[data-section="body"]');
       const mode = bodySection ? (bodySection.dataset.bodyMode || 'json') : 'json';
       if (mode !== 'json') out.body_mode = mode; // omit default 'json'
+      // Responses: wrap._responses is the source of truth; sync visible textarea
+      // into the active entry first so we never lose the latest keystroke.
+      const respTa = wrap.querySelector('[data-field="response"]');
+      if (wrap._responses && wrap._responses.length) {
+        if (respTa && wrap._activeRespIdx != null) {
+          wrap._responses[wrap._activeRespIdx].body = respTa.value;
+        }
+        out.responses = wrap._responses.map(r => ({
+          status: r.status, label: r.label || '', body: r.body || '',
+        }));
+        out.activeRespIdx = wrap._activeRespIdx != null ? wrap._activeRespIdx : 0;
+        // Legacy single-value fields for downstream code that doesn't know about responses[]
+        out.status = out.responses[0].status;
+        out.response = out.responses[0].body;
+      }
       return out;
     }
 
