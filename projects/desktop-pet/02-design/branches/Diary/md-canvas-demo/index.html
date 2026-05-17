@@ -385,6 +385,84 @@
       color: var(--on-dark);
       font-family: var(--font-mono);
     }
+    .code-lang-toolbar .clt-json-btn {
+      background: transparent;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      color: var(--on-dark);
+      padding: 3px 10px;
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      cursor: pointer;
+      margin-left: 8px;
+      display: none;
+    }
+    .code-lang-toolbar .clt-json-btn:hover { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.4); }
+    /* Show the button only when current lang is json/jsonl */
+    .md-block.md-code[data-code-lang="json"]  .code-lang-toolbar .clt-json-btn,
+    .md-block.md-code[data-code-lang="jsonl"] .code-lang-toolbar .clt-json-btn { display: inline-block; }
+
+    /* JSON → table output area */
+    .md-code-json-output {
+      margin: 0 0 var(--sp-lg);
+      padding: 12px 14px;
+      background: var(--surface-soft);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      position: relative;
+      display: none;
+    }
+    .md-code-json-output.is-show { display: block; }
+    .md-code-json-output .jto-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 8px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--muted);
+    }
+    .md-code-json-output .jto-close {
+      background: transparent; border: 1px solid var(--hairline);
+      color: var(--muted); cursor: pointer;
+      padding: 2px 8px; border-radius: var(--r-sm);
+      font-size: 11px; font-family: var(--font-sans);
+    }
+    .md-code-json-output .jto-close:hover { color: var(--ink); border-color: var(--ink); }
+    .md-code-json-output .jto-body {
+      overflow-x: auto;
+      max-height: 480px; overflow-y: auto;
+    }
+    .md-code-json-output table {
+      width: 100%;
+      border-collapse: collapse;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--ink);
+      background: var(--canvas);
+    }
+    .md-code-json-output th, .md-code-json-output td {
+      border: 1px solid var(--hairline);
+      padding: 5px 8px;
+      text-align: left;
+      vertical-align: top;
+      white-space: pre-wrap; word-break: break-word;
+    }
+    .md-code-json-output th {
+      background: var(--surface-card);
+      font-weight: 500;
+      color: var(--ink);
+      position: sticky; top: 0;
+    }
+    .md-code-json-output td.is-null { color: var(--muted-soft); font-style: italic; }
+    .md-code-json-output td.is-bool { color: var(--accent-teal); }
+    .md-code-json-output td.is-num  { color: var(--primary-active); }
+    .md-code-json-output .jto-error {
+      color: var(--error);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      padding: 8px 10px;
+      background: rgba(198, 69, 69, 0.06);
+      border-radius: var(--r-sm);
+    }
     /* hide on mermaid blocks (mermaid has its own toolbar at the same position) */
     .md-block.md-code.is-mermaid .code-lang-toolbar,
     .md-block.md-code.is-mermaid-detail-source .code-lang-toolbar { display: none; }
@@ -10357,7 +10435,8 @@ erDiagram
       tb.dataset.skipSerialize = 'true';
       tb.innerHTML =
         '<span class="clt-label">lang</span>' +
-        '<select>' + buildLangSelectOptions(currentLang) + '</select>';
+        '<select>' + buildLangSelectOptions(currentLang) + '</select>' +
+        '<button type="button" class="clt-json-btn" title="把这段 JSON 渲染成表格">JSON → 表</button>';
       section.appendChild(tb);
 
       applyLangToCode(section, currentLang);
@@ -10383,6 +10462,99 @@ erDiagram
         section.dataset.edited = 'true';
         updateEditCount();
       });
+
+      // JSON → table button (#49)
+      tb.querySelector('.clt-json-btn').addEventListener('click', () => toggleJsonTable(section));
+    }
+
+    // ----- JSON → table rendering (#49) -----
+    function toggleJsonTable(section) {
+      const existing = section.querySelector(':scope > .md-code-json-output');
+      if (existing && existing.classList.contains('is-show')) {
+        existing.classList.remove('is-show');
+        return;
+      }
+      const code = section.querySelector('pre > code');
+      if (!code) return;
+      const text = code.textContent || '';
+      let parsed, parseError = null;
+      try { parsed = JSON.parse(text); } catch (e) { parseError = e.message; }
+
+      let out = existing;
+      if (!out) {
+        out = document.createElement('div');
+        out.className = 'md-code-json-output';
+        out.contentEditable = 'false';
+        out.dataset.skipSerialize = 'true';
+        section.appendChild(out);
+      }
+
+      if (parseError) {
+        out.innerHTML =
+          '<div class="jto-head"><span>JSON 解析失败</span>' +
+            '<button type="button" class="jto-close">关闭</button></div>' +
+          '<div class="jto-error">' + escapeHtml(parseError) + '</div>';
+      } else {
+        const shape = describeJsonShape(parsed);
+        out.innerHTML =
+          '<div class="jto-head"><span>渲染：' + shape.label + '</span>' +
+            '<button type="button" class="jto-close">关闭</button></div>' +
+          '<div class="jto-body">' + buildJsonTableHtml(parsed) + '</div>';
+      }
+      out.classList.add('is-show');
+      out.querySelector('.jto-close').addEventListener('click', () => out.classList.remove('is-show'));
+    }
+
+    function describeJsonShape(v) {
+      if (Array.isArray(v)) {
+        if (v.length === 0) return { label: '空数组', kind: 'array-empty' };
+        const allObj = v.every(x => x && typeof x === 'object' && !Array.isArray(x));
+        if (allObj) return { label: '对象数组 (' + v.length + ' 行)', kind: 'array-of-objects' };
+        return { label: '基础类型数组 (' + v.length + ' 项)', kind: 'array-primitive' };
+      }
+      if (v && typeof v === 'object') return { label: '单对象 (' + Object.keys(v).length + ' 字段)', kind: 'object' };
+      return { label: typeof v, kind: 'primitive' };
+    }
+
+    function buildJsonTableHtml(v) {
+      const cellHtml = (val) => {
+        if (val === null) return '<td class="is-null">null</td>';
+        const t = typeof val;
+        if (t === 'boolean') return '<td class="is-bool">' + val + '</td>';
+        if (t === 'number')  return '<td class="is-num">' + val + '</td>';
+        if (t === 'string')  return '<td>' + escapeHtml(val) + '</td>';
+        // Nested object/array → JSON-stringify compactly
+        try { return '<td>' + escapeHtml(JSON.stringify(val)) + '</td>'; }
+        catch { return '<td>[…]</td>'; }
+      };
+      const shape = describeJsonShape(v);
+      if (shape.kind === 'array-empty') return '<div class="jto-error">数组为空</div>';
+
+      if (shape.kind === 'array-of-objects') {
+        // Union of all keys, preserve first-seen order
+        const cols = [];
+        const seen = new Set();
+        v.forEach(row => Object.keys(row).forEach(k => { if (!seen.has(k)) { seen.add(k); cols.push(k); } }));
+        const thead = '<thead><tr>' + cols.map(c => '<th>' + escapeHtml(c) + '</th>').join('') + '</tr></thead>';
+        const tbody = '<tbody>' + v.map(row =>
+          '<tr>' + cols.map(c => row[c] === undefined ? '<td class="is-null">—</td>' : cellHtml(row[c])).join('') + '</tr>'
+        ).join('') + '</tbody>';
+        return '<table>' + thead + tbody + '</table>';
+      }
+      if (shape.kind === 'array-primitive') {
+        return '<table><thead><tr><th>#</th><th>value</th></tr></thead><tbody>' +
+          v.map((x, i) => '<tr><td class="is-num">' + i + '</td>' + cellHtml(x) + '</tr>').join('') +
+          '</tbody></table>';
+      }
+      if (shape.kind === 'object') {
+        return '<table><thead><tr><th>key</th><th>value</th></tr></thead><tbody>' +
+          Object.entries(v).map(([k, val]) =>
+            '<tr><td>' + escapeHtml(k) + '</td>' + cellHtml(val) + '</tr>'
+          ).join('') +
+          '</tbody></table>';
+      }
+      // primitive
+      return '<table><tbody><tr>' + cellHtml(v) + '</tr></tbody></table>';
     }
 
     function applyLangToCode(section, lang) {
@@ -10939,6 +11111,13 @@ erDiagram
         if (tr.children[insertAt]) tr.insertBefore(cell, tr.children[insertAt]);
         else tr.appendChild(cell);
       });
+      // Keep colgroup in sync if the table was prepared for resize
+      const cg = tableActionsTable.querySelector(':scope > colgroup');
+      if (cg) {
+        const col = document.createElement('col');
+        if (cg.children[insertAt]) cg.insertBefore(col, cg.children[insertAt]);
+        else cg.appendChild(col);
+      }
       markTableEdited(tableActionsCell);
     }
 
@@ -10959,6 +11138,8 @@ erDiagram
       const allRows = tableActionsTable.querySelectorAll('tr');
       if (allRows[0].children.length <= 1) { toast('至少保留一列'); return; }
       allRows.forEach(tr => { if (tr.children[colIdx]) tr.children[colIdx].remove(); });
+      const cg = tableActionsTable.querySelector(':scope > colgroup');
+      if (cg && cg.children[colIdx]) cg.children[colIdx].remove();
       markTableEdited(tableActionsTable);
       hideTableActions();
     }
@@ -10996,6 +11177,143 @@ erDiagram
     });
 
     // ============================================================
+    // Table cell keyboard navigation
+    //   Enter           → next cell (or new block after table if at last cell)
+    //   Ctrl/Cmd+Enter  → insert newline inside cell
+    //   Shift+Enter     → insert newline inside cell (default contenteditable too)
+    //   ArrowLeft/Right → jump to neighbor cell when caret is at cell text edge
+    //   ArrowUp/Down    → jump to cell above/below (single-line cells only;
+    //                     multi-line cells fall through to default behavior)
+    // ============================================================
+    function getCaretOffsetInCell(cell) {
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return -1;
+      const range = sel.getRangeAt(0);
+      if (!cell.contains(range.endContainer)) return -1;
+      const pre = document.createRange();
+      pre.selectNodeContents(cell);
+      pre.setEnd(range.endContainer, range.endOffset);
+      return pre.toString().length;
+    }
+    function placeCaretAt(cell, atStart) {
+      const range = document.createRange();
+      range.selectNodeContents(cell);
+      range.collapse(!!atStart);
+      const sel = window.getSelection();
+      sel.removeAllRanges();
+      sel.addRange(range);
+    }
+    function getCellNeighbor(cell, dir) {
+      const tr = cell.closest('tr');
+      const table = cell.closest('table');
+      if (!tr || !table) return null;
+      const rows = Array.from(table.querySelectorAll('tr'));
+      const rowIdx = rows.indexOf(tr);
+      const colIdx = Array.from(tr.children).indexOf(cell);
+      if (dir === 'right') {
+        if (cell.nextElementSibling) return cell.nextElementSibling;
+        if (rowIdx + 1 < rows.length) return rows[rowIdx + 1].firstElementChild;
+      } else if (dir === 'left') {
+        if (cell.previousElementSibling) return cell.previousElementSibling;
+        if (rowIdx > 0) return rows[rowIdx - 1].lastElementChild;
+      } else if (dir === 'up') {
+        if (rowIdx > 0) return rows[rowIdx - 1].children[colIdx] || null;
+      } else if (dir === 'down') {
+        if (rowIdx + 1 < rows.length) return rows[rowIdx + 1].children[colIdx] || null;
+      }
+      return null;
+    }
+    function isLastCellOfTable(cell) {
+      const tr = cell.closest('tr');
+      const table = cell.closest('table');
+      if (!tr || !table) return false;
+      const rows = Array.from(table.querySelectorAll('tr'));
+      return (tr === rows[rows.length - 1]) && (cell === tr.lastElementChild);
+    }
+
+    document.getElementById('content').addEventListener('keydown', e => {
+      if (!editMode) return;
+      const cell = e.target.closest && e.target.closest('th, td');
+      if (!cell || !cell.isContentEditable) return;
+      if (!cell.closest('.md-table')) return;
+
+      if (e.key === 'Enter') {
+        // Any modifier → newline inside the cell
+        if (e.ctrlKey || e.metaKey || e.shiftKey) {
+          e.preventDefault();
+          try { document.execCommand('insertLineBreak'); } catch (_) {
+            // Fallback: manually insert a <br>
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount) {
+              const range = sel.getRangeAt(0);
+              range.deleteContents();
+              const br = document.createElement('br');
+              range.insertNode(br);
+              // Make sure the line break is followed by a text node so caret can sit after it
+              const space = document.createTextNode('​');
+              br.parentNode.insertBefore(space, br.nextSibling);
+              const newRange = document.createRange();
+              newRange.setStart(space, 0);
+              newRange.collapse(true);
+              sel.removeAllRanges();
+              sel.addRange(newRange);
+            }
+          }
+          markTableEdited(cell);
+          return;
+        }
+        // Plain Enter → navigate
+        e.preventDefault();
+        if (isLastCellOfTable(cell)) {
+          const block = cell.closest('.md-block');
+          if (!block) return;
+          const newSection = insertNewBlock('段落\n\n', 'after', block);
+          if (newSection) {
+            setTimeout(() => {
+              const editable = newSection.querySelector('[contenteditable="true"]') || newSection;
+              if (editable && editable.focus) {
+                editable.focus();
+                placeCaretAt(editable, true);
+              }
+            }, 0);
+          }
+        } else {
+          const next = getCellNeighbor(cell, 'right');
+          if (next) { next.focus(); placeCaretAt(next, true); }
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowRight' || e.key === 'ArrowLeft') {
+        const offset = getCaretOffsetInCell(cell);
+        const text = cell.textContent || '';
+        if (e.key === 'ArrowRight' && offset >= text.length) {
+          const next = getCellNeighbor(cell, 'right');
+          if (next) { e.preventDefault(); next.focus(); placeCaretAt(next, true); }
+        } else if (e.key === 'ArrowLeft' && offset === 0) {
+          const prev = getCellNeighbor(cell, 'left');
+          if (prev) { e.preventDefault(); prev.focus(); placeCaretAt(prev, false); }
+        }
+        return;
+      }
+
+      if (e.key === 'ArrowUp' || e.key === 'ArrowDown') {
+        // Heuristic: only jump cells for single-line content; let multi-line
+        // cells use native caret movement so users can navigate within them.
+        const isMultiLine = (cell.textContent || '').includes('\n') || cell.querySelector('br');
+        if (isMultiLine) return;
+        const dir = e.key === 'ArrowUp' ? 'up' : 'down';
+        const target = getCellNeighbor(cell, dir);
+        if (target) {
+          e.preventDefault();
+          target.focus();
+          placeCaretAt(target, dir === 'down');
+        }
+        return;
+      }
+    });
+
+    // ============================================================
     // Table column / row resize (drag the right / bottom edge of a cell)
     // Note: Markdown has no column-width syntax, so widths/heights are lost on download.
     // ============================================================
@@ -11004,16 +11322,24 @@ erDiagram
 
     function prepareTableForResize(table) {
       if (table.dataset.resizePrepared === '1') return;
-      // Capture current natural widths from the first row
       const firstRow = table.querySelector('tr');
-      if (firstRow) {
-        const widths = Array.from(firstRow.children).map(c => c.offsetWidth);
-        firstRow.parentNode.querySelectorAll('tr').forEach(tr => {
-          Array.from(tr.children).forEach((c, i) => {
-            if (widths[i] != null) c.style.width = widths[i] + 'px';
-          });
-        });
-      }
+      if (!firstRow) return;
+      // Capture natural widths from the first row, then express them as
+      // <colgroup><col> instead of per-cell inline widths. Setting `width`
+      // on every td of a border-collapsed table can produce phantom column
+      // dividers in Chrome when border-radius + overflow:hidden interact.
+      const widths = Array.from(firstRow.children).map(c => c.offsetWidth);
+      let cg = table.querySelector(':scope > colgroup');
+      if (cg) cg.remove();
+      cg = document.createElement('colgroup');
+      cg.contentEditable = 'false';
+      cg.dataset.skipSerialize = 'true';
+      widths.forEach(w => {
+        const col = document.createElement('col');
+        col.style.width = w + 'px';
+        cg.appendChild(col);
+      });
+      table.insertBefore(cg, table.firstChild);
       table.style.tableLayout = 'fixed';
       table.dataset.resizePrepared = '1';
     }
@@ -11073,11 +11399,10 @@ erDiagram
       if (cellResize.mode === 'col') {
         const delta = e.clientX - cellResize.startX;
         const newW = Math.max(40, cellResize.startWidth + delta);
-        // Apply to all cells in the column (header + body)
-        cellResize.table.querySelectorAll('tr').forEach(tr => {
-          const c = tr.children[cellResize.colIdx];
-          if (c) c.style.width = newW + 'px';
-        });
+        // Write to the <col> element, not per-td widths (avoids phantom dividers)
+        const cg = cellResize.table.querySelector(':scope > colgroup');
+        const col = cg && cg.children[cellResize.colIdx];
+        if (col) col.style.width = newW + 'px';
       } else if (cellResize.mode === 'row') {
         const delta = e.clientY - cellResize.startY;
         const newH = Math.max(28, cellResize.startHeight + delta);
