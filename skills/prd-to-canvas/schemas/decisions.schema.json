@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "decisions",
+  "description": "Phase 3 用户在 checklist.html 中的勾选结果。由 checklist.html 的 [导出] 按钮生成；Phase 4 执行 agent 读取此文件作为重写依据。",
+  "type": "object",
+  "required": ["version", "mode", "session_id", "prd_path", "decisions"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "mode": {
+      "enum": ["A", "E", "B", "C", "D"],
+      "description": "skill 启动时用户选的 agent 模式（v1 实现 A/E，B/C/D 占位）"
+    },
+    "session_id": { "type": "string", "description": "本次跑的唯一 ID（用于审计 / 重跑追溯）" },
+    "created_at": { "type": "string", "format": "date-time" },
+    "prd_path": { "type": "string", "description": "原 PRD 绝对路径" },
+    "design_source": {
+      "type": "string",
+      "description": "用了哪份 DESIGN.md（'default' 表示用 skill 内置；其他为路径）"
+    },
+    "iteration": {
+      "type": "integer",
+      "description": "Phase 3 循环到第几轮（1 起算）。每轮 reject 后 +1"
+    },
+    "decisions": {
+      "type": "array",
+      "description": "对每个 candidate 的用户裁决，候选 ID 与 candidates.json 对应",
+      "items": {
+        "type": "object",
+        "required": ["candidate_id", "verdict"],
+        "properties": {
+          "candidate_id": { "type": "string" },
+          "verdict": {
+            "enum": ["accept", "skip", "edit", "request_review"],
+            "description": "accept = 按 rewrite_preview 应用；skip = 不动 PRD 这段；edit = 应用但用户调整了字段；request_review = 用户希望审核 agent 再看一眼（仅 E 模式有效）"
+          },
+          "user_input": {
+            "type": "object",
+            "description": "用户补的字段（如 status_codes_4xx_5xx 数组、discussion_url 字符串等）",
+            "additionalProperties": true
+          },
+          "boundary_override": {
+            "type": "object",
+            "description": "用户改了 candidate 的行号范围",
+            "properties": {
+              "line_start": { "type": "integer" },
+              "line_end": { "type": "integer" }
+            }
+          },
+          "type_override": {
+            "type": "string",
+            "description": "用户改了 candidate 类型（如 PROMPT → CALL-N）"
+          },
+          "note": {
+            "type": "string",
+            "description": "用户给 agent 的备注（如 'mermaid 用 sequence 不要 flowchart'）"
+          }
+        }
+      }
+    },
+    "global_options": {
+      "type": "object",
+      "description": "全局开关",
+      "properties": {
+        "add_canvas_only_suggestions": {
+          "type": "boolean",
+          "default": true,
+          "description": "是否在最终生成的 index.html 顶部包含一段提示，列出 PRD 中可在 canvas 里加的 canvas-only 块候选"
+        },
+        "preserve_original_b_mode": {
+          "type": "boolean",
+          "default": false,
+          "description": "是否保留 PRD 原有 B 模式接口段（不升级 A）。用户特别想保留 PRD 阅读体验时设 true"
+        }
+      }
+    }
+  }
+}

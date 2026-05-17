@@ -1,0 +1,76 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "rewrite-audit",
+  "description": "Phase 4 审核 agent 的输出（仅模式 E）：对执行 agent 重写产物 canonical.md 的复查结果",
+  "type": "object",
+  "required": ["version", "verdict", "checks", "issues"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "audit_at": { "type": "string", "format": "date-time" },
+    "verdict": {
+      "enum": ["pass", "needs_revision"],
+      "description": "pass = canonical.md 可进 HTML 生成；needs_revision = 执行 agent 需根据 issues 修改 canonical.md"
+    },
+    "checks": {
+      "type": "object",
+      "description": "5 项硬性检查的通过/未通过状态",
+      "required": [
+        "voice_preserved",
+        "no_unauthorized_changes",
+        "all_decisions_applied",
+        "yaml_valid",
+        "mermaid_valid"
+      ],
+      "properties": {
+        "voice_preserved": {
+          "type": "boolean",
+          "description": "用户原文措辞/段落是否被保留（未被改写美化）"
+        },
+        "no_unauthorized_changes": {
+          "type": "boolean",
+          "description": "是否有 decisions.json 没批准的 candidate 被改写了"
+        },
+        "all_decisions_applied": {
+          "type": "boolean",
+          "description": "decisions.json 中所有 accept/edit 的 candidate 是否都已反映在 canonical.md"
+        },
+        "yaml_valid": {
+          "type": "boolean",
+          "description": "所有 ```api fence 内的 YAML 是否能被 parseApiSpecYaml 正确解析"
+        },
+        "mermaid_valid": {
+          "type": "boolean",
+          "description": "所有 ```mermaid fence 是否能通过 mermaid.js 语法检查（执行 agent 应该已经验证过）"
+        }
+      }
+    },
+    "issues": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "description"],
+        "properties": {
+          "kind": {
+            "enum": [
+              "voice_changed",
+              "unauthorized_modification",
+              "decision_not_applied",
+              "yaml_syntax_error",
+              "mermaid_syntax_error",
+              "missing_required_field",
+              "preserved_should_have_been_removed"
+            ]
+          },
+          "candidate_id": { "type": "string", "description": "若问题与某个 candidate 相关" },
+          "line_in_canonical": { "type": "integer", "description": "canonical.md 中的行号" },
+          "description": { "type": "string" },
+          "suggested_fix": { "type": "string" }
+        }
+      }
+    },
+    "summary": {
+      "type": "string",
+      "description": "审核 agent 给执行 agent 的整体反馈，用于下一轮重写"
+    }
+  }
+}

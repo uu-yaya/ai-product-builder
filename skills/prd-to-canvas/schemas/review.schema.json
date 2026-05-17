@@ -1,0 +1,56 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "review",
+  "description": "Phase 1 审核 agent 的输出（仅模式 E）：对执行 agent 候选清单的复查结果",
+  "type": "object",
+  "required": ["version", "verdict", "issues", "additions", "removals"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "audit_at": { "type": "string", "format": "date-time" },
+    "verdict": {
+      "enum": ["pass", "needs_revision"],
+      "description": "pass = 没问题，执行 agent 的 candidates.json 可直接进 Phase 2；needs_revision = 有 issues，执行 agent 需根据 issues+additions+removals 修正"
+    },
+    "issues": {
+      "type": "array",
+      "description": "对现有 candidates 的修正建议（执行 agent 处理）",
+      "items": {
+        "type": "object",
+        "required": ["kind", "candidate_id", "description"],
+        "properties": {
+          "kind": {
+            "enum": [
+              "false_positive",
+              "boundary_error",
+              "missing_field",
+              "wrong_subtype",
+              "invalid_rewrite_preview",
+              "confidence_overstated"
+            ]
+          },
+          "candidate_id": { "type": "string" },
+          "description": { "type": "string" },
+          "suggested_fix": {
+            "type": "object",
+            "description": "审核 agent 给出的具体修正（line_start/line_end/subtype/confidence 等字段的新值）",
+            "additionalProperties": true
+          }
+        }
+      }
+    },
+    "additions": {
+      "type": "array",
+      "description": "审核 agent 发现的执行 agent 漏检的候选块（同 candidates.schema.json 的 item 结构）",
+      "items": { "$ref": "candidates.schema.json#/properties/candidates/items" }
+    },
+    "removals": {
+      "type": "array",
+      "description": "审核 agent 判定应直接删除的 candidate IDs（误检 / 重复）",
+      "items": { "type": "string" }
+    },
+    "notes": {
+      "type": "string",
+      "description": "审核 agent 给执行 agent 的整体反馈，用于下一轮迭代"
+    }
+  }
+}

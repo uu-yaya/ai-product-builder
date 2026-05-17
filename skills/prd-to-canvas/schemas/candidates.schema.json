@@ -1,0 +1,60 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "candidates",
+  "description": "Phase 1 执行 agent 的输出：在 PRD 中检测到的所有候选块",
+  "type": "object",
+  "required": ["version", "prd_path", "total_lines", "candidates"],
+  "properties": {
+    "version": { "const": "1.0" },
+    "prd_path": { "type": "string", "description": "PRD 文件绝对路径" },
+    "total_lines": { "type": "integer" },
+    "scanned_at": { "type": "string", "format": "date-time" },
+    "candidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "type", "line_start", "line_end", "confidence", "action"],
+        "properties": {
+          "id": { "type": "string", "pattern": "^c\\d{3,}$", "description": "c001, c002, ..." },
+          "type": {
+            "enum": [
+              "H", "P", "UL", "OL", "TBL", "QT", "HR", "CODE",
+              "MERMAID", "CALL-N", "CALL-D",
+              "API-A", "API-B",
+              "MOCK", "PROMPT", "AGENT", "PROTO"
+            ]
+          },
+          "subtype": {
+            "enum": ["note", "tip", "important", "warning", "caution", "h1", "h2", "h3", "h4"],
+            "description": "CALL-N 的语义类型 / H 的级别等"
+          },
+          "line_start": { "type": "integer", "minimum": 1 },
+          "line_end": { "type": "integer", "minimum": 1 },
+          "raw_excerpt": { "type": "string", "maxLength": 200, "description": "PRD 原文前 ~80 字以便用户辨识" },
+          "confidence": {
+            "enum": ["high", "medium", "low"],
+            "description": "high = 标准 MD 语法匹配 / medium = 强启发式 / low = 弱启发式（必须 Phase 3 让用户确认）"
+          },
+          "action": {
+            "enum": ["keep", "upgrade", "extract", "suggest"],
+            "description": "keep = 已是 canonical 形式无需动；upgrade = 升级 MD 语法；extract = 从段落提取（如 prompt）；suggest = canvas-only 建议"
+          },
+          "needs_user_input": {
+            "type": "array",
+            "items": { "type": "string" },
+            "description": "Phase 3 必须问用户的字段，例如 ['status_codes_4xx_5xx', 'discussion_url', 'mermaid_kind']"
+          },
+          "rewrite_preview": {
+            "type": "string",
+            "description": "建议改写后的 MD 片段预览，给用户在 checklist 看"
+          },
+          "context": {
+            "type": "object",
+            "description": "类型特定的上下文（如 API-B 的 method/url、PROMPT 的字符长度等）",
+            "additionalProperties": true
+          }
+        }
+      }
+    }
+  }
+}
