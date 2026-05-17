@@ -4582,14 +4582,31 @@
         editedIndices,
         comments: COMMENTS,
       };
+      const payloadStr = JSON.stringify(payload);
       try {
-        localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+        localStorage.setItem(STORAGE_KEY, payloadStr);
         const t = new Date();
         setSaveStatus('已保存 ' + t.toLocaleTimeString('zh-CN', { hour12: false }), 'ok');
         toast('已保存到本地（仅本浏览器）');
       } catch (e) {
-        setSaveStatus('✗ 保存失败', 'err');
-        toast('保存失败：' + e.message);
+        // QuotaExceededError: localStorage 满了（一般 5-10MB 上限）
+        const isQuota = e && (
+          e.name === 'QuotaExceededError' ||
+          e.code === 22 || e.code === 1014 ||
+          /quota/i.test(e.message || '')
+        );
+        if (isQuota) {
+          const kb = Math.round(payloadStr.length / 1024);
+          setSaveStatus('✗ localStorage 满了 (' + kb + 'KB)', 'err');
+          toast(
+            'localStorage 写满了（浏览器上限 5-10MB）。可以:\n' +
+            '· 点【下载】把 .md 存下来，浏览器清缓存后重开\n' +
+            '· 或起 server 模式（写源 .md 不挤 localStorage）'
+          );
+        } else {
+          setSaveStatus('✗ 保存失败', 'err');
+          toast('保存失败：' + e.message);
+        }
       }
     }
 
@@ -4599,9 +4616,13 @@
       try {
         resp = await fetch('/api/save', {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            'X-MD-Canvas-Token': window.MD_CANVAS_TOKEN || '',
+          },
           body: JSON.stringify({
             path: window.MD_CANVAS_PATH,
+            token: window.MD_CANVAS_TOKEN || '',
             content: newSource,
             editedIndices,
           }),

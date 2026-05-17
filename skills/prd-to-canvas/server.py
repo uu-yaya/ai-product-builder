@@ -30,11 +30,13 @@ import json
 import os
 import pathlib
 import re
+import secrets
 import subprocess
 import sys
 import threading
 import time
 import webbrowser
+from urllib.parse import urlparse
 
 try:
     from flask import Flask, request, jsonify, send_file, abort
@@ -50,6 +52,13 @@ EXCLUDE_DIRS = {".git", "node_modules", "dist", "build", "__pycache__",
 
 app = Flask(__name__)
 ROOT: pathlib.Path = pathlib.Path.cwd().resolve()
+
+# Per-server-run CSRF token. Embedded in every canvas page; POST /api/save
+# rejects requests that don't carry it. Defends against attacks where a
+# malicious site you visit POSTs to your local server (server is bound to
+# 127.0.0.1 but the browser will happily send same-origin-ish requests if
+# the site embeds an iframe or fetch to localhost).
+SESSION_TOKEN: str = secrets.token_urlsafe(32)
 
 
 # ---------------------------------------------------------------------------
@@ -83,9 +92,14 @@ def render_canvas_html(md_path: pathlib.Path, rel_path: str) -> str:
             .replace("__PRD_FILENAME__", md_path.name)
             .replace("__PRD_TITLE__", md_path.stem)
             .replace("__MARKDOWN_SOURCE_INLINE__", safe_md))
-    # Inject the relative path so canvas save() knows what file to POST back
-    injection = (f"<script>window.MD_CANVAS_PATH = "
-                 f"{json.dumps(rel_path)};</script>")
+    # Inject the relative path + per-session CSRF token so canvas save() knows
+    # what file to POST back and proves it was served by us.
+    injection = (
+        f"<script>"
+        f"window.MD_CANVAS_PATH = {json.dumps(rel_path)};"
+        f"window.MD_CANVAS_TOKEN = {json.dumps(SESSION_TOKEN)};"
+        f"</script>"
+    )
     html = html.replace("</head>", injection + "\n</head>", 1)
     return html
 
@@ -224,8 +238,30 @@ def serve_path(relpath: str):
     return send_file(abs_path)
 
 
+def _csrf_check() -> tuple[bool, str]:
+    """Validate request origin + CSRF token. Returns (ok, error_msg)."""
+    # 1. Token from header or body
+    body = request.get_json(silent=True) or {}
+    token = request.headers.get("X-MD-Canvas-Token") or body.get("token")
+    if not token or not secrets.compare_digest(str(token), SESSION_TOKEN):
+        return False, "CSRF token missing or mismatch"
+    # 2. Origin / Referer must point at our own host (defense in depth)
+    origin = request.headers.get("Origin", "")
+    referer = request.headers.get("Referer", "")
+    src = origin or referer
+    if src:
+        host = urlparse(src).hostname or ""
+        if host not in ("127.0.0.1", "localhost"):
+            return False, f"unexpected origin: {src}"
+    return True, ""
+
+
 @app.route("/api/save", methods=["POST"])
 def api_save():
+    ok, err = _csrf_check()
+    if not ok:
+        return jsonify(ok=False, stage="csrf", error=err), 403
+
     data = request.get_json(silent=True) or {}
     relpath = data.get("path")
     content = data.get("content")
@@ -289,8 +325,31 @@ def api_save():
 
 @app.route("/api/status")
 def api_status():
-    """Quick health check so canvas can detect server-mode at load time."""
-    return jsonify(ok=True, root=str(ROOT), template_ok=TEMPLATE_PATH.exists())
+    """Quick health check so canvas can detect server-mode at load time
+    and so a duplicate server startup can detect existing instance."""
+    return jsonify(ok=True, root=str(ROOT), template_ok=TEMPLATE_PATH.exists(),
+                   product="md-canvas-server", pid=os.getpid())
+
+
+def _probe_port(port: int) -> dict | None:
+    """Return JSON dict if port responds as another md-canvas-server, None
+    if free/unknown. Used to detect duplicate-start vs port-collision."""
+    import socket
+    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    s.settimeout(0.3)
+    try:
+        s.connect(("127.0.0.1", port))
+        s.close()
+    except (ConnectionRefusedError, OSError):
+        return None  # nothing on this port
+    # Something IS listening. Try our /api/status to see if it's us.
+    try:
+        from urllib.request import urlopen
+        from urllib.error import URLError
+        with urlopen(f"http://127.0.0.1:{port}/api/status", timeout=1) as r:
+            return json.loads(r.read().decode())
+    except (URLError, json.JSONDecodeError, OSError):
+        return {"product": "unknown"}  # something else on this port
 
 
 # ---------------------------------------------------------------------------
@@ -323,6 +382,25 @@ def main():
     if not TEMPLATE_PATH.exists():
         sys.exit(f"error: template not found at {TEMPLATE_PATH}\n"
                  f"  did you move server.py out of skills/prd-to-canvas/?")
+
+    # Idempotency: probe target port before binding
+    probe = _probe_port(args.port)
+    if probe and probe.get("product") == "md-canvas-server":
+        url_existing = f"http://localhost:{args.port}/"
+        print(f"ℹ  md-canvas-server 已在 :{args.port} 上跑（PID {probe.get('pid')}）")
+        print(f"   serving:  {probe.get('root')}")
+        print(f"   url:      {url_existing}")
+        if not args.no_browser:
+            threading.Thread(target=_open_browser, args=(url_existing,),
+                             daemon=True).start()
+        print(f"   已在浏览器打开。不再启第二个。Ctrl-C 退出此命令。")
+        return
+    if probe and probe.get("product") != "md-canvas-server":
+        sys.exit(
+            f"error: 端口 {args.port} 被别的进程占了（不是 md-canvas-server）。\n"
+            f"  · 换端口:    python3 {sys.argv[0] or 'server.py'} --port 7800\n"
+            f"  · 或先停掉占用进程: lsof -i :{args.port}"
+        )
 
     url = f"http://localhost:{args.port}/"
     pid = os.getpid()

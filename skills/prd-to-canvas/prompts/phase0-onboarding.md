@@ -162,8 +162,8 @@ mermaid 自动画图、能加 Mock / Prompt 实验 / 评论等。
 跑这些命令，记结果。**全部 read-only，不动用户环境**：
 
 ```bash
-# Python
-python3 --version 2>&1 || python --version 2>&1 || echo "MISSING"
+# Python — 只接受 python3，不 fallback bare python（可能命中 Python 2）
+python3 --version 2>&1 || echo "MISSING: 必须装 Python 3（不接受 Python 2）"
 
 # Flask
 python3 -c "import flask; print(flask.__version__)" 2>&1 || echo "MISSING"

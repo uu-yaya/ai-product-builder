@@ -15,7 +15,7 @@
         "type": "object",
         "required": ["id", "type", "line_start", "line_end", "confidence", "action"],
         "properties": {
-          "id": { "type": "string", "pattern": "^c\\d{3,}$", "description": "c001, c002, ..." },
+          "id": { "type": "string", "pattern": "^[a-z]+\\d{3,}$", "description": "c001, c002, ... (执行 agent) 或 r001, r002, ... (审核 agent 在 review.json 里的 additions)" },
           "type": {
             "enum": [
               "H", "P", "UL", "OL", "TBL", "QT", "HR", "CODE",
