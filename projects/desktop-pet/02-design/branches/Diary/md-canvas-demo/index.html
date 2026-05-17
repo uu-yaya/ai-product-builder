@@ -5772,10 +5772,17 @@ erDiagram
     function save() {
       commitBlockEdits();
       const newSource = serializeAllToMarkdown();
+      // Record which blocks are edited so checkRestore() can skip prompting
+      // when nothing was actually changed (serializeAllToMarkdown isn't fully
+      // idempotent and may produce trivial whitespace diffs vs ORIGINAL_SOURCE).
+      const editedNodes = Array.from(document.querySelectorAll('.md-block[data-edited="true"]'));
+      const allBlocks = Array.from(document.querySelectorAll('#content > .md-block'));
+      const editedIndices = editedNodes.map(el => allBlocks.indexOf(el)).filter(i => i >= 0);
       const payload = {
         filename: FILENAME,
         savedAt: new Date().toISOString(),
         source: newSource,
+        editedIndices,
         comments: COMMENTS,
       };
       try {
@@ -5797,7 +5804,15 @@ erDiagram
       if (!raw) return;
       let payload;
       try { payload = JSON.parse(raw); } catch { return; }
-      if (!payload || !payload.source || payload.source === ORIGINAL_SOURCE) return;
+      if (!payload || !payload.source) return;
+      // New payloads carry editedIndices. If it's explicitly empty, there were
+      // no real edits — drop the stale snapshot and skip the prompt entirely.
+      // (Legacy payloads without the field fall through to the source compare.)
+      if (Array.isArray(payload.editedIndices) && payload.editedIndices.length === 0) {
+        localStorage.removeItem(STORAGE_KEY);
+        return;
+      }
+      if (payload.source === ORIGINAL_SOURCE) return;
 
       const slot = document.getElementById('restore-slot');
       const banner = document.createElement('div');
