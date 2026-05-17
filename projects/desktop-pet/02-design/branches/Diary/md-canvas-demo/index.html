@@ -385,8 +385,7 @@
       color: var(--on-dark);
       font-family: var(--font-mono);
     }
-    .code-lang-toolbar .clt-json-btn,
-    .code-lang-toolbar .clt-mock-btn {
+    .code-lang-toolbar .clt-json-btn {
       background: transparent;
       border: 1px solid rgba(255, 255, 255, 0.2);
       color: var(--on-dark);
@@ -398,14 +397,10 @@
       margin-left: 8px;
       display: none;
     }
-    .code-lang-toolbar .clt-json-btn:hover,
-    .code-lang-toolbar .clt-mock-btn:hover { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.4); }
+    .code-lang-toolbar .clt-json-btn:hover { background: rgba(255, 255, 255, 0.14); border-color: rgba(255, 255, 255, 0.4); }
     .md-block.md-code[data-code-lang="json"]  .code-lang-toolbar .clt-json-btn,
     .md-block.md-code[data-code-lang="jsonl"] .code-lang-toolbar .clt-json-btn { display: inline-block; }
-    /* JSON → Mock only on RESPONSE-tagged json blocks (前面段落含"输出/响应/返回") */
-    .md-block.md-code[data-code-lang="json"][data-api-role="response"]  .code-lang-toolbar .clt-mock-btn,
-    .md-block.md-code[data-code-lang="jsonl"][data-api-role="response"] .code-lang-toolbar .clt-mock-btn { display: inline-block; }
-    /* Optional indicator: request-role JSONs get a subtle "input" hint via the toolbar */
+    /* 接口契约块 B 模式会把这些 JSON 隐藏；这里只是 [展开] 后的小提示 */
     .md-block.md-code[data-api-role="request"] .code-lang-toolbar::after {
       content: '请求示例';
       color: rgba(255,255,255,0.45);
@@ -419,32 +414,6 @@
       font-size: 10px;
       margin-left: 6px;
       letter-spacing: 0.5px;
-    }
-    /* When a code block is linked to a mock, the button turns into a "已绑" indicator */
-    .md-block.md-code[data-mock-id] .code-lang-toolbar .clt-mock-btn {
-      background: rgba(93, 184, 114, 0.18);
-      border-color: rgba(93, 184, 114, 0.55);
-      color: #cdebd6;
-    }
-    .md-block.md-code[data-mock-id] .code-lang-toolbar .clt-mock-btn::before { content: '● '; }
-
-    /* "源 JSON" badge inside Mock head */
-    .mk-source-badge {
-      display: inline-flex; align-items: center; gap: 4px;
-      padding: 3px 9px;
-      background: var(--surface-card);
-      border-radius: var(--r-pill);
-      font-size: 11px;
-      color: var(--primary-active);
-      font-family: var(--font-mono);
-      cursor: pointer;
-      border: none;
-      max-width: 260px;
-    }
-    .mk-source-badge:hover { background: var(--primary); color: var(--on-primary); }
-    .mk-source-text {
-      overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-      min-width: 0;
     }
 
     /* JSON → table output area */
@@ -2747,66 +2716,6 @@
     }
     .al-preset:hover { border-color: var(--muted); }
 
-    /* Preset manage modal */
-    .al-preset-modal {
-      position: fixed; inset: 0;
-      background: rgba(20, 20, 19, 0.45);
-      display: none; align-items: center; justify-content: center;
-      z-index: 210; backdrop-filter: blur(2px);
-    }
-    .al-preset-modal.is-show { display: flex; }
-    .al-preset-modal-box {
-      background: var(--canvas);
-      border-radius: var(--r-xl);
-      width: min(640px, calc(100vw - 48px));
-      max-height: min(560px, calc(100vh - 80px));
-      box-shadow: 0 20px 60px rgba(20, 20, 19, 0.30);
-      display: flex; flex-direction: column; overflow: hidden;
-    }
-    .al-preset-modal-head {
-      padding: 14px 20px;
-      border-bottom: 1px solid var(--hairline);
-      display: flex; justify-content: space-between; align-items: center;
-    }
-    .al-preset-modal-head h3 {
-      font-family: var(--font-serif);
-      font-size: 20px; font-weight: 500; color: var(--ink);
-    }
-    .al-preset-modal-actions { display: flex; gap: 8px; }
-    .al-preset-modal-body {
-      flex: 1; overflow-y: auto;
-      padding: 12px 20px 20px;
-    }
-    .al-preset-row {
-      display: flex; align-items: center; gap: 10px;
-      padding: 10px 12px;
-      border: 1px solid var(--hairline);
-      border-radius: var(--r-md);
-      margin-bottom: 8px;
-      background: var(--surface-soft);
-    }
-    .al-preset-row.is-builtin { opacity: 0.7; background: var(--canvas); }
-    .al-preset-row-name { flex: 1; font-family: var(--font-mono); font-size: 12.5px; color: var(--ink); }
-    .al-preset-row-meta { color: var(--muted); font-size: 11px; font-family: var(--font-mono); }
-    .al-preset-row-actions { display: flex; gap: 6px; }
-    .al-preset-row-actions button {
-      background: transparent;
-      border: 1px solid var(--hairline);
-      color: var(--muted);
-      padding: 3px 8px;
-      border-radius: var(--r-sm);
-      font-size: 11px;
-      cursor: pointer;
-      font-family: var(--font-sans);
-    }
-    .al-preset-row-actions button:hover { color: var(--ink); border-color: var(--ink); }
-    .al-preset-row-actions button.is-danger:hover { color: var(--error); border-color: var(--error); }
-    .al-preset-empty {
-      text-align: center; color: var(--muted);
-      font-family: var(--font-mono); font-size: 12px;
-      padding: 30px 0;
-    }
-
     /* ============================================ Prototype preview block ============================================ */
     .md-prototype { position: relative; margin: var(--sp-lg) 0; }
     .prototype-frame-wrap {
@@ -3931,22 +3840,6 @@
         <button type="button" class="ai-btn-ghost" id="part-edit-cancel">取消</button>
         <button type="button" class="ai-btn-primary" id="part-edit-save">应用到 part</button>
       </footer>
-    </div>
-  </div>
-
-  <!-- Agent preset manage modal -->
-  <div class="al-preset-modal" id="al-preset-modal" aria-hidden="true">
-    <div class="al-preset-modal-box">
-      <header class="al-preset-modal-head">
-        <h3> Agent 预设</h3>
-        <div class="al-preset-modal-actions">
-          <input type="file" id="al-preset-import-file" accept="application/json,.json" hidden>
-          <button type="button" class="ai-btn-ghost" id="al-preset-import-btn" title="从 JSON 导入预设">导入</button>
-          <button type="button" class="ai-btn-ghost" id="al-preset-export-btn" title="把我的预设导出为 JSON">导出</button>
-          <button type="button" class="ai-close" id="al-preset-close" title="关闭">×</button>
-        </div>
-      </header>
-      <div class="al-preset-modal-body" id="al-preset-list"></div>
     </div>
   </div>
 
@@ -9423,10 +9316,6 @@ erDiagram
     function saveUserAgentPresets(list) {
       try { localStorage.setItem(AGENT_PRESETS_KEY, JSON.stringify({ version: 1, presets: list })); } catch {}
     }
-    function getAgentPreset(id) {
-      return [...BUILTIN_AGENT_PRESETS, ...loadUserAgentPresets()].find(p => p.id === id) || null;
-    }
-
     // ---- Version detail modal (shared) ----
     const versionDetailModal = document.getElementById('version-detail-modal');
     const versionDetailTitle = document.getElementById('version-detail-title');
@@ -9572,28 +9461,6 @@ erDiagram
       if (!m) return 'v1.0';
       return 'v' + parseInt(m[1], 10) + '.' + (parseInt(m[2] || '0', 10) + 1);
     }
-    function newAgentPresetId() { return 'preset_' + Math.random().toString(36).slice(2, 10); }
-
-    function applyAgentPreset(section, preset) {
-      const id = section.dataset.agentLabId;
-      const stored = loadAgentLabs().find(x => x.id === id);
-      if (!stored) return;
-      updateAgentLab(id, {
-        method: preset.method,
-        url: preset.url,
-        headers: preset.headers || parseHeadersTextToKv(preset.headersText || ''),
-        bodyMode: preset.bodyMode || (preset.bodyText ? 'raw' : 'kv'),
-        bodyKv: preset.bodyKv || [],
-        bodyRaw: preset.bodyRaw != null ? preset.bodyRaw : (preset.bodyText || ''),
-        vars: (preset.varHints || []).map(v => ({ name: v.name || '', value: v.value || '' })),
-        appliedPresetId: preset.id,
-      });
-      const fresh = loadAgentLabs().find(x => x.id === id);
-      const newSection = createAgentLabSection(fresh);
-      section.replaceWith(newSection);
-      toast('已应用预设：' + preset.name);
-    }
-
     // ============================================================
     // C4 — Agent 实验块 <-> Agent 仓库 链接
     // ============================================================
@@ -9684,141 +9551,6 @@ erDiagram
       const fresh = loadAgentLabs().find(x => x.id === id);
       section.replaceWith(createAgentLabSection(fresh));
       toast('已存为 ' + ag.name + ' · ' + lbl);
-    }
-
-    function saveCurrentAsAgentPreset(section) {
-      const id = section.dataset.agentLabId;
-      const stored = loadAgentLabs().find(x => x.id === id);
-      if (!stored) return;
-      const name = (prompt('给这个预设取个名字（同事互通用）：', stored.title || '') || '').trim();
-      if (!name) return;
-      const presets = loadUserAgentPresets();
-      presets.push({
-        id: newAgentPresetId(),
-        name,
-        builtin: false,
-        method: stored.method,
-        url: stored.url,
-        headers: (stored.headers || []).map(h => ({ name: h.name || '', value: h.value || '' })),
-        bodyMode: stored.bodyMode || 'kv',
-        bodyKv: (stored.bodyKv || []).map(kv => ({ name: kv.name || '', value: kv.value || '' })),
-        bodyRaw: stored.bodyRaw || '',
-        varHints: (stored.vars || []).map(v => ({ name: v.name || '', value: v.value || '' })),
-      });
-      saveUserAgentPresets(presets);
-      toast('已保存预设：' + name);
-      // Re-render so the dropdown picks up the new entry
-      const fresh = loadAgentLabs().find(x => x.id === id);
-      section.replaceWith(createAgentLabSection(fresh));
-    }
-
-    // ----- Manage modal -------------------------------------------------
-    const agentPresetModal = document.getElementById('al-preset-modal');
-    const agentPresetList = document.getElementById('al-preset-list');
-
-    function openAgentPresetManageModal() {
-      renderAgentPresetList();
-      agentPresetModal.classList.add('is-show');
-      agentPresetModal.setAttribute('aria-hidden', 'false');
-    }
-    function closeAgentPresetManageModal() {
-      agentPresetModal.classList.remove('is-show');
-      agentPresetModal.setAttribute('aria-hidden', 'true');
-    }
-    function renderAgentPresetList() {
-      const builtins = BUILTIN_AGENT_PRESETS;
-      const userPresets = loadUserAgentPresets();
-      const blocks = [];
-      blocks.push('<div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin:4px 0 10px;">内置预设（' + builtins.length + ' 个，不可删）</div>');
-      builtins.forEach(p => {
-        blocks.push(
-          '<div class="al-preset-row is-builtin">' +
-            '<span class="al-preset-row-name">' + escapeHtml(p.name) + '</span>' +
-            '<span class="al-preset-row-meta">' + escapeHtml(p.method) + '</span>' +
-          '</div>'
-        );
-      });
-      blocks.push('<div style="font-family:var(--font-mono);font-size:11px;color:var(--muted);margin:16px 0 10px;">我的预设（' + userPresets.length + '）</div>');
-      if (!userPresets.length) {
-        blocks.push('<div class="al-preset-empty">还没有自定义预设。<br>在 Agent 实验块里点  选预设 →  把当前状态存为新预设</div>');
-      } else {
-        userPresets.forEach(p => {
-          blocks.push(
-            '<div class="al-preset-row" data-pid="' + escapeHtml(p.id) + '">' +
-              '<span class="al-preset-row-name">' + escapeHtml(p.name) + '</span>' +
-              '<span class="al-preset-row-meta">' + escapeHtml(p.method) + ' · ' + escapeHtml(p.url.slice(0, 40)) + (p.url.length > 40 ? '…' : '') + '</span>' +
-              '<div class="al-preset-row-actions">' +
-                '<button type="button" data-act="rename">改名</button>' +
-                '<button type="button" data-act="delete" class="is-danger">删除</button>' +
-              '</div>' +
-            '</div>'
-          );
-        });
-      }
-      agentPresetList.innerHTML = blocks.join('');
-      // Bind row actions
-      agentPresetList.querySelectorAll('.al-preset-row[data-pid]').forEach(row => {
-        const pid = row.dataset.pid;
-        const renameBtn = row.querySelector('[data-act="rename"]');
-        const deleteBtn = row.querySelector('[data-act="delete"]');
-        if (renameBtn) renameBtn.addEventListener('click', () => {
-          const list = loadUserAgentPresets();
-          const item = list.find(x => x.id === pid);
-          if (!item) return;
-          const next = (prompt('新名字：', item.name) || '').trim();
-          if (!next || next === item.name) return;
-          item.name = next;
-          saveUserAgentPresets(list);
-          renderAgentPresetList();
-        });
-        if (deleteBtn) deleteBtn.addEventListener('click', () => {
-          if (!confirm('删除这条预设？')) return;
-          saveUserAgentPresets(loadUserAgentPresets().filter(x => x.id !== pid));
-          renderAgentPresetList();
-        });
-      });
-    }
-    // Wire modal close + export + import (idempotent — won't double-bind if module re-evaluated)
-    if (!agentPresetModal.dataset.wired) {
-      agentPresetModal.dataset.wired = '1';
-      document.getElementById('al-preset-close').addEventListener('click', closeAgentPresetManageModal);
-      agentPresetModal.addEventListener('click', (e) => { if (e.target === agentPresetModal) closeAgentPresetManageModal(); });
-      document.getElementById('al-preset-export-btn').addEventListener('click', () => {
-        const presets = loadUserAgentPresets();
-        if (!presets.length) { toast('还没有自定义预设可导出'); return; }
-        const blob = new Blob([JSON.stringify({ version: 1, presets }, null, 2)], { type: 'application/json' });
-        const a = document.createElement('a');
-        a.href = URL.createObjectURL(blob);
-        a.download = 'agent-presets-' + new Date().toISOString().slice(0, 10) + '.json';
-        a.click();
-        setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-      });
-      const importFile = document.getElementById('al-preset-import-file');
-      document.getElementById('al-preset-import-btn').addEventListener('click', () => importFile.click());
-      importFile.addEventListener('change', async () => {
-        const f = importFile.files && importFile.files[0];
-        if (!f) return;
-        try {
-          const text = await f.text();
-          const data = JSON.parse(text);
-          const incoming = Array.isArray(data.presets) ? data.presets : [];
-          if (!incoming.length) { toast('文件里没有预设'); return; }
-          const mode = confirm('导入 ' + incoming.length + ' 条预设。\n确定 = 追加到现有预设\n取消 = 替换全部现有自定义预设') ? 'append' : 'replace';
-          if (mode === 'append') {
-            const merged = [...loadUserAgentPresets()];
-            incoming.forEach(p => merged.push({ ...p, id: newAgentPresetId(), builtin: false }));
-            saveUserAgentPresets(merged);
-          } else {
-            saveUserAgentPresets(incoming.map(p => ({ ...p, id: newAgentPresetId(), builtin: false })));
-          }
-          renderAgentPresetList();
-          toast('已导入：' + incoming.length + ' 条预设');
-        } catch (err) {
-          toast('导入失败：' + (err.message || err));
-        } finally {
-          importFile.value = '';
-        }
-      });
     }
 
     // Build the agent-lab head bound to the specific DOM section passed in.
@@ -10576,31 +10308,15 @@ erDiagram
       head.className = 'mk-head';
       head.contentEditable = 'false';
       head.dataset.skipSerialize = 'true';
-      const sourceBadgeHtml = m.sourceCodeBlockId
-        ? '<button type="button" class="mk-source-badge" title="跳转到源 JSON 代码块">' +
-            '<span>源</span>' +
-            '<span class="mk-source-text">' + escapeHtml(m.sourceLabel || '上方 JSON 块') + '</span>' +
-          '</button>'
-        : '';
       head.innerHTML =
         '<span class="mk-icon" title="接口 Mock 块">○</span>' +
         '<input type="text" class="mk-title" placeholder="Mock 标题（如：日记接口假数据）" value="' + escapeHtml(m.title || '') + '">' +
-        sourceBadgeHtml +
         '<button type="button" class="mk-toggle" title="启用 / 停用拦截"><span class="mk-toggle-dot"></span><span class="mk-toggle-label">停用</span></button>' +
         '<button type="button" class="mk-test" title="本地跑一下：用上面的 method+url 自打一次 fetch，验证拦截生效">测试</button>' +
         '<button type="button" class="mk-icon-btn mk-comment" title="给这块加评论">评</button>' +
         '<button type="button" class="mk-icon-btn mk-delete" title="删除此块">删</button>';
       const titleInput = head.querySelector('.mk-title');
       titleInput.addEventListener('input', () => updateMock(m.id, { title: titleInput.value }));
-
-      const sourceBadge = head.querySelector('.mk-source-badge');
-      if (sourceBadge) {
-        sourceBadge.addEventListener('click', () => {
-          const target = document.querySelector('.md-code[data-code-block-id="' + m.sourceCodeBlockId + '"]');
-          if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-          else toast('源 JSON 块已被删除');
-        });
-      }
 
       const toggleBtn = head.querySelector('.mk-toggle');
       const toggleLabel = toggleBtn.querySelector('.mk-toggle-label');
@@ -10760,9 +10476,6 @@ erDiagram
         responseHeaders: opts.responseHeaders || 'Content-Type: application/json',
         responseBody: opts.responseBody != null ? opts.responseBody : '{"hello": "mocked"}',
         sampleRequest: opts.sampleRequest != null ? opts.sampleRequest : '',
-        sourceCodeBlockId: opts.sourceCodeBlockId || null,
-        sourceRequestCodeBlockId: opts.sourceRequestCodeBlockId || null,
-        sourceLabel: opts.sourceLabel || null,
       };
       list.push(m);
       saveMocks(list);
@@ -10804,138 +10517,6 @@ erDiagram
         prev = prev.previousElementSibling;
       }
       section.removeAttribute('data-api-role');
-    }
-
-    // Walk back from an OUTPUT JSON to find the matching INPUT JSON in the same section
-    // (stops at headings to avoid leaking across API definitions).
-    function findPairedRequestJson(outputSection) {
-      let cur = outputSection.previousElementSibling;
-      while (cur) {
-        if (cur.classList.contains('md-heading')) return null;
-        if (cur.classList.contains('md-code') && cur.dataset.apiRole === 'request') return cur;
-        cur = cur.previousElementSibling;
-      }
-      return null;
-    }
-
-    // Wizard: bind a Mock block. Source: an "OUTPUT" JSON code block. Also picks up
-    // the paired "INPUT" JSON above as the sample request body (Apifox-style:
-    // contract = method + url + request example + response example).
-    function bindMockFromJson(respSection) {
-      const existingId = respSection.dataset.mockId;
-      const all = loadMocks();
-      const existing = existingId ? all.find(x => x.id === existingId) : null;
-      if (existing) {
-        const choice = prompt(
-          '已绑定 Mock：' + (existing.title || existing.url || '(未命名)') + '\n\n' +
-          '输入 g = 跳到该 Mock 块  /  u = 解绑此 JSON  /  取消 = 不动',
-          'g'
-        );
-        if (!choice) return;
-        if (choice.trim().toLowerCase() === 'u') {
-          delete respSection.dataset.mockId;
-          toast('已解绑（Mock 块仍在）');
-          return;
-        }
-        const target = document.querySelector('.md-mockblock[data-mock-id="' + existing.id + '"]');
-        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        return;
-      }
-      const respText = (respSection.querySelector('pre > code') || {}).textContent || '';
-      const reqSection = findPairedRequestJson(respSection);
-      const reqText = reqSection
-        ? (reqSection.querySelector('pre > code') || {}).textContent || ''
-        : '';
-      const headingInfo = findNearestPrecedingHeading(respSection);
-      const defaultTitle = headingInfo ? headingInfo.text : '';
-
-      const titleAns = prompt(
-        '接口标题（来自 PRD 中最近的标题）：',
-        defaultTitle
-      );
-      if (titleAns == null) return;
-      const url = prompt('要拦截的 URL（完全匹配）：', 'http://localhost:7788/');
-      if (!url || !url.trim()) return;
-      const method = (prompt('METHOD（GET / POST / PUT / PATCH / DELETE）：', 'POST') || 'POST').trim().toUpperCase();
-
-      // Stable ids on the source code blocks so reload-time hash-reconnect can wire them back
-      if (!respSection.dataset.codeBlockId) {
-        respSection.dataset.codeBlockId = 'cb_' + Math.random().toString(36).slice(2, 10);
-      }
-      if (reqSection && !reqSection.dataset.codeBlockId) {
-        reqSection.dataset.codeBlockId = 'cb_' + Math.random().toString(36).slice(2, 10);
-      }
-
-      const sourceLabel = defaultTitle
-        ? defaultTitle + (reqSection ? ' · 输入/输出 JSON' : ' · 输出 JSON')
-        : (reqSection ? '上方输入/输出 JSON 对' : '上方 JSON 块');
-
-      const result = createMockAt(respSection, {
-        title: titleAns.trim() || defaultTitle || '从 PRD 接口绑定的 Mock',
-        method,
-        url: url.trim(),
-        responseHeaders: 'Content-Type: application/json',
-        responseBody: respText,
-        sampleRequest: reqText,
-        sourceCodeBlockId: respSection.dataset.codeBlockId,
-        sourceRequestCodeBlockId: reqSection ? reqSection.dataset.codeBlockId : null,
-        sourceLabel,
-        silent: true,
-        skipFocus: true,
-      });
-      if (!result) return;
-      respSection.dataset.mockId = result.mock.id;
-      if (reqSection) reqSection.dataset.requestMockId = result.mock.id;
-      toast(
-        '已建接口契约 Mock：' + method + ' ' + url.trim() +
-        (reqSection ? '（已配对输入 JSON 作为请求示例）' : '（没找到配对的输入 JSON）')
-      );
-      result.section.scrollIntoView({ behavior: 'smooth', block: 'center' });
-    }
-
-    // Cheap content hash so we can reconnect a code block to its mock after
-    // page reload (the dataset.mockId attribute is session-only since the
-    // section DOM is rebuilt on each render).
-    function hashStr(s) {
-      let h = 0;
-      for (let i = 0; i < (s || '').length; i++) h = ((h << 5) - h + s.charCodeAt(i)) | 0;
-      return h.toString(36);
-    }
-    function tryReconnectCodeToMock(section) {
-      const codeText = (section.querySelector('pre > code') || {}).textContent || '';
-      if (codeText.trim().length < 30) return;
-      const hash = hashStr(codeText);
-      const list = loadMocks();
-      // As RESPONSE source?
-      if (!section.dataset.mockId) {
-        const respHit = list.find(m => m.sourceCodeBlockId && hashStr(m.responseBody || '') === hash);
-        if (respHit) {
-          section.dataset.codeBlockId = respHit.sourceCodeBlockId;
-          section.dataset.mockId = respHit.id;
-        }
-      }
-      // As REQUEST source?
-      if (!section.dataset.requestMockId) {
-        const reqHit = list.find(m => m.sourceRequestCodeBlockId && hashStr(m.sampleRequest || '') === hash);
-        if (reqHit) {
-          section.dataset.codeBlockId = reqHit.sourceRequestCodeBlockId;
-          section.dataset.requestMockId = reqHit.id;
-        }
-      }
-    }
-
-    // Walk back through siblings to find the nearest heading section before this block
-    function findNearestPrecedingHeading(section) {
-      let cur = section.previousElementSibling;
-      while (cur) {
-        if (cur.classList && cur.classList.contains('md-heading')) {
-          const h = cur.querySelector('h1, h2, h3, h4, h5, h6');
-          const text = h ? (h.textContent || '').replace(/^[▼▶▾▴]\s*/, '').trim() : '';
-          if (text) return { section: cur, text };
-        }
-        cur = cur.previousElementSibling;
-      }
-      return null;
     }
 
     function renderAllMocks() {
@@ -11362,8 +10943,7 @@ erDiagram
       tb.innerHTML =
         '<span class="clt-label">lang</span>' +
         '<select>' + buildLangSelectOptions(currentLang) + '</select>' +
-        '<button type="button" class="clt-json-btn" title="把这段 JSON 渲染成表格">JSON → 表</button>' +
-        '<button type="button" class="clt-mock-btn" title="用这段 JSON 作为 Mock 响应：在下面建一个 Mock 块，绑定此 JSON；之后改这里 mock 自动跟">JSON → Mock</button>';
+        '<button type="button" class="clt-json-btn" title="把这段 JSON 渲染成表格">JSON → 表</button>';
       section.appendChild(tb);
 
       applyLangToCode(section, currentLang);
@@ -11392,44 +10972,10 @@ erDiagram
 
       // JSON → table button (#49)
       tb.querySelector('.clt-json-btn').addEventListener('click', () => toggleJsonTable(section));
-      // JSON → Mock button (#68/69: bind both request + response sources to a Mock)
-      tb.querySelector('.clt-mock-btn').addEventListener('click', () => bindMockFromJson(section));
       // Tag this JSON as 请求 / 响应 based on the preceding paragraph
       tagApiRoleForCodeBlock(section);
-      // After reload, dataset.mockId / requestMockId are lost — try content-hash reconnect
-      tryReconnectCodeToMock(section);
 
       // Live-sync: edits to a bound code block push into its mock
-      const codeEl = section.querySelector('pre > code');
-      if (codeEl) {
-        codeEl.addEventListener('input', () => {
-          // As RESPONSE source → mock.responseBody
-          const respMockId = section.dataset.mockId;
-          if (respMockId) {
-            const list = loadMocks();
-            const mk = list.find(x => x.id === respMockId);
-            if (mk) {
-              mk.responseBody = codeEl.textContent || '';
-              saveMocks(list);
-              const live = document.querySelector('.md-mockblock[data-mock-id="' + respMockId + '"]');
-              if (live) {
-                const ta = live.querySelector('.mk-resp-body');
-                if (ta && ta.value !== mk.responseBody) ta.value = mk.responseBody;
-              }
-            } else delete section.dataset.mockId;
-          }
-          // As REQUEST source → mock.sampleRequest
-          const reqMockId = section.dataset.requestMockId;
-          if (reqMockId) {
-            const list = loadMocks();
-            const mk = list.find(x => x.id === reqMockId);
-            if (mk) {
-              mk.sampleRequest = codeEl.textContent || '';
-              saveMocks(list);
-            } else delete section.dataset.requestMockId;
-          }
-        });
-      }
     }
 
     // ----- JSON → table rendering (#49) -----
