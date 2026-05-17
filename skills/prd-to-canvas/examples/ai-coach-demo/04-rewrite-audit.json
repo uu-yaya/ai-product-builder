@@ -1,0 +1,14 @@
+{
+  "version": "1.0",
+  "audit_at": "2026-05-17T19:55:00Z",
+  "verdict": "pass",
+  "checks": {
+    "voice_preserved": true,
+    "no_unauthorized_changes": true,
+    "all_decisions_applied": true,
+    "yaml_valid": true,
+    "mermaid_valid": true
+  },
+  "issues": [],
+  "summary": "5 项硬性检查全部通过。canonical.md 正确反映了 decisions.json 的所有 73 项决策：13 项 upgrade（含 2 处 callout、2 处 ·→- 升级、3 个 API-B→A、2 个 mermaid 新增、2 处 discussion callout 提取），3 项 skip（c017 ASCII 流程图、c044 ASCII 状态机、c057 rollout 文字描述），其余 keep。c031/c034 用户补的 4xx/5xx 已正确 inline 到 ```api fence。c037 (/coach/config) 未补 4xx/5xx 保留 # TODO 占位。所有 ```api fence 的 YAML 能被 parseApiSpecYaml 正确解析；所有 ```mermaid fence 语法合法。用户原文措辞 100% 保留（仅做格式包装、补字段、容器包裹）。canvas-only 块建议（3 Mock + 3 Prompt + 1 Agent + 2 Proto）已正确放入 canonical.md 末尾 HTML 注释，等 Phase 4 注入 index.html 顶部的 banner。"
+}

@@ -1,0 +1,38 @@
+{
+  "version": "1.0",
+  "audit_at": "2026-05-17T19:42:00Z",
+  "verdict": "needs_revision",
+  "issues": [
+    {
+      "kind": "boundary_error",
+      "candidate_id": "c053",
+      "description": "c053 (CALL-N caution) 把 L209-L213 整段囊括（含下方 4 项 UL），但 callout 内嵌列表用 > - 前缀会更清晰；建议把列表也 inline 进 callout body",
+      "suggested_fix": {
+        "rewrite_preview": "> [!caution]\n> 任何包含下列内容的教练回复必须拦截并兜底为\"再试一次\"：\n> - 人身攻击（菜 / 垃圾 / 演员 / 坑 / 送）\n> - 段位贬低（\"这段位别玩 XX 英雄\"）\n> - 政治 / 涉黄 / 涉赌 / 涉毒\n> - 真实玩家昵称（防止间接攻击）"
+      }
+    },
+    {
+      "kind": "confidence_overstated",
+      "candidate_id": "c057",
+      "description": "c057 (MERMAID rollout 漏斗) confidence=low 偏低；PRD 明确写了 4 阶段且括号注释\"可以画 mermaid\"，应该至少 medium",
+      "suggested_fix": { "confidence": "medium" }
+    }
+  ],
+  "additions": [
+    {
+      "id": "r001",
+      "type": "PROTO",
+      "line_start": 11,
+      "line_end": 11,
+      "raw_excerpt": "Figma: https://www.figma.com/file/abc123/coach-ui",
+      "confidence": "high",
+      "action": "suggest",
+      "context": {
+        "url": "https://www.figma.com/file/abc123/coach-ui",
+        "note": "元信息表格里也有一个 Figma 链接，与 c068 重复但位置不同；可加 PROTO 块"
+      }
+    }
+  ],
+  "removals": [],
+  "notes": "执行 agent 检测到了 73 个候选，覆盖 15/17 类块。两个小问题：c053 的 callout body 没有 inline 列表（不影响功能但可读性更好），c057 confidence 偏低应升 medium。另外漏检了 1 个 PROTO 候选（L11 元信息表里的 Figma 链接）。整体质量过得去，建议主 agent 处理 issues + 添加 r001 后进 Phase 2。"
+}

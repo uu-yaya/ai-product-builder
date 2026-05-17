@@ -53,10 +53,15 @@ PRD.md
 Phase 1 解析        执行 agent → candidates.json
                     (模式 E) → 审核 agent 复查 → review.json → 合并修正
                                   ↓
-Phase 2 覆盖报告    单 agent 聚合 → coverage.json + analysis.html
+Phase 2 覆盖报告    单 agent 聚合 → coverage.json + analysis.html (read-only dashboard)
                                   ↓
-Phase 3 确认 ✅     单 agent 出 checklist.html，用户勾选 → decisions.json
-                    (循环：用户有任何 reject → 回 Phase 1 重跑)
+Phase 3 决策(对话)   agent 用 AskUserQuestion 按批次问用户:
+                      B1 高置信度 keep（默认 accept，不问）
+                      B2 简单升级（按 category 一次性问 [全部 accept / 逐个看 / skip]）
+                      B3 需用户输入（mermaid_kind / status_codes / discussion_url）逐个问
+                      B4 Canvas-only 建议（一次性问是否在 index.html banner 列出）
+                    全部决策记到 decisions.json (审计/重放)
+                    (循环：用户对某候选选"请审核" → 回 Phase 1 重跑那批)
                                   ↓
 Phase 4 生成       执行 agent 重写 → canonical.md
                     (模式 E) → 审核 agent 对比原 PRD + decisions + canonical
@@ -66,6 +71,8 @@ Phase 4 生成       执行 agent 重写 → canonical.md
 ```
 
 每 phase 的 prompt 在 `./prompts/phase{1,2,3,4}-*.md`。模式 E 多两个文件：`phase1-review.md` / `phase4-review.md`。按需读取。
+
+**重要范式**：所有用户输入走对话（AskUserQuestion）。HTML 只用于**只读 dashboard**（analysis.html）和**最终交付**（index.html）。不通过 HTML 收输入——agent 看不见浏览器点击，异步交接 UX 也丑。
 
 ## 视觉设计 / DESIGN.md 覆盖
 
@@ -129,9 +136,8 @@ CSS source order 决定后定义的优先——这块自动覆盖模板内置的
 
 | 文件 | 用途 |
 | --- | --- |
-| `analysis.html` | Phase 1/2 的可视化报告 + 能力地图 |
-| `checklist.html` | Phase 3 交互式确认页 |
-| `decisions.json` | 用户在 checklist 里的勾选结果（agent 下一轮消费） |
+| `analysis.html` | Phase 2 的可视化报告 + 能力地图（只读 dashboard，可不看） |
+| `decisions.json` | Phase 3 对话中用户决策的审计/重放记录 |
 | `canonical.md` | Phase 4 重写后的标准 markdown |
 | `index.html` | 最终生成的 canvas 页面（用户在浏览器打开就能用） |
 

@@ -65,12 +65,12 @@ Use the skill at /Users/me/skills/prd-to-canvas to process xxx.md
 
 | 阶段 | 你看到什么 |
 | --- | --- |
-| **1. 解析** | agent 边读 PRD 边吐"发现一块就报一块"（终端流式 + 最后出独立 `analysis.html`） |
-| **2. 覆盖报告** | 17 类 md-canvas 块的能力地图：你这份 PRD 用了几类、候选有几类、未用的可以在 canvas 里手动加 |
-| **3. 确认 checklist** | 浏览器打开 `checklist.html`，每个候选块一行，你可以"确认升级 / 保留 / 改边界 / 跳过"。改完导出 `decisions.json`，agent 读这份继续 |
+| **1. 解析** | agent 边读 PRD 边吐"发现一块就报一块"（终端流式） |
+| **2. 覆盖报告** | 17 类 md-canvas 块的能力地图——`analysis.html` 只读 dashboard，按 category 分组 + 侧边栏跳转 |
+| **3. 决策（对话）** | agent 在终端按批次问你：大部分一句"全部 accept"过；只有需要你拍的字段（mermaid 图类型 / 接口 4xx/5xx body / 讨论 URL 等）会逐个问。决策记到 `decisions.json` 做审计 |
 | **4. 生成** | 按你的决策重写 → `canonical.md` → 注入 md-canvas 模板 → `index.html` 浏览器打开即可 |
 
-第 3 阶段是**循环**的：你 reject 多少 agent 都会重跑 1+2+3 直到你全部 OK。
+第 3 阶段对话过程中，如果你对某个候选明显犹豫，agent 会主动提议"让审核 agent 再看一眼"（仅模式 E），触发那批 candidate 重跑 Phase 1+2+3。最多 5 轮。
 
 ---
 
@@ -92,7 +92,7 @@ prd-to-canvas/
 ├── README.md             # 你正在看的这份
 ├── BLOCK_INVENTORY.md    # 17 类块的检测规则 + 重写模板
 ├── WORKFLOW.md           # 4 phase 详细流程
-├── templates/            # 可视化模板（analysis / checklist / md-canvas）
+├── templates/            # 可视化模板（analysis / md-canvas）+ DESIGN.example.md
 ├── prompts/              # 4 个 phase 的独立 prompt 指令
 ├── schemas/              # decisions.json 等数据格式契约
 └── examples/             # 完整跑通的示例（输入 → 中间产物 → 输出）
@@ -107,9 +107,8 @@ prd-to-canvas/
 ```
 your-prd.md                ← 你原来的（永远不动）
 canvas/
-├── analysis.html          ← Phase 1/2 报告
-├── checklist.html         ← Phase 3 交互
-├── decisions.json         ← 你的选择
+├── analysis.html          ← Phase 2 报告（只读 dashboard）
+├── decisions.json         ← Phase 3 对话决策的审计/重放记录
 ├── canonical.md           ← Phase 4 重写
 └── index.html             ← 最终成品，浏览器双击打开
 ```
@@ -127,12 +126,16 @@ canvas/
 `examples/ai-coach-demo/` 里有一份"新手陪练 AI 教练"半结构化 PRD 的完整跑通：
 
 - `00-raw-prd.md` —— 输入（PM 草稿状态的原稿）
-- `01-analysis.html` —— Phase 1/2 出的报告
-- `02-decisions.json` —— 用户在 checklist 里勾选的结果
-- `03-canonical.md` —— Phase 4 重写
-- `04-index.html` —— 最终生成
+- `01-candidates.json` —— Phase 1 执行 agent 检测到的 73 个候选
+- `01-review.json` —— Phase 1 审核 agent 复查（模式 E）
+- `02-coverage.json` —— Phase 2 聚合统计
+- `02-analysis.html` —— Phase 2 只读 dashboard（浏览器打开看 PRD 体检）
+- `03-decisions.json` —— Phase 3 对话决策的审计记录
+- `04-canonical.md` —— Phase 4 重写
+- `04-rewrite-audit.json` —— Phase 4 审核（模式 E）
+- `04-index.html` —— 最终成品
 
-直接浏览器打开 `04-index.html` 体验最终效果。
+直接浏览器打开 `04-index.html` 体验最终效果，或先看 `02-analysis.html` 了解 agent 怎么"体检"PRD。
 
 ---
 

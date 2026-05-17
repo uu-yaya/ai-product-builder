@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>分析报告 · __PRD_PATH__</title>
+
+  <style>
+    :root {
+      --canvas: #fffaf0;
+      --ink: #1a1a1a;
+      --on-dark: #f5f5f5;
+      --muted: #6a6a6a;
+      --muted-soft: #9a9a9a;
+      --hairline: #e5dcc4;
+      --primary: #5d9b4f;
+      --primary-active: #4a7e3f;
+      --on-primary: #ffffff;
+      --accent: #b86d3c;
+      --warning: #d4a017;
+      --error: #c64545;
+      --surface-soft: #faf3e0;
+      --surface-card: #ffffff;
+      --font-serif: "Source Han Serif SC", Georgia, serif;
+      --font-sans: "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+      --sp-sm: 8px; --sp-md: 16px; --sp-lg: 24px;
+      --r-sm: 4px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px; --r-pill: 999px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      font-size: 14.5px;
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--canvas);
+      min-height: 100vh;
+    }
+    h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 500; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    h2 { font-size: 18px; margin: var(--sp-lg) 0 var(--sp-md); border-bottom: 1px solid var(--hairline); padding-bottom: 6px; }
+    h3 { font-size: 14px; margin: var(--sp-md) 0 var(--sp-sm); color: var(--muted); font-family: var(--font-mono); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; }
+    code, pre { font-family: var(--font-mono); font-size: 12.5px; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+    a { color: var(--primary-active); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ---- Layout: sidebar + main ---- */
+    .layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      max-width: 1280px;
+      margin: 0 auto;
+      gap: var(--sp-lg);
+      padding: var(--sp-lg);
+    }
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
+
+    /* ---- Sidebar (sticky) ---- */
+    .sidebar {
+      position: sticky;
+      top: var(--sp-lg);
+      align-self: start;
+      max-height: calc(100vh - var(--sp-lg) * 2);
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .sidebar .sb-title {
+      font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--muted-soft);
+      margin: 0 0 6px;
+    }
+    .sidebar ul { list-style: none; padding: 0; margin: 0 0 var(--sp-md); }
+    .sidebar li { margin: 2px 0; }
+    .sidebar a {
+      display: block;
+      padding: 4px 8px;
+      border-radius: var(--r-sm);
+      color: var(--muted);
+      transition: all 0.12s;
+    }
+    .sidebar a:hover { background: var(--surface-soft); color: var(--ink); text-decoration: none; }
+    .sidebar a.is-sub { padding-left: 18px; font-size: 11.5px; }
+    .sidebar .sb-count {
+      float: right;
+      background: var(--surface-soft);
+      color: var(--muted-soft);
+      padding: 0 6px;
+      border-radius: var(--r-pill);
+      font-size: 10px;
+      line-height: 16px;
+    }
+    .sidebar a:hover .sb-count { background: var(--canvas); color: var(--muted); }
+
+    /* ---- Header card ---- */
+    .hdr {
+      background: var(--surface-card);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-lg);
+      padding: var(--sp-md) var(--sp-lg);
+      display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-md);
+      flex-wrap: wrap;
+    }
+    .hdr-left h1 { font-size: 22px; color: var(--ink); }
+    .hdr-left .path {
+      font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+      margin-top: 2px; word-break: break-all;
+    }
+    .hdr-meta {
+      font-family: var(--font-mono); font-size: 11.5px; color: var(--muted);
+      text-align: right;
+    }
+    .hdr-meta .meta-row { margin: 2px 0; }
+    .hdr-meta .meta-row b { color: var(--ink); font-weight: 500; }
+    .design-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px;
+      background: var(--surface-soft);
+      border-radius: var(--r-pill);
+      font-family: var(--font-mono); font-size: 10.5px; color: var(--muted);
+    }
+    .design-pill.is-custom { color: var(--primary-active); background: rgba(93,155,79,0.12); }
+
+    /* ---- Coverage summary ---- */
+    .cov-summary {
+      display: flex; gap: var(--sp-lg); align-items: center;
+      margin: var(--sp-md) 0;
+      font-family: var(--font-mono);
+    }
+    .cov-pct {
+      font-family: var(--font-serif); font-size: 36px; color: var(--primary);
+      line-height: 1;
+    }
+    .cov-pct-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .cov-stats { display: flex; gap: var(--sp-md); font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+    .cov-stats b { color: var(--ink); font-weight: 500; }
+
+    /* ---- Capability map (17 cards) ---- */
+    .cat-section { margin-bottom: var(--sp-lg); scroll-margin-top: var(--sp-lg); }
+    .map-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: var(--sp-sm);
+    }
+    .map-card {
+      background: var(--surface-card);
+      border: 1.5px solid var(--hairline);
+      border-radius: var(--r-md);
+      padding: 10px 12px;
+      position: relative;
+      transition: all 0.15s;
+    }
+    .map-card.is-used      { border-color: var(--primary); background: rgba(93, 155, 79, 0.06); }
+    .map-card.is-candidate { border-color: var(--primary); border-style: dashed; background: rgba(93, 155, 79, 0.03); }
+    .map-card.is-canvas-only { border-color: var(--accent); border-style: dotted; background: rgba(184, 109, 60, 0.04); }
+    .map-card.is-empty { opacity: 0.5; border-style: dashed; }
+    .map-card-id { font-family: var(--font-mono); font-size: 10px; color: var(--muted-soft); letter-spacing: 0.5px; }
+    .map-card-label { font-size: 13px; margin: 2px 0; color: var(--ink); }
+    .map-card-count { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+    .map-card-count b { color: var(--ink); font-weight: 600; font-size: 14px; }
+    .map-card.is-used .map-card-count b      { color: var(--primary); }
+    .map-card.is-candidate .map-card-count b { color: var(--primary-active); }
+    .map-card.is-canvas-only .map-card-count b { color: var(--accent); }
+    .map-card-extra { font-family: var(--font-mono); font-size: 10px; color: var(--muted-soft); margin-top: 4px; }
+
+    .legend {
+      display: flex; gap: var(--sp-md); margin: var(--sp-sm) 0 0;
+      font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    }
+    .legend-dot {
+      display: inline-block; width: 10px; height: 10px;
+      border-radius: 2px;
+      border: 1.5px solid var(--hairline);
+      vertical-align: middle; margin-right: 4px;
+    }
+    .legend-dot.is-used      { border-color: var(--primary); background: rgba(93,155,79,0.2); }
+    .legend-dot.is-candidate { border-color: var(--primary); border-style: dashed; }
+    .legend-dot.is-canvas    { border-color: var(--accent);  border-style: dotted; background: rgba(184,109,60,0.1); }
+    .legend-dot.is-empty     { border-style: dashed; opacity: 0.5; }
+
+    /* ---- Candidate details ---- */
+    .cand-cat {
+      margin-bottom: var(--sp-lg);
+      scroll-margin-top: var(--sp-lg);
+    }
+    details.cand-type {
+      background: var(--surface-card);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      margin-bottom: var(--sp-sm);
+      overflow: hidden;
+    }
+    details.cand-type > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 8px var(--sp-md);
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--font-mono); font-size: 13px; color: var(--ink);
+      user-select: none;
+      background: var(--surface-soft);
+    }
+    details.cand-type > summary::-webkit-details-marker { display: none; }
+    details.cand-type > summary::before {
+      content: '▶'; font-size: 9px; color: var(--muted);
+      transition: transform 0.15s;
+    }
+    details.cand-type[open] > summary::before { transform: rotate(90deg); }
+    details.cand-type > summary b { font-weight: 600; color: var(--ink); }
+    .type-count-badge {
+      padding: 1px 8px; border-radius: var(--r-pill);
+      background: var(--canvas); color: var(--muted);
+      font-size: 11px;
+    }
+    .type-canvas-badge {
+      padding: 1px 8px; border-radius: var(--r-pill);
+      background: rgba(184, 109, 60, 0.15); color: var(--accent);
+      font-size: 10.5px;
+    }
+
+    .cand-list { padding: 6px var(--sp-md) var(--sp-md); }
+    .cand {
+      border-top: 1px solid var(--hairline);
+      padding: 8px 0;
+    }
+    .cand:first-child { border-top: none; padding-top: 6px; }
+    .cand-head {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      font-family: var(--font-mono); font-size: 11.5px;
+    }
+    .cand-conf { padding: 0 6px; border-radius: var(--r-sm); font-size: 10px; }
+    .cand-conf.is-high   { background: rgba(93, 155, 79, 0.15); color: var(--primary-active); }
+    .cand-conf.is-medium { background: rgba(212, 160, 23, 0.15); color: #8a6a10; }
+    .cand-conf.is-low    { background: rgba(198, 69, 69, 0.10); color: var(--error); }
+    .cand-lines { color: var(--muted); min-width: 70px; }
+    .cand-action { color: var(--muted-soft); }
+    .cand-subtype { color: var(--muted); }
+    .cand-id { color: var(--muted-soft); margin-left: auto; font-size: 10.5px; }
+    .cand-excerpt {
+      margin-top: 4px;
+      padding: 4px 8px;
+      background: var(--surface-soft);
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono); font-size: 11px;
+      color: var(--muted);
+      white-space: pre-wrap; word-break: break-word;
+      max-height: 60px; overflow: auto;
+    }
+    .cand-needs {
+      margin-top: 4px;
+      font-family: var(--font-mono); font-size: 10.5px;
+      color: var(--warning);
+    }
+    .cand-needs::before { content: '⌗ Phase 3 需补: '; color: var(--muted); }
+    .cand-preview {
+      margin-top: 4px;
+      padding: 6px 10px;
+      background: #fbf6e6;
+      border: 1px dashed var(--hairline);
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono); font-size: 11px;
+      max-height: 160px; overflow: auto;
+    }
+    .cand-preview-label {
+      font-family: var(--font-mono); font-size: 10px; color: var(--muted);
+      margin-bottom: 1px;
+    }
+
+    /* ---- Footer ---- */
+    .footer {
+      margin-top: var(--sp-lg);
+      padding: var(--sp-md);
+      background: var(--surface-soft);
+      border-radius: var(--r-md);
+      border-left: 4px solid var(--primary);
+      font-family: var(--font-mono); font-size: 13px;
+      color: var(--ink);
+    }
+    .footer b { color: var(--primary-active); }
+    .footer code {
+      background: var(--surface-card);
+      padding: 1px 6px;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--hairline);
+    }
+  </style>
+
+  __DESIGN_OVERRIDE_BLOCK__
+</head>
+<body>
+<div class="layout">
+  <!-- Sticky sidebar -->
+  <aside class="sidebar">
+    <div class="sb-title">跳转</div>
+    <ul>
+      <li><a href="#sec-header">概览</a></li>
+      <li><a href="#sec-map">能力地图</a></li>
+    </ul>
+    <div class="sb-title">候选明细</div>
+    <ul id="sb-categories"></ul>
+    <div class="sb-title">下一步</div>
+    <ul><li><a href="#sec-footer">回 agent 决策</a></li></ul>
+  </aside>
+
+  <main>
+    <!-- Header -->
+    <section id="sec-header" class="hdr">
+      <div class="hdr-left">
+        <h1>分析报告</h1>
+        <div class="path">__PRD_PATH__</div>
+      </div>
+      <div class="hdr-meta" id="hdr-meta"></div>
+    </section>
+
+    <!-- Capability map -->
+    <h2 id="sec-map">PRD 能力使用地图</h2>
+    <div class="cov-summary">
+      <div>
+        <div class="cov-pct" id="cov-pct">—</div>
+        <div class="cov-pct-label">类覆盖率</div>
+      </div>
+      <div class="cov-stats" id="cov-stats"></div>
+    </div>
+    <div class="legend">
+      <span><span class="legend-dot is-used"></span>已用</span>
+      <span><span class="legend-dot is-candidate"></span>候选（等 Phase 3 决策）</span>
+      <span><span class="legend-dot is-canvas"></span>Canvas-only 建议</span>
+      <span><span class="legend-dot is-empty"></span>未用</span>
+    </div>
+    <div id="map-categories"></div>
+
+    <!-- Candidate details by category -->
+    <h2>候选明细</h2>
+    <div id="cand-categories"></div>
+
+    <!-- Footer -->
+    <div id="sec-footer" class="footer">
+      <b>下一步</b> · 回 agent 终端，agent 会按类别问你决策（大部分一句"全部 accept"过；
+      仅<b>需要你拍的字段</b>会逐个问，如 mermaid 图类型 / 接口 4xx/5xx body / 讨论 URL 等）。
+      <br>
+      决策完会写出 <code>decisions.json</code>，然后 agent 自动重写并生成 <code>index.html</code>。
+    </div>
+  </main>
+</div>
+
+<script>
+  const COVERAGE   = __COVERAGE_JSON_INLINE__;
+  const CANDIDATES = __CANDIDATES_JSON_INLINE__;
+  const PRD_PATH   = "__PRD_PATH__";
+  const GEN_AT     = "__GENERATED_AT__";
+
+  const CATEGORY_LABEL = {
+    'structure':    '结构',
+    'visual':       '可视化',
+    'annotation':   '标注',
+    'api':          '接口',
+    'canvas-only':  'Canvas-only 建议',
+  };
+  const CATEGORY_ORDER = ['structure', 'visual', 'annotation', 'api', 'canvas-only'];
+
+  // ---- Header meta ----
+  (function() {
+    const designSrc = COVERAGE.design_source || 'default';
+    const overrides = COVERAGE.design_overrides_count || 0;
+    const designIsCustom = designSrc !== 'default';
+    document.getElementById('hdr-meta').innerHTML = [
+      '<div class="meta-row">PRD <b>' + (COVERAGE.prd_total_lines || '?') + '</b> 行</div>',
+      '<div class="meta-row">模式 <b>' + (COVERAGE.mode || 'A') + '</b></div>',
+      '<div class="meta-row">生成 <b>' + (GEN_AT || '').slice(0, 19).replace('T', ' ') + '</b></div>',
+      '<div class="meta-row"><span class="design-pill ' + (designIsCustom ? 'is-custom' : '') + '">'
+        + 'DESIGN: ' + (designIsCustom ? esc(designSrc.split('/').pop()) + ' (覆盖 ' + overrides + ' 个 token)' : '默认')
+        + '</span></div>',
+    ].join('');
+  })();
+
+  // ---- Coverage summary ----
+  (function() {
+    document.getElementById('cov-pct').textContent =
+      (COVERAGE.covered_types || 0) + '/' + (COVERAGE.total_types || 17)
+      + ' (' + (COVERAGE.coverage_pct || 0) + '%)';
+    const byConf = COVERAGE.candidates_by_confidence || {};
+    const byAct  = COVERAGE.candidates_by_action || {};
+    document.getElementById('cov-stats').innerHTML = [
+      '<div>候选总数 <b>' + (COVERAGE.total_candidates || 0) + '</b></div>',
+      '<div>high <b>' + (byConf.high   || 0) + '</b> · medium <b>' + (byConf.medium || 0) + '</b> · low <b>' + (byConf.low || 0) + '</b></div>',
+      '<div>upgrade <b>' + (byAct.upgrade || 0) + '</b> · extract <b>' + (byAct.extract || 0) + '</b> · suggest <b>' + (byAct.suggest || 0) + '</b></div>',
+    ].join('');
+  })();
+
+  // ---- Group helpers ----
+  function groupTypesByCategory() {
+    const groups = {};
+    Object.entries(COVERAGE.by_type || {}).forEach(([id, t]) => {
+      const cat = t.category || 'structure';
+      (groups[cat] = groups[cat] || []).push({ id, ...t });
+    });
+    return groups;
+  }
+  function groupCandidatesByCategoryAndType() {
+    const out = {};
+    CANDIDATES.candidates.forEach(c => {
+      const tInfo = (COVERAGE.by_type || {})[c.type] || {};
+      const cat = tInfo.category || 'structure';
+      out[cat] = out[cat] || {};
+      out[cat][c.type] = out[cat][c.type] || [];
+      out[cat][c.type].push(c);
+    });
+    return out;
+  }
+
+  // ---- Render capability map ----
+  (function() {
+    const groups = groupTypesByCategory();
+    const root = document.getElementById('map-categories');
+    CATEGORY_ORDER.forEach(cat => {
+      if (!groups[cat]) return;
+      const sec = document.createElement('section');
+      sec.className = 'cat-section';
+      sec.innerHTML = '<h3>' + esc(CATEGORY_LABEL[cat]) + '</h3><div class="map-grid"></div>';
+      const grid = sec.querySelector('.map-grid');
+      groups[cat].forEach(t => {
+        const card = document.createElement('div');
+        const used = (t.count || 0) > 0;
+        const candidateIds = t.candidate_ids || [];
+        const isCandidate = !used && candidateIds.length > 0 && !t.is_suggestion;
+        const isCanvas = t.is_suggestion;
+        card.className = 'map-card'
+          + (used ? ' is-used' : '')
+          + (isCandidate ? ' is-candidate' : '')
+          + (isCanvas ? ' is-canvas-only' : '')
+          + (!used && !isCandidate && !isCanvas ? ' is-empty' : '');
+        let extra = '';
+        if (t.subcounts) {
+          const sc = Object.entries(t.subcounts).filter(([k, v]) => v > 0)
+            .map(([k, v]) => k + '×' + v).join(' ');
+          if (sc) extra = '<div class="map-card-extra">' + esc(sc) + '</div>';
+        }
+        if (isCanvas && candidateIds.length > 0) {
+          extra = '<div class="map-card-extra">可加 × ' + candidateIds.length + '</div>';
+        } else if (isCandidate) {
+          extra = '<div class="map-card-extra">候选 × ' + candidateIds.length + '</div>';
+        }
+        card.innerHTML =
+          '<div class="map-card-id">' + esc(t.id || '') + '</div>'
+          + '<div class="map-card-label">' + esc(t.label || '') + '</div>'
+          + '<div class="map-card-count"><b>' + (t.count || 0) + '</b> 个</div>'
+          + extra;
+        grid.appendChild(card);
+      });
+      root.appendChild(sec);
+    });
+  })();
+
+  // ---- Render candidate details + sidebar ----
+  (function() {
+    const byCat = groupCandidatesByCategoryAndType();
+    const root = document.getElementById('cand-categories');
+    const sbRoot = document.getElementById('sb-categories');
+    CATEGORY_ORDER.forEach(cat => {
+      const types = byCat[cat];
+      if (!types) return;
+      const totalInCat = Object.values(types).reduce((sum, arr) => sum + arr.length, 0);
+      const anchorId = 'cat-' + cat;
+
+      // Sidebar entry for category
+      const sbCat = document.createElement('li');
+      sbCat.innerHTML = '<a href="#' + anchorId + '">' + esc(CATEGORY_LABEL[cat])
+        + '<span class="sb-count">' + totalInCat + '</span></a>';
+      sbRoot.appendChild(sbCat);
+
+      // Sub-items for each type in this category
+      Object.entries(types).forEach(([typeName, items]) => {
+        const sbType = document.createElement('li');
+        const typeAnchor = anchorId + '-' + typeName;
+        sbType.innerHTML = '<a class="is-sub" href="#' + typeAnchor + '">' + esc(typeName)
+          + '<span class="sb-count">' + items.length + '</span></a>';
+        sbRoot.appendChild(sbType);
+      });
+
+      // Main section for category
+      const sec = document.createElement('section');
+      sec.className = 'cand-cat';
+      sec.id = anchorId;
+      sec.innerHTML = '<h3>' + esc(CATEGORY_LABEL[cat]) + ' (' + totalInCat + ')</h3>';
+
+      Object.entries(types).forEach(([typeName, items]) => {
+        const typeInfo = (COVERAGE.by_type || {})[typeName] || {};
+        const det = document.createElement('details');
+        det.className = 'cand-type';
+        det.id = anchorId + '-' + typeName;
+        // Open by default if has any candidates (i.e., always for non-empty types)
+        det.open = true;
+        const summary = document.createElement('summary');
+        const canvasBadge = typeInfo.is_suggestion
+          ? '<span class="type-canvas-badge">canvas-only 建议</span>' : '';
+        summary.innerHTML = '<b>' + esc(typeName) + '</b>'
+          + '<span class="type-count-badge">' + items.length + '</span>'
+          + '<span style="color:var(--muted);font-weight:400;">' + esc(typeInfo.label || '') + '</span>'
+          + canvasBadge;
+        det.appendChild(summary);
+        const list = document.createElement('div');
+        list.className = 'cand-list';
+        items.forEach(c => list.appendChild(renderCand(c)));
+        det.appendChild(list);
+        sec.appendChild(det);
+      });
+      root.appendChild(sec);
+    });
+  })();
+
+  function renderCand(c) {
+    const div = document.createElement('div');
+    div.className = 'cand';
+    const headParts = [
+      '<span class="cand-conf is-' + esc(c.confidence) + '">' + esc(c.confidence) + '</span>',
+      '<span class="cand-lines">L' + c.line_start + (c.line_end !== c.line_start ? '–' + c.line_end : '') + '</span>',
+    ];
+    if (c.subtype) headParts.push('<span class="cand-subtype">' + esc(c.subtype) + '</span>');
+    headParts.push('<span class="cand-action">' + esc(c.action) + '</span>');
+    headParts.push('<span class="cand-id">' + esc(c.id) + '</span>');
+    div.innerHTML = '<div class="cand-head">' + headParts.join('') + '</div>';
+    if (c.raw_excerpt) {
+      const ex = document.createElement('div');
+      ex.className = 'cand-excerpt';
+      ex.textContent = c.raw_excerpt;
+      div.appendChild(ex);
+    }
+    if (c.needs_user_input && c.needs_user_input.length) {
+      const needs = document.createElement('div');
+      needs.className = 'cand-needs';
+      needs.textContent = c.needs_user_input.join(', ');
+      div.appendChild(needs);
+    }
+    if (c.rewrite_preview) {
+      const pl = document.createElement('div');
+      pl.className = 'cand-preview-label';
+      pl.textContent = '→ 重写预览';
+      div.appendChild(pl);
+      const pv = document.createElement('div');
+      pv.className = 'cand-preview';
+      const pre = document.createElement('pre');
+      pre.textContent = c.rewrite_preview;
+      pv.appendChild(pre);
+      div.appendChild(pv);
+    }
+    return div;
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+</script>
+</body>
+</html>

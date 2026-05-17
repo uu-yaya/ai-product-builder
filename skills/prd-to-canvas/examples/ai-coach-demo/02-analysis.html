@@ -1,0 +1,561 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>分析报告 · skills/prd-to-canvas/examples/ai-coach-demo/00-raw-prd.md</title>
+
+  <style>
+    :root {
+      --canvas: #fffaf0;
+      --ink: #1a1a1a;
+      --on-dark: #f5f5f5;
+      --muted: #6a6a6a;
+      --muted-soft: #9a9a9a;
+      --hairline: #e5dcc4;
+      --primary: #5d9b4f;
+      --primary-active: #4a7e3f;
+      --on-primary: #ffffff;
+      --accent: #b86d3c;
+      --warning: #d4a017;
+      --error: #c64545;
+      --surface-soft: #faf3e0;
+      --surface-card: #ffffff;
+      --font-serif: "Source Han Serif SC", Georgia, serif;
+      --font-sans: "PingFang SC", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+      --sp-sm: 8px; --sp-md: 16px; --sp-lg: 24px;
+      --r-sm: 4px; --r-md: 8px; --r-lg: 12px; --r-xl: 16px; --r-pill: 999px;
+    }
+    * { box-sizing: border-box; }
+    html, body { margin: 0; padding: 0; }
+    body {
+      font-family: var(--font-sans);
+      font-size: 14.5px;
+      line-height: 1.55;
+      color: var(--ink);
+      background: var(--canvas);
+      min-height: 100vh;
+    }
+    h1, h2, h3, h4 { font-family: var(--font-serif); font-weight: 500; }
+    h1 { font-size: 22px; margin: 0 0 4px; }
+    h2 { font-size: 18px; margin: var(--sp-lg) 0 var(--sp-md); border-bottom: 1px solid var(--hairline); padding-bottom: 6px; }
+    h3 { font-size: 14px; margin: var(--sp-md) 0 var(--sp-sm); color: var(--muted); font-family: var(--font-mono); font-weight: 500; text-transform: uppercase; letter-spacing: 1px; }
+    code, pre { font-family: var(--font-mono); font-size: 12.5px; }
+    pre { margin: 0; white-space: pre-wrap; word-break: break-word; }
+    a { color: var(--primary-active); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ---- Layout: sidebar + main ---- */
+    .layout {
+      display: grid;
+      grid-template-columns: 220px 1fr;
+      max-width: 1280px;
+      margin: 0 auto;
+      gap: var(--sp-lg);
+      padding: var(--sp-lg);
+    }
+    @media (max-width: 800px) {
+      .layout { grid-template-columns: 1fr; }
+      .sidebar { display: none; }
+    }
+
+    /* ---- Sidebar (sticky) ---- */
+    .sidebar {
+      position: sticky;
+      top: var(--sp-lg);
+      align-self: start;
+      max-height: calc(100vh - var(--sp-lg) * 2);
+      overflow-y: auto;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .sidebar .sb-title {
+      font-size: 10.5px; letter-spacing: 1.5px; text-transform: uppercase;
+      color: var(--muted-soft);
+      margin: 0 0 6px;
+    }
+    .sidebar ul { list-style: none; padding: 0; margin: 0 0 var(--sp-md); }
+    .sidebar li { margin: 2px 0; }
+    .sidebar a {
+      display: block;
+      padding: 4px 8px;
+      border-radius: var(--r-sm);
+      color: var(--muted);
+      transition: all 0.12s;
+    }
+    .sidebar a:hover { background: var(--surface-soft); color: var(--ink); text-decoration: none; }
+    .sidebar a.is-sub { padding-left: 18px; font-size: 11.5px; }
+    .sidebar .sb-count {
+      float: right;
+      background: var(--surface-soft);
+      color: var(--muted-soft);
+      padding: 0 6px;
+      border-radius: var(--r-pill);
+      font-size: 10px;
+      line-height: 16px;
+    }
+    .sidebar a:hover .sb-count { background: var(--canvas); color: var(--muted); }
+
+    /* ---- Header card ---- */
+    .hdr {
+      background: var(--surface-card);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-lg);
+      padding: var(--sp-md) var(--sp-lg);
+      display: flex; justify-content: space-between; align-items: flex-start; gap: var(--sp-md);
+      flex-wrap: wrap;
+    }
+    .hdr-left h1 { font-size: 22px; color: var(--ink); }
+    .hdr-left .path {
+      font-family: var(--font-mono); font-size: 12px; color: var(--muted);
+      margin-top: 2px; word-break: break-all;
+    }
+    .hdr-meta {
+      font-family: var(--font-mono); font-size: 11.5px; color: var(--muted);
+      text-align: right;
+    }
+    .hdr-meta .meta-row { margin: 2px 0; }
+    .hdr-meta .meta-row b { color: var(--ink); font-weight: 500; }
+    .design-pill {
+      display: inline-flex; align-items: center; gap: 4px;
+      padding: 2px 8px;
+      background: var(--surface-soft);
+      border-radius: var(--r-pill);
+      font-family: var(--font-mono); font-size: 10.5px; color: var(--muted);
+    }
+    .design-pill.is-custom { color: var(--primary-active); background: rgba(93,155,79,0.12); }
+
+    /* ---- Coverage summary ---- */
+    .cov-summary {
+      display: flex; gap: var(--sp-lg); align-items: center;
+      margin: var(--sp-md) 0;
+      font-family: var(--font-mono);
+    }
+    .cov-pct {
+      font-family: var(--font-serif); font-size: 36px; color: var(--primary);
+      line-height: 1;
+    }
+    .cov-pct-label { font-size: 11px; color: var(--muted); margin-top: 4px; }
+    .cov-stats { display: flex; gap: var(--sp-md); font-size: 12.5px; color: var(--muted); flex-wrap: wrap; }
+    .cov-stats b { color: var(--ink); font-weight: 500; }
+
+    /* ---- Capability map (17 cards) ---- */
+    .cat-section { margin-bottom: var(--sp-lg); scroll-margin-top: var(--sp-lg); }
+    .map-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+      gap: var(--sp-sm);
+    }
+    .map-card {
+      background: var(--surface-card);
+      border: 1.5px solid var(--hairline);
+      border-radius: var(--r-md);
+      padding: 10px 12px;
+      position: relative;
+      transition: all 0.15s;
+    }
+    .map-card.is-used      { border-color: var(--primary); background: rgba(93, 155, 79, 0.06); }
+    .map-card.is-candidate { border-color: var(--primary); border-style: dashed; background: rgba(93, 155, 79, 0.03); }
+    .map-card.is-canvas-only { border-color: var(--accent); border-style: dotted; background: rgba(184, 109, 60, 0.04); }
+    .map-card.is-empty { opacity: 0.5; border-style: dashed; }
+    .map-card-id { font-family: var(--font-mono); font-size: 10px; color: var(--muted-soft); letter-spacing: 0.5px; }
+    .map-card-label { font-size: 13px; margin: 2px 0; color: var(--ink); }
+    .map-card-count { font-family: var(--font-mono); font-size: 11px; color: var(--muted); }
+    .map-card-count b { color: var(--ink); font-weight: 600; font-size: 14px; }
+    .map-card.is-used .map-card-count b      { color: var(--primary); }
+    .map-card.is-candidate .map-card-count b { color: var(--primary-active); }
+    .map-card.is-canvas-only .map-card-count b { color: var(--accent); }
+    .map-card-extra { font-family: var(--font-mono); font-size: 10px; color: var(--muted-soft); margin-top: 4px; }
+
+    .legend {
+      display: flex; gap: var(--sp-md); margin: var(--sp-sm) 0 0;
+      font-family: var(--font-mono); font-size: 11px; color: var(--muted);
+    }
+    .legend-dot {
+      display: inline-block; width: 10px; height: 10px;
+      border-radius: 2px;
+      border: 1.5px solid var(--hairline);
+      vertical-align: middle; margin-right: 4px;
+    }
+    .legend-dot.is-used      { border-color: var(--primary); background: rgba(93,155,79,0.2); }
+    .legend-dot.is-candidate { border-color: var(--primary); border-style: dashed; }
+    .legend-dot.is-canvas    { border-color: var(--accent);  border-style: dotted; background: rgba(184,109,60,0.1); }
+    .legend-dot.is-empty     { border-style: dashed; opacity: 0.5; }
+
+    /* ---- Candidate details ---- */
+    .cand-cat {
+      margin-bottom: var(--sp-lg);
+      scroll-margin-top: var(--sp-lg);
+    }
+    details.cand-type {
+      background: var(--surface-card);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      margin-bottom: var(--sp-sm);
+      overflow: hidden;
+    }
+    details.cand-type > summary {
+      list-style: none;
+      cursor: pointer;
+      padding: 8px var(--sp-md);
+      display: flex; align-items: center; gap: 10px;
+      font-family: var(--font-mono); font-size: 13px; color: var(--ink);
+      user-select: none;
+      background: var(--surface-soft);
+    }
+    details.cand-type > summary::-webkit-details-marker { display: none; }
+    details.cand-type > summary::before {
+      content: '▶'; font-size: 9px; color: var(--muted);
+      transition: transform 0.15s;
+    }
+    details.cand-type[open] > summary::before { transform: rotate(90deg); }
+    details.cand-type > summary b { font-weight: 600; color: var(--ink); }
+    .type-count-badge {
+      padding: 1px 8px; border-radius: var(--r-pill);
+      background: var(--canvas); color: var(--muted);
+      font-size: 11px;
+    }
+    .type-canvas-badge {
+      padding: 1px 8px; border-radius: var(--r-pill);
+      background: rgba(184, 109, 60, 0.15); color: var(--accent);
+      font-size: 10.5px;
+    }
+
+    .cand-list { padding: 6px var(--sp-md) var(--sp-md); }
+    .cand {
+      border-top: 1px solid var(--hairline);
+      padding: 8px 0;
+    }
+    .cand:first-child { border-top: none; padding-top: 6px; }
+    .cand-head {
+      display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+      font-family: var(--font-mono); font-size: 11.5px;
+    }
+    .cand-conf { padding: 0 6px; border-radius: var(--r-sm); font-size: 10px; }
+    .cand-conf.is-high   { background: rgba(93, 155, 79, 0.15); color: var(--primary-active); }
+    .cand-conf.is-medium { background: rgba(212, 160, 23, 0.15); color: #8a6a10; }
+    .cand-conf.is-low    { background: rgba(198, 69, 69, 0.10); color: var(--error); }
+    .cand-lines { color: var(--muted); min-width: 70px; }
+    .cand-action { color: var(--muted-soft); }
+    .cand-subtype { color: var(--muted); }
+    .cand-id { color: var(--muted-soft); margin-left: auto; font-size: 10.5px; }
+    .cand-excerpt {
+      margin-top: 4px;
+      padding: 4px 8px;
+      background: var(--surface-soft);
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono); font-size: 11px;
+      color: var(--muted);
+      white-space: pre-wrap; word-break: break-word;
+      max-height: 60px; overflow: auto;
+    }
+    .cand-needs {
+      margin-top: 4px;
+      font-family: var(--font-mono); font-size: 10.5px;
+      color: var(--warning);
+    }
+    .cand-needs::before { content: '⌗ Phase 3 需补: '; color: var(--muted); }
+    .cand-preview {
+      margin-top: 4px;
+      padding: 6px 10px;
+      background: #fbf6e6;
+      border: 1px dashed var(--hairline);
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono); font-size: 11px;
+      max-height: 160px; overflow: auto;
+    }
+    .cand-preview-label {
+      font-family: var(--font-mono); font-size: 10px; color: var(--muted);
+      margin-bottom: 1px;
+    }
+
+    /* ---- Footer ---- */
+    .footer {
+      margin-top: var(--sp-lg);
+      padding: var(--sp-md);
+      background: var(--surface-soft);
+      border-radius: var(--r-md);
+      border-left: 4px solid var(--primary);
+      font-family: var(--font-mono); font-size: 13px;
+      color: var(--ink);
+    }
+    .footer b { color: var(--primary-active); }
+    .footer code {
+      background: var(--surface-card);
+      padding: 1px 6px;
+      border-radius: var(--r-sm);
+      border: 1px solid var(--hairline);
+    }
+  </style>
+
+  
+</head>
+<body>
+<div class="layout">
+  <!-- Sticky sidebar -->
+  <aside class="sidebar">
+    <div class="sb-title">跳转</div>
+    <ul>
+      <li><a href="#sec-header">概览</a></li>
+      <li><a href="#sec-map">能力地图</a></li>
+    </ul>
+    <div class="sb-title">候选明细</div>
+    <ul id="sb-categories"></ul>
+    <div class="sb-title">下一步</div>
+    <ul><li><a href="#sec-footer">回 agent 决策</a></li></ul>
+  </aside>
+
+  <main>
+    <!-- Header -->
+    <section id="sec-header" class="hdr">
+      <div class="hdr-left">
+        <h1>分析报告</h1>
+        <div class="path">skills/prd-to-canvas/examples/ai-coach-demo/00-raw-prd.md</div>
+      </div>
+      <div class="hdr-meta" id="hdr-meta"></div>
+    </section>
+
+    <!-- Capability map -->
+    <h2 id="sec-map">PRD 能力使用地图</h2>
+    <div class="cov-summary">
+      <div>
+        <div class="cov-pct" id="cov-pct">—</div>
+        <div class="cov-pct-label">类覆盖率</div>
+      </div>
+      <div class="cov-stats" id="cov-stats"></div>
+    </div>
+    <div class="legend">
+      <span><span class="legend-dot is-used"></span>已用</span>
+      <span><span class="legend-dot is-candidate"></span>候选（等 Phase 3 决策）</span>
+      <span><span class="legend-dot is-canvas"></span>Canvas-only 建议</span>
+      <span><span class="legend-dot is-empty"></span>未用</span>
+    </div>
+    <div id="map-categories"></div>
+
+    <!-- Candidate details by category -->
+    <h2>候选明细</h2>
+    <div id="cand-categories"></div>
+
+    <!-- Footer -->
+    <div id="sec-footer" class="footer">
+      <b>下一步</b> · 回 agent 终端，agent 会按类别问你决策（大部分一句"全部 accept"过；
+      仅<b>需要你拍的字段</b>会逐个问，如 mermaid 图类型 / 接口 4xx/5xx body / 讨论 URL 等）。
+      <br>
+      决策完会写出 <code>decisions.json</code>，然后 agent 自动重写并生成 <code>index.html</code>。
+    </div>
+  </main>
+</div>
+
+<script>
+  const COVERAGE   = {"version": "1.0", "generated_at": "2026-05-17T19:40:00Z", "prd_path": "skills/prd-to-canvas/examples/ai-coach-demo/00-raw-prd.md", "prd_total_lines": 282, "mode": "E", "design_source": "default", "design_overrides_count": 0, "total_candidates": 73, "by_type": {"H": {"label": "标题 H1-H4", "count": 25, "candidate_ids": ["c001", "c005", "c009", "c012", "c015", "c019", "c020", "c023", "c026", "c029", "c030", "c033", "c036", "c039", "c043", "c046", "c048", "c051", "c055", "c059", "c061", "c063", "c066", "c070", "c072"], "category": "structure"}, "P": {"label": "段落", "count": 8, "candidate_ids": ["c006", "c007", "c016", "c040", "c052", "c056", "c058", "c067"], "category": "structure"}, "UL": {"label": "无序列表", "count": 6, "candidate_ids": ["c010", "c011", "c025", "c028", "c053", "c064", "c069", "c071"], "category": "structure"}, "OL": {"label": "有序列表", "count": 0, "candidate_ids": [], "category": "structure"}, "TBL": {"label": "表格", "count": 7, "candidate_ids": ["c003", "c013", "c041", "c047", "c060", "c062", "c073"], "category": "structure"}, "QT": {"label": "引用", "count": 1, "candidate_ids": ["c002"], "category": "structure"}, "HR": {"label": "分隔线", "count": 1, "candidate_ids": ["c004"], "category": "structure"}, "CODE": {"label": "普通代码", "count": 3, "candidate_ids": ["c017", "c021", "c044"], "category": "structure"}, "MERMAID": {"label": "Mermaid 图", "count": 0, "candidate_ids": ["c018", "c045", "c057"], "category": "visual"}, "CALL-N": {"label": "通用 callout", "count": 0, "candidate_ids": ["c008", "c014", "c049", "c050"], "category": "annotation", "subcounts": {"note": 0, "tip": 1, "important": 0, "warning": 1, "caution": 2}}, "CALL-D": {"label": "讨论 callout", "count": 0, "candidate_ids": ["c054", "c065"], "category": "annotation"}, "API-A": {"label": "接口契约 A 模式", "count": 0, "candidate_ids": [], "category": "api"}, "API-B": {"label": "接口契约 B 模式", "count": 0, "candidate_ids": ["c031", "c034", "c037"], "category": "api"}, "MOCK": {"label": "接口 Mock 块", "count": 0, "candidate_ids": ["c032", "c035", "c038"], "category": "canvas-only", "is_suggestion": true}, "PROMPT": {"label": "Prompt 实验块", "count": 0, "candidate_ids": ["c022", "c024", "c027"], "category": "canvas-only", "is_suggestion": true}, "AGENT": {"label": "Agent 实验块", "count": 0, "candidate_ids": ["c042"], "category": "canvas-only", "is_suggestion": true}, "PROTO": {"label": "原型预览块", "count": 0, "candidate_ids": ["c068"], "category": "canvas-only", "is_suggestion": true}}, "covered_types": 15, "total_types": 17, "coverage_pct": 88, "candidates_by_confidence": {"high": 58, "medium": 14, "low": 1}, "candidates_by_action": {"keep": 51, "upgrade": 14, "extract": 0, "suggest": 8}};
+  const CANDIDATES = {"version": "1.0", "prd_path": "skills/prd-to-canvas/examples/ai-coach-demo/00-raw-prd.md", "total_lines": 282, "scanned_at": "2026-05-17T19:35:00Z", "candidates": [{"id": "c001", "type": "H", "subtype": "h1", "line_start": 1, "line_end": 1, "raw_excerpt": "# 新手陪练 AI 教练 · PRD", "confidence": "high", "action": "keep"}, {"id": "c002", "type": "QT", "line_start": 3, "line_end": 4, "raw_excerpt": "> 一份故意写得\"半结构化\"的 demo PRD…\n> PM 草稿状态——有 emoji、有 ASCII 流程图…", "confidence": "high", "action": "keep"}, {"id": "c003", "type": "TBL", "line_start": 6, "line_end": 11, "raw_excerpt": "| 项 | 值 |\n| --- | --- |\n| owner | 张三（IEG 游戏 AI 中台） |\n...", "confidence": "high", "action": "keep", "context": {"rows": 4, "cols": 2, "purpose": "元信息"}}, {"id": "c004", "type": "HR", "line_start": 13, "line_end": 13, "raw_excerpt": "---", "confidence": "high", "action": "keep"}, {"id": "c005", "type": "H", "subtype": "h2", "line_start": 15, "line_end": 15, "raw_excerpt": "## 1. 背景", "confidence": "high", "action": "keep"}, {"id": "c006", "type": "P", "line_start": 17, "line_end": 17, "raw_excerpt": "王者荣耀新手玩家流失率高（首周流失 47%）…", "confidence": "high", "action": "keep"}, {"id": "c007", "type": "P", "line_start": 19, "line_end": 19, "raw_excerpt": "教练有 3 种人设（鼓励型 / 严厉型 / 战术型）…", "confidence": "high", "action": "keep"}, {"id": "c008", "type": "CALL-N", "subtype": "warning", "line_start": 21, "line_end": 21, "raw_excerpt": "⚠️ 本期 demo 期没有真后端，前端直接 mock 教练响应，演示用。", "confidence": "medium", "action": "upgrade", "needs_user_input": ["callout_subtype"], "rewrite_preview": "> [!warning]\n> 本期 demo 期没有真后端，前端直接 mock 教练响应，演示用。"}, {"id": "c009", "type": "H", "subtype": "h2", "line_start": 23, "line_end": 23, "raw_excerpt": "## 2. 目标 + 非目标", "confidence": "high", "action": "keep"}, {"id": "c010", "type": "UL", "line_start": 26, "line_end": 28, "raw_excerpt": "· 新手首周留存提升 5pp（北极星）\n· 战后教练触发率…\n· 教练响应 p95 ≤ 1.5s", "confidence": "medium", "action": "upgrade", "rewrite_preview": "- 新手首周留存提升 5pp（北极星）\n- 战后教练触发率（玩家主动看完）≥ 30%\n- 教练响应 p95 ≤ 1.5s", "context": {"bullet_char": "·"}}, {"id": "c011", "type": "UL", "line_start": 31, "line_end": 33, "raw_excerpt": "· 不做 PvP 对手分析\n· 不做付费英雄推荐\n· 本期不做语音教练（v2 再说）", "confidence": "medium", "action": "upgrade", "rewrite_preview": "- 不做 PvP 对手分析\n- 不做付费英雄推荐\n- 本期不做语音教练（v2 再说）", "context": {"bullet_char": "·"}}, {"id": "c012", "type": "H", "subtype": "h2", "line_start": 35, "line_end": 35, "raw_excerpt": "## 3. 用户场景", "confidence": "high", "action": "keep"}, {"id": "c013", "type": "TBL", "line_start": 37, "line_end": 41, "raw_excerpt": "| 角色 | 场景 | 痛点 |\n| --- | --- | --- |\n...", "confidence": "high", "action": "keep", "context": {"rows": 3, "cols": 3, "purpose": "用户场景"}}, {"id": "c014", "type": "CALL-N", "subtype": "caution", "line_start": 43, "line_end": 43, "raw_excerpt": "**注意：** 我们不要让教练打击新手玩家自信。任何带\"菜\"、\"垃圾\"、\"演员\"等贬义词的回复一律拦截。", "confidence": "medium", "action": "upgrade", "needs_user_input": ["callout_subtype"], "rewrite_preview": "> [!caution]\n> 我们不要让教练打击新手玩家自信。任何带\"菜\"、\"垃圾\"、\"演员\"等贬义词的回复一律拦截。"}, {"id": "c015", "type": "H", "subtype": "h2", "line_start": 45, "line_end": 45, "raw_excerpt": "## 4. 方案概览", "confidence": "high", "action": "keep"}, {"id": "c016", "type": "P", "line_start": 47, "line_end": 47, "raw_excerpt": "用户战后回到大厅，自动弹一个浮窗\"想听小助手讲讲这把吗？\"…", "confidence": "high", "action": "keep"}, {"id": "c017", "type": "CODE", "line_start": 51, "line_end": 53, "raw_excerpt": "玩家战后回大厅 → 检查段位 < 黄金 → 弹浮窗 → 用户点确认 → 调后端取教练总结 → 渲染卡片 → 可选练习引导", "confidence": "medium", "action": "keep", "context": {"lang_missing": true, "looks_like": "ascii flowchart"}}, {"id": "c018", "type": "MERMAID", "line_start": 49, "line_end": 55, "raw_excerpt": "整体流程：\n```\n玩家战后回大厅 → 检查段位 < 黄金 → 弹浮窗 → ... → 可选练习引导\n```\n（上面这段是文字描述，应该图化）", "confidence": "medium", "action": "upgrade", "needs_user_input": ["mermaid_kind"], "rewrite_preview": "```mermaid\nflowchart LR\n  A[玩家战后回大厅] --> B{段位 < 黄金?}\n  B -- 是 --> C[弹浮窗]\n  C --> D[用户点确认]\n  D --> E[调后端取教练总结]\n  E --> F[渲染卡片]\n  F --> G[可选练习引导]\n```", "context": {"displaces_candidate_ids": ["c017"]}}, {"id": "c019", "type": "H", "subtype": "h2", "line_start": 57, "line_end": 57, "raw_excerpt": "## 5. 教练人设", "confidence": "high", "action": "keep"}, {"id": "c020", "type": "H", "subtype": "h3", "line_start": 59, "line_end": 59, "raw_excerpt": "### 5.1 鼓励型（妹妹系）", "confidence": "high", "action": "keep"}, {"id": "c021", "type": "CODE", "line_start": 61, "line_end": 69, "raw_excerpt": "你是用户的桌宠\"小妹\"。你扮演一个温柔耐心的新手陪练。\n说话风格：\n...", "confidence": "high", "action": "keep", "context": {"lang_missing": true}}, {"id": "c022", "type": "PROMPT", "line_start": 61, "line_end": 69, "raw_excerpt": "你是用户的桌宠\"小妹\"。你扮演一个温柔耐心的新手陪练。...", "confidence": "medium", "action": "suggest", "context": {"persona_name": "encouraging", "length_chars": 145, "note": "已在 code fence 中，可在 canvas 加 Prompt 块跑真模型"}}, {"id": "c023", "type": "H", "subtype": "h3", "line_start": 71, "line_end": 71, "raw_excerpt": "### 5.2 严厉型（教官系）", "confidence": "high", "action": "keep"}, {"id": "c024", "type": "PROMPT", "line_start": 73, "line_end": 79, "raw_excerpt": "你扮演一个老兵教官。说话风格：\n- 直接、不绕弯\n- 用术语：补刀 / 视野 / gank 节奏 / 经济线...", "confidence": "medium", "action": "suggest", "needs_user_input": ["prompt_name"], "context": {"persona_name": "strict", "length_chars": 110, "note": "散落正文，可在 canvas 加 Prompt 块"}}, {"id": "c025", "type": "UL", "line_start": 74, "line_end": 77, "raw_excerpt": "- 直接、不绕弯\n- 用术语：补刀 / 视野 / gank 节奏 / 经济线\n- 一次最多讲 2 个核心问题\n- 不带情绪，只给事实和建议", "confidence": "high", "action": "keep"}, {"id": "c026", "type": "H", "subtype": "h3", "line_start": 81, "line_end": 81, "raw_excerpt": "### 5.3 战术型（学者系）", "confidence": "high", "action": "keep"}, {"id": "c027", "type": "PROMPT", "line_start": 83, "line_end": 86, "raw_excerpt": "你是一名游戏赛事分析师。说话风格学术：\n- 引用具体数据（你的 KDA / 经济差 / 团战参与率）...", "confidence": "medium", "action": "suggest", "needs_user_input": ["prompt_name"], "context": {"persona_name": "analyst", "length_chars": 95, "note": "散落正文，可在 canvas 加 Prompt 块"}}, {"id": "c028", "type": "UL", "line_start": 84, "line_end": 86, "raw_excerpt": "- 引用具体数据（你的 KDA / 经济差 / 团战参与率）\n- 分析\"为什么\"而不是\"是什么\"\n- 给出对比基准（\"同段位平均补刀是 X，你是 Y\"）", "confidence": "high", "action": "keep"}, {"id": "c029", "type": "H", "subtype": "h2", "line_start": 88, "line_end": 88, "raw_excerpt": "## 6. 接口设计", "confidence": "high", "action": "keep"}, {"id": "c030", "type": "H", "subtype": "h3", "line_start": 90, "line_end": 90, "raw_excerpt": "### 6.1 /coach/match-debrief 战后总结接口", "confidence": "high", "action": "keep"}, {"id": "c031", "type": "API-B", "line_start": 90, "line_end": 120, "raw_excerpt": "### 6.1 /coach/match-debrief 战后总结接口 + 表格(method=POST, url=/coach/match-debrief) + 输入JSON + 输出JSON", "confidence": "high", "action": "upgrade", "needs_user_input": ["status_codes_4xx_5xx"], "rewrite_preview": "```api\nname: 战后总结接口\nmethod: POST\nurl: /coach/match-debrief\nstatus: 200\ndescription: 战后调一次，拿当局复盘\nrequest: |\n  {\n    \"user_id\": \"u_001\",\n    \"match_id\": \"m_20260517_001\",\n    \"persona\": \"encouraging\",\n    \"language\": \"zh-CN\"\n  }\nresponse: |\n  {\n    \"summary_text\": \"哥哥这把节奏不错呀~ ...\",\n    \"highlights\": [...],\n    \"improvement_tip\": \"...\",\n    \"duration_ms\": 870\n  }\n# TODO: 补 4xx/5xx\n```", "context": {"method": "POST", "url": "/coach/match-debrief", "has_request_json": true, "has_response_json": true, "missing_status": ["4xx", "5xx"]}}, {"id": "c032", "type": "MOCK", "line_start": 90, "line_end": 120, "raw_excerpt": "/coach/match-debrief 接口", "confidence": "high", "action": "suggest", "context": {"method": "POST", "url": "/coach/match-debrief", "note": "demo 期无后端，建议建 Mock 块"}}, {"id": "c033", "type": "H", "subtype": "h3", "line_start": 122, "line_end": 122, "raw_excerpt": "### 6.2 /coach/skill-tip 单技能解释接口", "confidence": "high", "action": "keep"}, {"id": "c034", "type": "API-B", "line_start": 122, "line_end": 147, "raw_excerpt": "### 6.2 /coach/skill-tip 单技能解释接口 + 表格(GET, /coach/skill-tip) + 输入JSON + 输出JSON", "confidence": "high", "action": "upgrade", "needs_user_input": ["status_codes_4xx_5xx"], "rewrite_preview": "```api\nname: 单技能解释接口\nmethod: GET\nurl: /coach/skill-tip\nstatus: 200\ndescription: 玩家查看英雄时调，解释一个技能的最佳用法\nrequest: |\n  {...}\nresponse: |\n  {...}\n# TODO: 补 4xx/5xx\n```", "context": {"method": "GET", "url": "/coach/skill-tip"}}, {"id": "c035", "type": "MOCK", "line_start": 122, "line_end": 147, "raw_excerpt": "/coach/skill-tip 接口", "confidence": "high", "action": "suggest", "context": {"method": "GET", "url": "/coach/skill-tip"}}, {"id": "c036", "type": "H", "subtype": "h3", "line_start": 149, "line_end": 149, "raw_excerpt": "### 6.3 /coach/config 教练配置接口", "confidence": "high", "action": "keep"}, {"id": "c037", "type": "API-B", "line_start": 149, "line_end": 175, "raw_excerpt": "### 6.3 /coach/config 教练配置接口 + 表格(PUT, /coach/config) + 输入JSON + 输出JSON", "confidence": "high", "action": "upgrade", "needs_user_input": ["status_codes_4xx_5xx"], "rewrite_preview": "```api\nname: 教练配置接口\nmethod: PUT\nurl: /coach/config\nstatus: 200\ndescription: 玩家在设置页改人设/开关/语言\nrequest: |\n  {...}\nresponse: |\n  {...}\n# TODO: 补 4xx/5xx\n```", "context": {"method": "PUT", "url": "/coach/config"}}, {"id": "c038", "type": "MOCK", "line_start": 149, "line_end": 175, "raw_excerpt": "/coach/config 接口", "confidence": "high", "action": "suggest", "context": {"method": "PUT", "url": "/coach/config"}}, {"id": "c039", "type": "H", "subtype": "h2", "line_start": 177, "line_end": 177, "raw_excerpt": "## 7. 工具清单（Agent 后端）", "confidence": "high", "action": "keep"}, {"id": "c040", "type": "P", "line_start": 179, "line_end": 179, "raw_excerpt": "教练 agent 在 chat_loop 里能调下面这些工具：", "confidence": "high", "action": "keep"}, {"id": "c041", "type": "TBL", "line_start": 181, "line_end": 186, "raw_excerpt": "| 工具 | 触发 | 输入 | 输出 |\n| --- | --- | --- | --- |\n...", "confidence": "high", "action": "keep", "context": {"rows": 4, "cols": 4, "purpose": "工具清单"}}, {"id": "c042", "type": "AGENT", "line_start": 177, "line_end": 186, "raw_excerpt": "工具清单 + chat_loop + agent 后端 + 4 个工具", "confidence": "high", "action": "suggest", "context": {"tools_count": 4, "endpoints": ["/coach/match-debrief", "/coach/skill-tip", "/coach/config"], "note": "可在 canvas 加 Agent 实验块对接真后端，看 tool_calls 链路"}}, {"id": "c043", "type": "H", "subtype": "h2", "line_start": 188, "line_end": 188, "raw_excerpt": "## 8. 状态机", "confidence": "high", "action": "keep"}, {"id": "c044", "type": "CODE", "line_start": 192, "line_end": 194, "raw_excerpt": "战后结算页 → 大厅 → 浮窗弹出 → 用户决策 → 教练卡片展示 → 玩家点反馈 → 卡片消失", "confidence": "medium", "action": "keep", "context": {"lang_missing": true}}, {"id": "c045", "type": "MERMAID", "line_start": 190, "line_end": 196, "raw_excerpt": "玩家从战后回到大厅到教练消失：\n```...```\n（这段也应该图化为状态图）", "confidence": "medium", "action": "upgrade", "needs_user_input": ["mermaid_kind"], "rewrite_preview": "```mermaid\nstateDiagram-v2\n  [*] --> 战后结算页\n  战后结算页 --> 大厅\n  大厅 --> 浮窗弹出\n  浮窗弹出 --> 教练卡片展示 : 用户确认\n  浮窗弹出 --> [*] : 用户拒绝\n  教练卡片展示 --> [*] : 玩家点反馈\n```", "context": {"displaces_candidate_ids": ["c044"], "hint": "PRD 章节是\"状态机\"，建议用 stateDiagram-v2"}}, {"id": "c046", "type": "H", "subtype": "h2", "line_start": 198, "line_end": 198, "raw_excerpt": "## 9. 评估方案", "confidence": "high", "action": "keep"}, {"id": "c047", "type": "TBL", "line_start": 200, "line_end": 205, "raw_excerpt": "| 维度 | 指标 | eval set | baseline | 目标 |\n...", "confidence": "high", "action": "keep", "context": {"rows": 4, "cols": 5, "purpose": "评估方案"}}, {"id": "c048", "type": "H", "subtype": "h2", "line_start": 207, "line_end": 207, "raw_excerpt": "## 10. 安全 & 内容审核", "confidence": "high", "action": "keep"}, {"id": "c049", "type": "CALL-N", "subtype": "caution", "line_start": 209, "line_end": 213, "raw_excerpt": "🚨 任何包含下列内容的教练回复必须拦截并兜底为\"再试一次\"：\n- 人身攻击（菜 / 垃圾 / 演员 / 坑 / 送）\n- 段位贬低...", "confidence": "medium", "action": "upgrade", "needs_user_input": ["callout_subtype"], "rewrite_preview": "> [!caution]\n> 任何包含下列内容的教练回复必须拦截并兜底为\"再试一次\"：\n> - 人身攻击（菜 / 垃圾 / 演员 / 坑 / 送）\n> - 段位贬低（\"这段位别玩 XX 英雄\"）\n> - 政治 / 涉黄 / 涉赌 / 涉毒\n> - 真实玩家昵称（防止间接攻击）"}, {"id": "c050", "type": "CALL-N", "subtype": "tip", "line_start": 215, "line_end": 215, "raw_excerpt": "💡 建议在 prompt 里 hardcode 一份禁词清单 + 输出后再做一次正则二次拦截。", "confidence": "medium", "action": "upgrade", "rewrite_preview": "> [!tip]\n> 建议在 prompt 里 hardcode 一份禁词清单 + 输出后再做一次正则二次拦截。"}, {"id": "c051", "type": "H", "subtype": "h2", "line_start": 217, "line_end": 217, "raw_excerpt": "## 11. 隐私 & 合规", "confidence": "high", "action": "keep"}, {"id": "c052", "type": "P", "line_start": 219, "line_end": 219, "raw_excerpt": "玩家数据：", "confidence": "high", "action": "keep"}, {"id": "c053", "type": "UL", "line_start": 220, "line_end": 222, "raw_excerpt": "- 我们只读 user_id / match_id / KDA / 经济等公开战绩\n- 不读 IP、付费、社交关系\n- memory 只保留 7 天...", "confidence": "high", "action": "keep"}, {"id": "c054", "type": "CALL-D", "line_start": 224, "line_end": 224, "raw_excerpt": "📌 待法务确认是否需要弹隐私授权弹窗。法务联系：https://docs.feishu.cn/x/coach-privacy （@王律师）", "confidence": "medium", "action": "upgrade", "rewrite_preview": "> [!discussion](https://docs.feishu.cn/x/coach-privacy)\n> 待法务确认是否需要弹隐私授权弹窗。@王律师", "context": {"extracted_url": "https://docs.feishu.cn/x/coach-privacy"}}, {"id": "c055", "type": "H", "subtype": "h2", "line_start": 226, "line_end": 226, "raw_excerpt": "## 12. Rollout 计划", "confidence": "high", "action": "keep"}, {"id": "c056", "type": "P", "line_start": 228, "line_end": 231, "raw_excerpt": "第一阶段：内部员工 100 人，2 天\n第二阶段：白名单玩家 1000 人，1 周\n第三阶段：黄金以下新手 5%，2 周\n第四阶段：黄金以下全量", "confidence": "high", "action": "keep"}, {"id": "c057", "type": "MERMAID", "line_start": 228, "line_end": 235, "raw_excerpt": "(4 阶段 rollout) + （这段是 rollout 漏斗，可以画 mermaid）", "confidence": "low", "action": "upgrade", "needs_user_input": ["mermaid_kind"], "rewrite_preview": "```mermaid\nflowchart TD\n  S1[内部员工 100 · 2d] --> S2[白名单 1000 · 1w]\n  S2 --> S3[黄金以下 5% · 2w]\n  S3 --> S4[黄金以下全量]\n```", "context": {"displaces_candidate_ids": ["c056"], "hint": "rollout 漏斗"}}, {"id": "c058", "type": "P", "line_start": 233, "line_end": 233, "raw_excerpt": "每阶段过关条件：教练响应 p95 ≤ 1.5s 且玩家\"有帮助\"占比 ≥ 50%。", "confidence": "high", "action": "keep"}, {"id": "c059", "type": "H", "subtype": "h2", "line_start": 237, "line_end": 237, "raw_excerpt": "## 13. A/B 实验", "confidence": "high", "action": "keep"}, {"id": "c060", "type": "TBL", "line_start": 239, "line_end": 242, "raw_excerpt": "| 假设 | 分组 | 指标 | 样本 | 时长 |...", "confidence": "high", "action": "keep"}, {"id": "c061", "type": "H", "subtype": "h2", "line_start": 244, "line_end": 244, "raw_excerpt": "## 14. Telemetry / 埋点", "confidence": "high", "action": "keep"}, {"id": "c062", "type": "TBL", "line_start": 246, "line_end": 250, "raw_excerpt": "| 事件 | 触发 | 字段 |...", "confidence": "high", "action": "keep"}, {"id": "c063", "type": "H", "subtype": "h2", "line_start": 252, "line_end": 252, "raw_excerpt": "## 15. 风险 & 开放问题", "confidence": "high", "action": "keep"}, {"id": "c064", "type": "UL", "line_start": 254, "line_end": 256, "raw_excerpt": "- ⚠️ 教练响应延迟敏感（玩家等不到 2s 就会关掉）—— 需要后端流式输出\n- ❗ 反外挂会不会把教练 API 调用误判为脚本？需找反作弊组确认\n- 待讨论：黄金以上的玩家也想要教练吗？还是仅新手专属？", "confidence": "high", "action": "keep"}, {"id": "c065", "type": "CALL-D", "line_start": 258, "line_end": 258, "raw_excerpt": "详细讨论见飞书：https://docs.feishu.cn/x/coach-discussion", "confidence": "high", "action": "upgrade", "rewrite_preview": "> [!discussion](https://docs.feishu.cn/x/coach-discussion)\n> 详细讨论见飞书", "context": {"extracted_url": "https://docs.feishu.cn/x/coach-discussion"}}, {"id": "c066", "type": "H", "subtype": "h2", "line_start": 260, "line_end": 260, "raw_excerpt": "## 16. UI 设计", "confidence": "high", "action": "keep"}, {"id": "c067", "type": "P", "line_start": 262, "line_end": 262, "raw_excerpt": "高保真原型见 Figma: https://www.figma.com/file/xyz789/coach-card-ui", "confidence": "high", "action": "keep"}, {"id": "c068", "type": "PROTO", "line_start": 262, "line_end": 262, "raw_excerpt": "Figma: https://www.figma.com/file/xyz789/coach-card-ui", "confidence": "high", "action": "suggest", "context": {"url": "https://www.figma.com/file/xyz789/coach-card-ui", "note": "可在 canvas 加原型块 iframe 嵌入"}}, {"id": "c069", "type": "UL", "line_start": 265, "line_end": 267, "raw_excerpt": "- 战后浮窗（小，右下角弹出）\n- 教练卡片（中等，覆盖一半屏幕）\n- 设置页（独立页面）", "confidence": "high", "action": "keep"}, {"id": "c070", "type": "H", "subtype": "h2", "line_start": 269, "line_end": 269, "raw_excerpt": "## 17. 决策日志", "confidence": "high", "action": "keep"}, {"id": "c071", "type": "UL", "line_start": 271, "line_end": 273, "raw_excerpt": "- 2026-05-10：决定 v1 只做\"战后总结\"和\"技能解释\"...\n- 2026-05-12：决定 v1 不做语音，文字优先\n- 2026-05-15：决定 3 种人设并行 A/B...", "confidence": "high", "action": "keep"}, {"id": "c072", "type": "H", "subtype": "h2", "line_start": 275, "line_end": 275, "raw_excerpt": "## 附录：术语表", "confidence": "high", "action": "keep"}, {"id": "c073", "type": "TBL", "line_start": 277, "line_end": 282, "raw_excerpt": "| 术语 | 含义 |\n| --- | --- |\n| C 位 | core 位置...", "confidence": "high", "action": "keep"}]};
+  const PRD_PATH   = "skills/prd-to-canvas/examples/ai-coach-demo/00-raw-prd.md";
+  const GEN_AT     = "2026-05-17T19:40:00Z";
+
+  const CATEGORY_LABEL = {
+    'structure':    '结构',
+    'visual':       '可视化',
+    'annotation':   '标注',
+    'api':          '接口',
+    'canvas-only':  'Canvas-only 建议',
+  };
+  const CATEGORY_ORDER = ['structure', 'visual', 'annotation', 'api', 'canvas-only'];
+
+  // ---- Header meta ----
+  (function() {
+    const designSrc = COVERAGE.design_source || 'default';
+    const overrides = COVERAGE.design_overrides_count || 0;
+    const designIsCustom = designSrc !== 'default';
+    document.getElementById('hdr-meta').innerHTML = [
+      '<div class="meta-row">PRD <b>' + (COVERAGE.prd_total_lines || '?') + '</b> 行</div>',
+      '<div class="meta-row">模式 <b>' + (COVERAGE.mode || 'A') + '</b></div>',
+      '<div class="meta-row">生成 <b>' + (GEN_AT || '').slice(0, 19).replace('T', ' ') + '</b></div>',
+      '<div class="meta-row"><span class="design-pill ' + (designIsCustom ? 'is-custom' : '') + '">'
+        + 'DESIGN: ' + (designIsCustom ? esc(designSrc.split('/').pop()) + ' (覆盖 ' + overrides + ' 个 token)' : '默认')
+        + '</span></div>',
+    ].join('');
+  })();
+
+  // ---- Coverage summary ----
+  (function() {
+    document.getElementById('cov-pct').textContent =
+      (COVERAGE.covered_types || 0) + '/' + (COVERAGE.total_types || 17)
+      + ' (' + (COVERAGE.coverage_pct || 0) + '%)';
+    const byConf = COVERAGE.candidates_by_confidence || {};
+    const byAct  = COVERAGE.candidates_by_action || {};
+    document.getElementById('cov-stats').innerHTML = [
+      '<div>候选总数 <b>' + (COVERAGE.total_candidates || 0) + '</b></div>',
+      '<div>high <b>' + (byConf.high   || 0) + '</b> · medium <b>' + (byConf.medium || 0) + '</b> · low <b>' + (byConf.low || 0) + '</b></div>',
+      '<div>upgrade <b>' + (byAct.upgrade || 0) + '</b> · extract <b>' + (byAct.extract || 0) + '</b> · suggest <b>' + (byAct.suggest || 0) + '</b></div>',
+    ].join('');
+  })();
+
+  // ---- Group helpers ----
+  function groupTypesByCategory() {
+    const groups = {};
+    Object.entries(COVERAGE.by_type || {}).forEach(([id, t]) => {
+      const cat = t.category || 'structure';
+      (groups[cat] = groups[cat] || []).push({ id, ...t });
+    });
+    return groups;
+  }
+  function groupCandidatesByCategoryAndType() {
+    const out = {};
+    CANDIDATES.candidates.forEach(c => {
+      const tInfo = (COVERAGE.by_type || {})[c.type] || {};
+      const cat = tInfo.category || 'structure';
+      out[cat] = out[cat] || {};
+      out[cat][c.type] = out[cat][c.type] || [];
+      out[cat][c.type].push(c);
+    });
+    return out;
+  }
+
+  // ---- Render capability map ----
+  (function() {
+    const groups = groupTypesByCategory();
+    const root = document.getElementById('map-categories');
+    CATEGORY_ORDER.forEach(cat => {
+      if (!groups[cat]) return;
+      const sec = document.createElement('section');
+      sec.className = 'cat-section';
+      sec.innerHTML = '<h3>' + esc(CATEGORY_LABEL[cat]) + '</h3><div class="map-grid"></div>';
+      const grid = sec.querySelector('.map-grid');
+      groups[cat].forEach(t => {
+        const card = document.createElement('div');
+        const used = (t.count || 0) > 0;
+        const candidateIds = t.candidate_ids || [];
+        const isCandidate = !used && candidateIds.length > 0 && !t.is_suggestion;
+        const isCanvas = t.is_suggestion;
+        card.className = 'map-card'
+          + (used ? ' is-used' : '')
+          + (isCandidate ? ' is-candidate' : '')
+          + (isCanvas ? ' is-canvas-only' : '')
+          + (!used && !isCandidate && !isCanvas ? ' is-empty' : '');
+        let extra = '';
+        if (t.subcounts) {
+          const sc = Object.entries(t.subcounts).filter(([k, v]) => v > 0)
+            .map(([k, v]) => k + '×' + v).join(' ');
+          if (sc) extra = '<div class="map-card-extra">' + esc(sc) + '</div>';
+        }
+        if (isCanvas && candidateIds.length > 0) {
+          extra = '<div class="map-card-extra">可加 × ' + candidateIds.length + '</div>';
+        } else if (isCandidate) {
+          extra = '<div class="map-card-extra">候选 × ' + candidateIds.length + '</div>';
+        }
+        card.innerHTML =
+          '<div class="map-card-id">' + esc(t.id || '') + '</div>'
+          + '<div class="map-card-label">' + esc(t.label || '') + '</div>'
+          + '<div class="map-card-count"><b>' + (t.count || 0) + '</b> 个</div>'
+          + extra;
+        grid.appendChild(card);
+      });
+      root.appendChild(sec);
+    });
+  })();
+
+  // ---- Render candidate details + sidebar ----
+  (function() {
+    const byCat = groupCandidatesByCategoryAndType();
+    const root = document.getElementById('cand-categories');
+    const sbRoot = document.getElementById('sb-categories');
+    CATEGORY_ORDER.forEach(cat => {
+      const types = byCat[cat];
+      if (!types) return;
+      const totalInCat = Object.values(types).reduce((sum, arr) => sum + arr.length, 0);
+      const anchorId = 'cat-' + cat;
+
+      // Sidebar entry for category
+      const sbCat = document.createElement('li');
+      sbCat.innerHTML = '<a href="#' + anchorId + '">' + esc(CATEGORY_LABEL[cat])
+        + '<span class="sb-count">' + totalInCat + '</span></a>';
+      sbRoot.appendChild(sbCat);
+
+      // Sub-items for each type in this category
+      Object.entries(types).forEach(([typeName, items]) => {
+        const sbType = document.createElement('li');
+        const typeAnchor = anchorId + '-' + typeName;
+        sbType.innerHTML = '<a class="is-sub" href="#' + typeAnchor + '">' + esc(typeName)
+          + '<span class="sb-count">' + items.length + '</span></a>';
+        sbRoot.appendChild(sbType);
+      });
+
+      // Main section for category
+      const sec = document.createElement('section');
+      sec.className = 'cand-cat';
+      sec.id = anchorId;
+      sec.innerHTML = '<h3>' + esc(CATEGORY_LABEL[cat]) + ' (' + totalInCat + ')</h3>';
+
+      Object.entries(types).forEach(([typeName, items]) => {
+        const typeInfo = (COVERAGE.by_type || {})[typeName] || {};
+        const det = document.createElement('details');
+        det.className = 'cand-type';
+        det.id = anchorId + '-' + typeName;
+        // Open by default if has any candidates (i.e., always for non-empty types)
+        det.open = true;
+        const summary = document.createElement('summary');
+        const canvasBadge = typeInfo.is_suggestion
+          ? '<span class="type-canvas-badge">canvas-only 建议</span>' : '';
+        summary.innerHTML = '<b>' + esc(typeName) + '</b>'
+          + '<span class="type-count-badge">' + items.length + '</span>'
+          + '<span style="color:var(--muted);font-weight:400;">' + esc(typeInfo.label || '') + '</span>'
+          + canvasBadge;
+        det.appendChild(summary);
+        const list = document.createElement('div');
+        list.className = 'cand-list';
+        items.forEach(c => list.appendChild(renderCand(c)));
+        det.appendChild(list);
+        sec.appendChild(det);
+      });
+      root.appendChild(sec);
+    });
+  })();
+
+  function renderCand(c) {
+    const div = document.createElement('div');
+    div.className = 'cand';
+    const headParts = [
+      '<span class="cand-conf is-' + esc(c.confidence) + '">' + esc(c.confidence) + '</span>',
+      '<span class="cand-lines">L' + c.line_start + (c.line_end !== c.line_start ? '–' + c.line_end : '') + '</span>',
+    ];
+    if (c.subtype) headParts.push('<span class="cand-subtype">' + esc(c.subtype) + '</span>');
+    headParts.push('<span class="cand-action">' + esc(c.action) + '</span>');
+    headParts.push('<span class="cand-id">' + esc(c.id) + '</span>');
+    div.innerHTML = '<div class="cand-head">' + headParts.join('') + '</div>';
+    if (c.raw_excerpt) {
+      const ex = document.createElement('div');
+      ex.className = 'cand-excerpt';
+      ex.textContent = c.raw_excerpt;
+      div.appendChild(ex);
+    }
+    if (c.needs_user_input && c.needs_user_input.length) {
+      const needs = document.createElement('div');
+      needs.className = 'cand-needs';
+      needs.textContent = c.needs_user_input.join(', ');
+      div.appendChild(needs);
+    }
+    if (c.rewrite_preview) {
+      const pl = document.createElement('div');
+      pl.className = 'cand-preview-label';
+      pl.textContent = '→ 重写预览';
+      div.appendChild(pl);
+      const pv = document.createElement('div');
+      pv.className = 'cand-preview';
+      const pre = document.createElement('pre');
+      pre.textContent = c.rewrite_preview;
+      pv.appendChild(pre);
+      div.appendChild(pv);
+    }
+    return div;
+  }
+
+  function esc(s) {
+    return String(s == null ? '' : s)
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+  }
+</script>
+</body>
+</html>
