@@ -2,9 +2,22 @@
 
 prd-to-canvas skill 的 4 phase 详细流程 + 每 phase 的 IO 契约。Agent 工作时按这份执行。
 
+## Phase 0：Onboarding（环境自检 + 模式选择）
+
+**被调用后第一件事**——比下面的 Pre-flight 参数检查还早。详细 playbook 在 `./prompts/phase0-onboarding.md`。简要：
+
+1. **一句话告诉用户 skill 干啥** + 列 file/server 两种模式
+2. **静默跑 read-only 命令**检查环境（python3 / flask / git 仓库 / remote / upstream / 身份）
+3. **出检查报告表**给用户看（✓/⚠/✗）— 不能黑盒
+4. **AskUserQuestion 让用户选 file / server**
+5. **server 模式 + 有缺时**：逐项 walkthrough。**每个会改环境的命令必须先征得同意**（pip install / git config / git remote add / git push -u 等）
+6. **环境就绪后**才进下面的 Pre-flight
+
+环境完美时 1 句话过即可。
+
 ## Pre-flight：启动检查
 
-被调用后**第一件事**：
+Phase 0 通过后：
 
 1. **解析参数**：用户给的 PRD 路径（必填）+ 可选 `--design <path>` + 可选 `--out <dir>`
 2. **检查 PRD 可读**：路径存在、是 .md / .markdown 文件、能 Read

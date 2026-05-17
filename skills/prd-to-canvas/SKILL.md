@@ -18,9 +18,22 @@ argument-hint: <path-to-prd.md>
 1. `./BLOCK_INVENTORY.md` —— 17 类块的检测规则 + MD 重写模板
 2. `./WORKFLOW.md` —— 4 phase 详细流程
 
-## 启动前必做：模式选择
+## 启动后第一件事：Phase 0 onboarding
 
-每次被调用，**第一件事**是问用户两个问题（用 AskUserQuestion 或同等机制）：
+**任何 PRD 处理之前都必须先跑 Phase 0**，包括环境自检 + 模式解释 + 引导配置。详细 playbook 在 `./prompts/phase0-onboarding.md`。要点：
+
+1. **一句话告诉用户 skill 干啥** + 列 file/server 两种模式 + 各自要求
+2. **静默跑 5-7 个 read-only 命令**自检环境（python / flask / git 仓库 / remote / upstream / 身份）
+3. **出环境检查表**（✓/⚠/✗）给用户看 — 不能黑盒
+4. **AskUserQuestion 让用户选模式**
+5. **server 模式 + 有缺**：逐项 walkthrough，**每个改环境命令都要先征得同意**（不静默 pip install / git config）
+6. **环境就绪后**才进 Phase 1
+
+环境完美的情况 1 句话过即可（"环境就绪 ✓"）。第一次用 / 配置不全的情况需要花点时间引导。
+
+## 启动前必做：agent 模式选择
+
+每次被调用，**第二件事**（Phase 0 之后）是问用户两个问题（用 AskUserQuestion 或同等机制）：
 
 ### Q1: 输入范围
 
@@ -45,9 +58,15 @@ argument-hint: <path-to-prd.md>
 
 把用户的选择记到输出目录的 `decisions.json` 顶部 `mode` 字段，整个 session 沿用。
 
-## 4 Phase 总览
+## Phase 总览（Phase 0 + 4 phase）
 
 ```
+agent 被调起
+   ↓
+Phase 0 onboarding  环境自检（python/flask/git）+ 解释 file/server 两种模式
+                    + 缺啥引导用户配 + 选 agent 模式（A 单 / E 执行+审核）
+                    详: ./prompts/phase0-onboarding.md
+                                  ↓
 PRD.md
    ↓
 Phase 1 解析        执行 agent → candidates.json

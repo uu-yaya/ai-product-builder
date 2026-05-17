@@ -65,6 +65,7 @@ Use the skill at /Users/me/skills/prd-to-canvas to process xxx.md
 
 | 阶段 | 你看到什么 |
 | --- | --- |
+| **0. Onboarding** | agent 第一次启动时自检环境（python / flask / git 配好没等）+ 解释两种模式（file / server）+ 缺啥引导你配。每个会改你环境的命令都会先征求同意。环境完美时 1 句话过 |
 | **1. 解析** | agent 边读 PRD 边吐"发现一块就报一块"（终端流式） |
 | **2. 覆盖报告** | 17 类 md-canvas 块的能力地图——`analysis.html` 只读 dashboard，按 category 分组 + 侧边栏跳转 |
 | **3. 决策（对话）** | agent 在终端按批次问你：大部分一句"全部 accept"过；只有需要你拍的字段（mermaid 图类型 / 接口 4xx/5xx body / 讨论 URL 等）会逐个问。决策记到 `decisions.json` 做审计 |
