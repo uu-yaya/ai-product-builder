@@ -133,7 +133,21 @@ git config user.name
 → 评估:
   · file 模式可立即用 ✓
   · server 模式还差 2 项（Flask + upstream）
+
+→ agent 建议: server 模式（基于你 git 大部分配好了，再装 1 个 Flask 就齐）
 ```
+
+**怎么算出 agent 建议**（在 Step 4 选项里要把"推荐"标在这个上）:
+
+| 环境状态 | 建议 | 理由 |
+| --- | --- | --- |
+| 全 ✓（python+flask+git 全齐） | **server 模式** | 立刻能协作，0 额外配置 |
+| python+git 齐，仅缺 flask | **server 模式** | 1 步 pip install 就齐，值得花 1 分钟 |
+| python+git 齐，缺 upstream / remote / 身份 | **server 模式** | 配 git 是一次性投入，长期受益 |
+| 不在 git 仓库 | **file 模式** | server 模式要先 git init + 配远端 + 推第一次，对新手 5-15 分钟。先 file 跑通看效果 |
+| 没 python3 | **直接告诉用户先装 python3，不能用 skill** | 硬依赖 |
+
+agent 建议是**提议不是强制**——用户依然可以选别的。但默认推荐的那个要放在 AskUserQuestion 第一位 + label 标 "(推荐)"。
 
 ## Step 4: 问用户选模式
 
@@ -141,24 +155,49 @@ git config user.name
 
 ### Q1: 工作模式
 
+**关键**：基于 Step 3 算出的"agent 建议"，把推荐那个放选项第一位 + 在 label 末尾加 "(推荐)" 后缀。description 里**首句明确说"基于你的环境，X"**——让用户看到不是模板答案，是真的根据他情况说的。
+
+示例（如果建议 server 模式）：
+
 ```
 question: "你这次想怎么用？"
 header: "工作模式"
 options:
+  - label: "server 模式（团队协作 / 跨电脑） (推荐)"
+    description:
+      "基于你的环境，git 都配好了，server 模式立刻就能用。
+       起本地 server，Cmd+S 直接写源 .md + 自动 git push。队友
+       git pull 就能看到。"
   - label: "file 模式（单人 demo / 给老板看）"
     description:
       "Phase 4 生成一份独立 HTML，你双击就能看。编辑存浏览器
        localStorage，给队友看要手动下载 .md 发过去。0 配置 0 依赖
        但不能多人协作。"
-  - label: "server 模式（团队协作 / 跨电脑） (推荐)"
-    description:
-      "起本地 server，Cmd+S 直接写源 .md + 自动 git push。队友
-       git pull 就能看到。需要装 Flask + git 配好能 push（我下面
-       会检查 + 帮你补齐缺的）。"
-  - label: "file 模式跑通，过几天再升级 server"
+  - label: "先 file 跑通，过几天再升级 server"
     description:
       "先 file 模式快速看效果，之后想要团队协作了再回来跑 skill
        升级到 server。零承诺起步。"
+```
+
+示例（如果建议 file 模式，因为没 git）：
+
+```
+question: "你这次想怎么用？"
+header: "工作模式"
+options:
+  - label: "file 模式（单人 demo / 给老板看） (推荐)"
+    description:
+      "基于你的环境，目录不是 git 仓库，server 模式要先配 git
+       仓库 + 工蜂远端 + push 一次（新手大概 5-15 分钟）。先 file
+       模式可以零配置看效果。Phase 4 生成 HTML 你双击就能开。"
+  - label: "server 模式（团队协作 / 跨电脑）"
+    description:
+      "我会带你配齐 git init + remote + 第一次 push。需要你有
+       工蜂等仓库 URL。配完之后 Cmd+S 自动同步队友。"
+  - label: "先 file 跑通，过几天再升级 server"
+    description:
+      "和上面 file 一样，但显式表态"以后会升级"——agent 会在最后
+       给你一份"升级 server 模式 checklist"。"
 ```
 
 ### Q2: agent 内部模式（如果工具支持子 agent）
@@ -294,30 +333,145 @@ options:
     description: "commit 时会 prompt 你设。"
 ```
 
-## Step 6: 确认 ready，进 Phase 1
+## Step 5.5: Sanity 警告（仅 server 模式 + 完成 Step 5 后）
 
-打印最终状态 + 提示：
+硬环境（python/flask/git config）都齐了，但**仓库状态**可能还有"能跑但容易踩坑"的情况。Cmd+S 之前要让用户知道。
+
+### 检查项（read-only）
+
+```bash
+cd <prd_dir>
+
+# 当前分支名 → 是否直接在 main/master 上
+git rev-parse --abbrev-ref HEAD
+
+# 是否有未提交的本地改动（不只是 PRD，包括别的文件）
+git status --porcelain
+
+# PRD 文件本身是否在 git 跟踪里
+git ls-files --error-unmatch <prd_relative_path> 2>&1
+```
+
+### 警告项 + AskUserQuestion
+
+**对每条警告单独问**，不要打包：
+
+#### 警告 1: 你直接在 main / master 分支工作
+
+```
+question: "你当前在 'main' 分支。server 模式 Cmd+S 会自动 push 到 main。要不要先建个 feature 分支？"
+header: "main 分支"
+options:
+  - label: "建 feature 分支再继续 (推荐)"
+    description:
+      "agent 跑 `git checkout -b <分支名>`（让你输入分支名，
+       默认提议 prd/<PRD-slug>）。从此 Cmd+S push 到这个新分支
+       不污染 main。需要 review 时发 MR。"
+  - label: "直接在 main 上工作，继续"
+    description:
+      "可以，但每次 Cmd+S 都直接进 main。如果你团队有 main 保护
+       规则可能 push 被拒。如果只是你一个人玩，OK。"
+  - label: "取消，我去 terminal 处理后回来"
+    description: "退出 skill。"
+```
+
+#### 警告 2: 有 N 个未提交的本地改动（不只是 PRD）
+
+```
+question: "你目录里有 N 个未提交的改动（不只是 PRD）。Cmd+S 时 server 用 `git add <PRD 路径>` 只加 PRD，但本地其他改动会一起待提交。要怎么处理？"
+header: "未提交改动"
+options:
+  - label: "先 stash 其他改动，只让 server 处理 PRD (推荐)"
+    description:
+      "agent 跑 `git stash push -m \"prd-to-canvas pre-flight\"`
+       把其他改动暂存起来。skill 跑完你 `git stash pop` 恢复。
+       本次保存只 commit PRD。"
+  - label: "看一下都改了啥（agent 跑 git status 给我看）"
+    description:
+      "agent 跑 git status + 主要 diff 摘要，你看完再决定。"
+  - label: "知道是啥，继续不管"
+    description:
+      "Cmd+S 时只 git add PRD 那一个文件，其他改动留在工作目录
+       不动。push 也只推 PRD 的 commit。一般安全，但别忘了 git
+       status 会一直显示有未提交改动。"
+```
+
+#### 警告 3: PRD 文件本身还没被 git 跟踪
+
+```
+question: "PRD 文件 '<path>' 还没被 git 跟踪。第一次 Cmd+S 会把它 add 进 git 并 push。确认这是你想要的？"
+header: "新文件"
+options:
+  - label: "是，第一次 Cmd+S 把它加进版本控制 (推荐)"
+    description:
+      "正常流程，server 自动 git add + commit + push。从此 PRD
+       被 git 管理，所有改动都有历史。"
+  - label: "我先 git add 再开 skill"
+    description:
+      "退出 skill，你去 terminal 跑 `git add <PRD路径>` 然后回来。"
+  - label: "这文件不该 push（应该在 .gitignore？）"
+    description:
+      "退出 skill。检查为啥这文件没被跟踪——可能是 .gitignore 排
+       除了它，或者你忘了 add。修完再回来。"
+```
+
+所有警告通过（或被接受）后才进 Step 6。
+
+## Step 6: 输出预览 + 确认 ready
+
+给用户一份"接下来会落地哪些文件"的预览，让他对 skill 的副作用全程透明：
+
+### 文件清单预览
 
 ```
 ✓ 环境就绪
 
-  · 模式: server / file
-  · 输出会写到: <out>/
-  · 跑 server: python3 skills/prd-to-canvas/server.py（要不要现在帮你启）
+模式: server  /  file
+agent: 执行+审核（E 模式）  /  单 agent（A 模式）
 
+即将生成（在 <out>/ = <prd_dir>/canvas/）:
+
+  candidates.json       Phase 1 检测出的 N 个候选块（agent 内部用）
+  review.json           Phase 1 审核 agent 复查（仅 E 模式）
+  coverage.json         Phase 2 聚合统计
+  analysis.html         Phase 2 PRD 体检报告（只读 dashboard，浏览器打开）
+  decisions.json        Phase 3 你的对话决策记录
+  canonical.md          Phase 4 重写后的标准 .md
+  rewrite-audit.json    Phase 4 审核 agent 复查（仅 E 模式）
+  index.html            ★ 最终成品（双击 / 通过 server 打开）
+
+你原 PRD: <prd_path>
+                       ★ 绝对不动
+
+预计耗时: 1-3 分钟（看 PRD 大小 + 候选数量 + 你勾选速度）
+```
+
+### 启动 server？（仅 server 模式）
+
+如果选 server 模式 + 一切就绪，可选问：
+
+```
+question: "Phase 4 生成 index.html 后要现在帮你启 server 吗？"
+header: "起 server"
+options:
+  - label: "是，agent 在后台起 + 自动开浏览器 (推荐)"
+    description:
+      "agent 用 run_in_background 跑 python3 server.py，浏览器
+       自动开 http://localhost:7799/，你立刻看到 index.html。
+       关 server: agent 会给你 PID + Ctrl-C 提示。"
+  - label: "否，我自己手动跑"
+    description:
+      "skill 跑完只把文件落地。你想看时自己 cd 到项目根 +
+       `python3 skills/prd-to-canvas/server.py`。"
+```
+
+### 进 Phase 1
+
+确认完一句话过：
+
+```
 进 Phase 1 解析 PRD...
 ```
-
-如果是 server 模式且环境就绪，可选项问用户是否现在起 server：
-
-```
-AskUserQuestion: "Phase 4 生成 index.html 后要现在帮你启 server 吗？"
-  options:
-    - "是，agent 在后台起 server + 自动开浏览器"
-    - "否，我自己手动跑 python3 .../server.py"
-```
-
-如果选自动起 server：agent 用 `run_in_background: true` 跑 `python3 .../server.py` + 用户在浏览器看效果。
 
 ---
 
