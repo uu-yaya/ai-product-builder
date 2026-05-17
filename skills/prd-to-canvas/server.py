@@ -168,9 +168,24 @@ def friendly_git_error(stderr: str) -> str:
     if "no configured push destination" in s or "no upstream" in s:
         return ("当前分支没设 upstream。terminal 运行: "
                 "git push -u origin <你的分支名>")
+    # HTTPS / token auth (新加 — 之前漏的)
+    if any(p in s for p in [
+        "could not read username",
+        "fatal: authentication failed",
+        "fatal: could not read",
+        "remote: invalid credentials",
+        "remote: invalid username or password",
+        "authentication required",
+        "401 unauthorized",
+    ]):
+        return ("git HTTPS 认证失败（首次 push 凭证没缓存 / token 过期）。"
+                "→ terminal 跑一次 `git push`（可能让你输 username / token），"
+                "成功后 credentials 会缓存（你的 credential.helper=store），"
+                "之后 server 自动 push 就能用了。")
+    # SSH auth
     if "permission denied" in s or "publickey" in s:
-        return ("git 认证失败（SSH key 没配 / token 过期）。"
-                "先在 terminal 试试 git push 能不能成")
+        return ("git SSH 认证失败（SSH key 没配 / 没添加到 GitHub / 等）。"
+                "→ terminal 跑一次 git push 试试，看具体 SSH 报错。")
     if "merge conflict" in s or "conflict" in s:
         return ("队友刚也改了这个文件且自动 merge 失败。"
                 "terminal: git pull --rebase → 解 conflict → git push")
@@ -187,44 +202,215 @@ def friendly_git_error(stderr: str) -> str:
 @app.route("/")
 def index():
     files = discover_md_files()
-    head = (
-        "<!doctype html><meta charset=utf-8>"
-        "<title>md-canvas server</title>"
-        "<style>"
-        "body{font-family:-apple-system,PingFang SC,sans-serif;"
-        "max-width:780px;margin:40px auto;padding:0 24px;"
-        "color:#1a1a1a;background:#fffaf0}"
-        "h1{font-family:Georgia,serif;font-size:24px}"
-        ".meta{color:#6a6a6a;font-family:monospace;font-size:12px}"
-        "ul{padding-left:0;list-style:none}"
-        "li{padding:6px 0;border-top:1px solid #e5dcc4;"
-        "font-family:monospace;font-size:13px}"
-        "li:first-child{border-top:none}"
-        "a{color:#4a7e3f;text-decoration:none}"
-        "a:hover{text-decoration:underline}"
-        ".dir{color:#9a9a9a;font-size:11px}"
-        ".empty{color:#9a9a9a;font-style:italic;padding:20px 0}"
-        "</style>"
-    )
-    rows = []
+    # Build nested dir tree:  {dir_name: {"_dirs": {...}, "_files": [...]}}
+    tree: dict = {"_dirs": {}, "_files": []}
     for f in files:
-        rel = str(f)
-        parent = str(f.parent) if f.parent != pathlib.Path(".") else ""
-        rows.append(
-            f'<li><a href="/{rel}">{f.name}</a>'
-            + (f' <span class="dir">{parent}/</span>' if parent else '')
-            + '</li>'
-        )
-    if not rows:
-        body = '<p class="empty">没有找到 .md 文件</p>'
-    else:
-        body = f'<ul>{"".join(rows)}</ul>'
-    return (
-        head
-        + f"<h1>md-canvas</h1>"
-        + f'<p class="meta">{ROOT} · {len(files)} 个 .md 文件</p>'
-        + body
-    )
+        parts = str(f).split("/")
+        node = tree
+        for p in parts[:-1]:
+            node = node["_dirs"].setdefault(p, {"_dirs": {}, "_files": []})
+        node["_files"].append(parts[-1])
+
+    def count_files(node: dict) -> int:
+        n = len(node["_files"])
+        for sub in node["_dirs"].values():
+            n += count_files(sub)
+        return n
+
+    def render_tree(node: dict, prefix: str, depth: int) -> str:
+        out = []
+        # Dirs first (alphabetical), then files
+        for dname in sorted(node["_dirs"].keys()):
+            sub = node["_dirs"][dname]
+            sub_path = f"{prefix}{dname}/"
+            n = count_files(sub)
+            # Auto-open shallow dirs (depth 0-1) so user sees something on first load
+            open_attr = " open" if depth < 1 else ""
+            out.append(
+                f'<details class="dir" data-path="{esc(sub_path)}"{open_attr}>'
+                f'<summary>{esc(dname)}/ <span class="count">{n}</span></summary>'
+                f'<div class="children">{render_tree(sub, sub_path, depth + 1)}</div>'
+                f'</details>'
+            )
+        for fname in sorted(node["_files"]):
+            full = f"{prefix}{fname}"
+            out.append(
+                f'<a class="file" data-path="{esc(full)}" href="/{esc(full)}">'
+                f'{esc(fname)}</a>'
+            )
+        return "".join(out)
+
+    body = render_tree(tree, "", 0) if files else \
+           '<p class="empty">没有找到 .md 文件</p>'
+
+    page = f"""<!doctype html>
+<html lang="zh-CN"><head><meta charset="utf-8">
+<title>md-canvas server</title>
+<style>
+:root {{
+  --bg: #fffaf0; --ink: #1a1a1a; --muted: #6a6a6a; --muted-soft: #9a9a9a;
+  --line: #e5dcc4; --primary: #4a7e3f; --primary-soft: #93c08c;
+  --surface: #faf3e0;
+}}
+* {{ box-sizing: border-box; }}
+body {{
+  font-family: -apple-system, "PingFang SC", BlinkMacSystemFont, sans-serif;
+  max-width: 980px; margin: 0 auto; padding: 32px 24px 60px;
+  color: var(--ink); background: var(--bg);
+}}
+h1 {{ font-family: Georgia, "Source Han Serif SC", serif; font-size: 28px; margin: 0 0 4px; }}
+.meta {{ color: var(--muted); font-family: monospace; font-size: 12px; margin: 0 0 18px; }}
+.toolbar {{
+  position: sticky; top: 0; z-index: 10;
+  background: var(--bg); padding: 8px 0 12px;
+  border-bottom: 1px solid var(--line);
+  display: flex; gap: 12px; align-items: center;
+}}
+#search {{
+  flex: 1; font-family: monospace; font-size: 13px;
+  padding: 7px 10px; border: 1px solid var(--line);
+  border-radius: 6px; background: white;
+  outline: none;
+}}
+#search:focus {{ border-color: var(--primary); }}
+.toolbar .actions {{ display: flex; gap: 6px; }}
+.toolbar button {{
+  font-family: monospace; font-size: 11.5px; padding: 5px 10px;
+  border: 1px solid var(--line); border-radius: 4px;
+  background: white; color: var(--muted); cursor: pointer;
+}}
+.toolbar button:hover {{ color: var(--ink); border-color: var(--muted); }}
+.hint {{ font-family: monospace; font-size: 11px; color: var(--muted-soft); margin: 8px 0 4px; }}
+.tree {{ margin-top: 12px; }}
+.dir {{ margin: 0; }}
+.dir > summary {{
+  cursor: pointer; padding: 4px 8px; margin: 1px 0;
+  font-family: monospace; font-size: 13px; color: var(--ink);
+  list-style: none; user-select: none;
+  border-radius: 4px;
+}}
+.dir > summary::-webkit-details-marker {{ display: none; }}
+.dir > summary::before {{
+  content: '▸'; display: inline-block; width: 14px;
+  color: var(--muted); font-size: 10px;
+  transition: transform 0.12s;
+}}
+.dir[open] > summary::before {{ transform: rotate(90deg); }}
+.dir > summary:hover {{ background: var(--surface); }}
+.dir .count {{ color: var(--muted-soft); font-size: 11px; margin-left: 4px; }}
+.children {{ margin-left: 18px; border-left: 1px solid var(--line); padding-left: 8px; }}
+a.file {{
+  display: block; padding: 3px 8px; margin: 1px 0 1px 14px;
+  font-family: monospace; font-size: 13px;
+  color: var(--primary); text-decoration: none;
+  border-radius: 4px;
+}}
+a.file:hover {{ background: var(--surface); }}
+a.file::before {{
+  content: '·'; display: inline-block; width: 10px; color: var(--muted-soft);
+}}
+.empty {{ color: var(--muted-soft); font-style: italic; padding: 20px 0; }}
+.hidden-by-filter {{ display: none !important; }}
+.match-hit {{ background: rgba(212, 160, 23, 0.18); border-radius: 2px; }}
+.no-results {{
+  padding: 20px; color: var(--muted-soft); font-style: italic;
+  text-align: center; font-family: monospace;
+}}
+.no-results[hidden] {{ display: none; }}
+</style>
+</head><body>
+<h1>md-canvas</h1>
+<p class="meta">{esc(str(ROOT))} · {len(files)} 个 .md 文件</p>
+
+<div class="toolbar">
+  <input id="search" type="search" placeholder="搜索 (模糊匹配文件名 / 目录，支持多关键词空格分隔)" autocomplete="off">
+  <div class="actions">
+    <button id="expand-all">全部展开</button>
+    <button id="collapse-all">全部折叠</button>
+  </div>
+</div>
+<p class="hint">↑ 按 <kbd>/</kbd> 聚焦搜索框 · 输 enter 跳到第一个匹配项</p>
+
+<div class="tree">{body}</div>
+<div class="no-results" id="no-results" hidden>没有匹配的文件</div>
+
+<script>
+const search = document.getElementById('search');
+const tree = document.querySelector('.tree');
+const noRes = document.getElementById('no-results');
+
+function fuzzyMatch(text, terms) {{
+  text = text.toLowerCase();
+  return terms.every(t => text.includes(t));
+}}
+
+function applyFilter() {{
+  const q = search.value.trim().toLowerCase();
+  const terms = q ? q.split(/\\s+/).filter(Boolean) : [];
+  let hits = 0;
+  // Show / hide files
+  tree.querySelectorAll('a.file').forEach(a => {{
+    const path = a.dataset.path.toLowerCase();
+    if (!terms.length || fuzzyMatch(path, terms)) {{
+      a.classList.remove('hidden-by-filter');
+      hits++;
+    }} else {{
+      a.classList.add('hidden-by-filter');
+    }}
+  }});
+  // Hide dirs whose all children are hidden
+  // Bottom-up: walk all dirs deepest first
+  const dirs = Array.from(tree.querySelectorAll('details.dir'));
+  dirs.reverse();
+  dirs.forEach(d => {{
+    const visible = d.querySelectorAll(
+      ':scope > .children > a.file:not(.hidden-by-filter), ' +
+      ':scope > .children > details.dir:not(.hidden-by-filter)'
+    );
+    if (visible.length === 0) {{
+      d.classList.add('hidden-by-filter');
+    }} else {{
+      d.classList.remove('hidden-by-filter');
+      // Auto-open matching dirs when searching
+      if (terms.length) d.open = true;
+    }}
+  }});
+  noRes.hidden = hits > 0 || !terms.length;
+}}
+
+search.addEventListener('input', applyFilter);
+
+// '/' to focus search
+document.addEventListener('keydown', e => {{
+  if (e.key === '/' && document.activeElement !== search) {{
+    e.preventDefault();
+    search.focus();
+    search.select();
+  }}
+}});
+
+// Enter in search → jump to first match
+search.addEventListener('keydown', e => {{
+  if (e.key === 'Enter') {{
+    const first = tree.querySelector('a.file:not(.hidden-by-filter)');
+    if (first) {{ window.location.href = first.href; }}
+  }}
+}});
+
+document.getElementById('expand-all').addEventListener('click', () => {{
+  tree.querySelectorAll('details.dir').forEach(d => d.open = true);
+}});
+document.getElementById('collapse-all').addEventListener('click', () => {{
+  tree.querySelectorAll('details.dir').forEach(d => d.open = false);
+}});
+</script>
+</body></html>"""
+    return page
+
+
+def esc(s: str) -> str:
+    return (str(s).replace("&", "&amp;").replace("<", "&lt;")
+            .replace(">", "&gt;").replace('"', "&quot;"))
 
 
 @app.route("/<path:relpath>")

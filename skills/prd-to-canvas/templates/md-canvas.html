@@ -4610,8 +4610,17 @@
       }
     }
 
+    // History of save attempts (in-memory). Shows last 20 in DevTools console
+    // + via window.mdCanvasSaveLog() for diagnostics. Survives until refresh.
+    window.MD_CANVAS_SAVE_LOG = window.MD_CANVAS_SAVE_LOG || [];
+    window.mdCanvasSaveLog = function() {
+      console.table(window.MD_CANVAS_SAVE_LOG.slice(-20));
+      return window.MD_CANVAS_SAVE_LOG;
+    };
+
     async function saveViaServer(newSource, editedIndices) {
       setSaveStatus('保存中…', 'progress');
+      const startedAt = new Date().toISOString();
       let resp, data;
       try {
         resp = await fetch('/api/save', {
@@ -4629,17 +4638,25 @@
         });
         data = await resp.json();
       } catch (e) {
-        setSaveStatus('✗ 网络失败', 'err');
-        toast('保存失败：' + (e.message || e));
+        const entry = { at: startedAt, status: 'network_fail', error: String(e.message || e) };
+        window.MD_CANVAS_SAVE_LOG.push(entry);
+        console.error('[md-canvas save] network fail', entry);
+        setSaveStatus('✗ 网络失败 — F12 看详情', 'err');
+        toast('保存失败：' + (e.message || e) + '\n(F12 → Console 看 mdCanvasSaveLog())');
         return;
       }
+      const entry = { at: startedAt, http: resp.status, ...data };
+      window.MD_CANVAS_SAVE_LOG.push(entry);
+
       // Server completed write+commit+push (or failed at one of the stages)
       if (data && data.ok && data.stage === 'noop') {
+        console.log('[md-canvas save] noop (no changes to commit)', entry);
         setSaveStatus('（无改动）', 'ok');
         return;
       }
       if (data && data.ok && data.pushed) {
         const sha = data.commit_sha ? '（' + data.commit_sha + '）' : '';
+        console.log('[md-canvas save] ✓ pushed', entry);
         setSaveStatus('✓ 已推送' + sha, 'ok');
         toast('已写入 .md 并推送' + sha);
         // Clear any stale localStorage snapshot from prior file-mode use, so
@@ -4648,17 +4665,31 @@
         try { localStorage.removeItem(STORAGE_KEY); } catch {}
         return;
       }
-      // Failure path — pick wording by stage
+      // Failure path — pick wording by stage. Print FULL server response to
+      // console so user can dig in even if banner auto-overwrites on next save.
+      console.warn('[md-canvas save] FAILED', entry);
       const stage = (data && data.stage) || 'unknown';
       const err = (data && data.error) || '未知错误';
+      const sha = data && data.commit_sha;
       if (stage === 'pull-rebase' && data && data.conflict) {
-        setSaveStatus('⚠ 冲突，需手动解决', 'err');
-        toast('队友刚也改了。本地已 commit，去 terminal:\n  git pull --rebase → 解 conflict → git push');
+        setSaveStatus('⚠ 冲突 — 去 terminal 解决', 'err');
+        toast(
+          '队友刚也改了，git rebase 失败。本地 commit ' + (sha || '已建') + '。\n' +
+          'terminal:  git pull --rebase  → 解 conflict → git push\n' +
+          '(F12 → Console 看完整 error)'
+        );
       } else if (stage === 'push') {
-        setSaveStatus('⚠ 推送失败（已 commit）', 'err');
-        toast('已本地 commit 但 push 失败：' + err);
+        setSaveStatus('⚠ 推送失败（本地 commit 已建 ' + (sha || '') + '） — F12 看详情', 'err');
+        // Provide actionable hint based on what we can sniff out of err
+        let hint = '';
+        if (/auth|denied|credential|token|publickey/i.test(err)) {
+          hint = '\n→ 看起来是认证问题。terminal 跑一次 git push（成功后凭证会缓存），下次 server 应能用。';
+        } else if (/non-fast-forward|rejected/i.test(err)) {
+          hint = '\n→ 远端有新提交。terminal: git pull --rebase 后再保存。';
+        }
+        toast('已本地 commit ' + (sha || '') + ' 但 push 失败：\n' + err + hint);
       } else {
-        setSaveStatus('✗ ' + stage + ' 失败', 'err');
+        setSaveStatus('✗ ' + stage + ' 失败 — F12 看详情', 'err');
         toast('保存失败 [' + stage + ']：' + err);
       }
     }
