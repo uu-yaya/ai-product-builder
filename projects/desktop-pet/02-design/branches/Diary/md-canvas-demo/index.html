@@ -1539,10 +1539,71 @@
     }
     .repo-version-head strong { color: var(--primary-active); }
     .repo-version-card .repo-version-current-tag {
-      font-size: 10px; padding: 1px 6px;
+      font-size: 10px; padding: 1px 7px;
       background: var(--primary); color: var(--on-primary);
       border-radius: var(--r-pill); letter-spacing: 0.5px;
+      margin-left: 6px;
+      vertical-align: 1px;
     }
+    /* Version detail content boxes are clickable → open modal */
+    .repo-version-parts-preview { cursor: pointer; }
+    .repo-version-parts-preview:hover .repo-version-part { border-color: var(--primary); }
+    .repo-version-parts-preview .repo-version-part {
+      transition: border-color 0.12s;
+    }
+
+    /* Version detail modal (shared by Prompt 仓库 & Agent 仓库) */
+    .version-detail-modal {
+      position: fixed; inset: 0;
+      background: rgba(20, 20, 19, 0.55);
+      display: none; align-items: center; justify-content: center;
+      z-index: 215; backdrop-filter: blur(2px);
+    }
+    .version-detail-modal.is-show { display: flex; }
+    .version-detail-modal-box {
+      background: var(--canvas);
+      border-radius: var(--r-xl);
+      width: min(820px, calc(100vw - 48px));
+      height: min(640px, calc(100vh - 60px));
+      box-shadow: 0 20px 60px rgba(20, 20, 19, 0.30);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .version-detail-head {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--hairline);
+      display: flex; align-items: center; justify-content: space-between;
+    }
+    .version-detail-head h3 {
+      font-family: var(--font-serif);
+      font-size: 18px; font-weight: 500; color: var(--ink); margin: 0;
+    }
+    .version-detail-body {
+      flex: 1; overflow-y: auto;
+      padding: 16px 20px;
+    }
+    .vd-section { margin-bottom: 14px; }
+    .vd-section-label {
+      font-size: 11px; font-weight: 600; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin-bottom: 4px;
+      font-family: var(--font-sans);
+    }
+    .vd-section-body {
+      background: var(--canvas);
+      border: 1px solid var(--hairline);
+      border-left-width: 3px;
+      border-left-color: var(--muted-soft);
+      border-radius: var(--r-sm);
+      padding: 8px 10px;
+      font-family: var(--font-mono);
+      font-size: 12px; line-height: 1.55;
+      color: var(--ink);
+      white-space: pre-wrap; word-break: break-word;
+      max-height: none;
+    }
+    .vd-section-body.is-system    { border-left-color: var(--accent-teal); }
+    .vd-section-body.is-user      { border-left-color: var(--primary); }
+    .vd-section-body.is-assistant { border-left-color: var(--accent-amber); }
     .repo-version-body {
       margin-top: 8px; font-family: var(--font-mono);
       font-size: 11.5px; color: var(--body); line-height: 1.5;
@@ -2979,7 +3040,10 @@
     <div class="nav-actions">
       <button class="btn btn-ghost" id="help-btn" title="快捷键速查">帮助 <span class="kbd">?</span></button>
       <button class="btn btn-secondary" id="prompt-repo-btn" title="Prompt 仓库">
-        <span class="prompt-repo-btn-label">仓库</span> <span class="kbd">⌘⇧P</span>
+        <span class="prompt-repo-btn-label">Prompt 仓库</span> <span class="kbd">⌘⇧P</span>
+      </button>
+      <button class="btn btn-secondary" id="agent-repo-btn" title="Agent 仓库">
+        <span>Agent 仓库</span> <span class="kbd">⌘⇧A</span>
       </button>
       <button class="btn btn-secondary" id="comments-btn" title="评论面板">
         <span>评论</span> <span class="kbd">⌘⇧C</span> <span id="comments-btn-count" class="comments-btn-count" hidden>0</span>
@@ -3181,6 +3245,41 @@
       <footer class="repo-foot" id="repo-foot" hidden>
         <span class="repo-dirty-hint" id="repo-dirty-hint" hidden> 有未导出变更（关页面前建议导出）</span>
       </footer>
+    </div>
+  </div>
+
+  <!-- Version detail modal (shared by Prompt & Agent 仓库) -->
+  <div class="version-detail-modal" id="version-detail-modal" aria-hidden="true">
+    <div class="version-detail-modal-box">
+      <header class="version-detail-head">
+        <h3 id="version-detail-title">版本详情</h3>
+        <button type="button" class="ai-close" id="version-detail-close" title="关闭">×</button>
+      </header>
+      <div class="version-detail-body" id="version-detail-body"></div>
+    </div>
+  </div>
+
+  <!-- Agent 仓库 modal (C2) — reuses .repo-modal CSS classes -->
+  <div class="repo-modal" id="agent-repo-modal" aria-hidden="true">
+    <div class="repo-modal-box">
+      <header class="repo-head">
+        <h3>Agent 仓库</h3>
+        <div class="repo-head-actions">
+          <input type="file" id="agent-repo-import-file" accept="application/json,.json" hidden>
+          <button type="button" class="ai-btn-ghost" id="agent-repo-import-btn" title="从 JSON 文件导入">导入</button>
+          <button type="button" class="ai-btn-ghost" id="agent-repo-export-btn" title="导出所有 agent + 实验记录">导出</button>
+          <button type="button" class="ai-btn-primary" id="agent-repo-new-btn">+ 新建 agent</button>
+          <button type="button" class="ai-close" id="agent-repo-close" title="关闭">×</button>
+        </div>
+      </header>
+      <div class="repo-body">
+        <aside class="repo-list" id="agent-repo-list"></aside>
+        <section class="repo-detail" id="agent-repo-detail">
+          <div class="repo-empty" id="agent-repo-empty">
+            <div>选一个 agent 看详情，或点右上「+ 新建 agent」</div>
+          </div>
+        </section>
+      </div>
     </div>
   </div>
 
@@ -7415,13 +7514,17 @@ erDiagram
               '</div>' +
               '<div>' + (v.createdAt ? new Date(v.createdAt).toLocaleString('zh-CN', {hour12:false}) : '') + '</div>' +
             '</div>' +
-            '<div class="repo-version-parts-preview">' + partsHtml + '</div>' +
+            '<div class="repo-version-parts-preview" title="点击查看完整内容">' + partsHtml + '</div>' +
             (isCurrent ? '' :
               '<div style="margin-top:8px;display:flex;gap:8px">' +
                 '<button type="button" class="ai-btn-ghost" data-act="set-current" data-id="' + v.id + '">设为当前</button>' +
                 '<button type="button" class="ai-btn-ghost" data-act="del-version" data-id="' + v.id + '" style="color:var(--error)">删除此版本</button>' +
               '</div>'
             );
+          // Click anywhere on the preview to open the full-detail modal
+          card.querySelector('.repo-version-parts-preview').addEventListener('click', () => {
+            openVersionDetailModal(p.name + ' · ' + v.label, buildPromptVersionDetailHtml(v));
+          });
           wrap.appendChild(card);
         });
       }
@@ -7541,6 +7644,360 @@ erDiagram
       toast('已新建：' + p.name);
     }
 
+    // ============================================================
+    // Agent 仓库 modal — list / detail / 3 tabs / CRUD / import-export
+    // ============================================================
+    const agentRepoModal = document.getElementById('agent-repo-modal');
+    let agentRepoSelectedId = null;
+    let agentRepoTab = 'info';
+
+    function openAgentRepoModal() {
+      renderAgentRepoList();
+      const repo = loadAgentRepo();
+      if (!agentRepoSelectedId && repo.agents.length) agentRepoSelectedId = repo.agents[0].id;
+      renderAgentRepoDetail();
+      agentRepoModal.classList.add('is-show');
+      agentRepoModal.setAttribute('aria-hidden', 'false');
+    }
+    function closeAgentRepoModal() {
+      agentRepoModal.classList.remove('is-show');
+      agentRepoModal.setAttribute('aria-hidden', 'true');
+    }
+    document.getElementById('agent-repo-btn').addEventListener('click', openAgentRepoModal);
+    document.getElementById('agent-repo-close').addEventListener('click', closeAgentRepoModal);
+    agentRepoModal.addEventListener('click', e => { if (e.target === agentRepoModal) closeAgentRepoModal(); });
+
+    function renderAgentRepoList() {
+      const list = document.getElementById('agent-repo-list');
+      const repo = loadAgentRepo();
+      if (!repo.agents.length) {
+        list.innerHTML = '<div class="repo-list-empty">还没有 agent。<br>点右上「+ 新建 agent」开始。</div>';
+        return;
+      }
+      list.innerHTML = '';
+      repo.agents.forEach(a => {
+        const cur = getCurrentAgentVersion(a);
+        const expCount = repo.experiments.filter(e => e.agentId === a.id).length;
+        const card = document.createElement('div');
+        card.className = 'repo-card' + (a.id === agentRepoSelectedId ? ' is-active' : '');
+        card.dataset.id = a.id;
+        card.innerHTML =
+          '<div class="repo-card-name">' +
+            '<span>' + escapeHtml(a.name || '（未命名）') + '</span>' +
+            '<span class="repo-card-ver">' + escapeHtml((cur && cur.label) || 'v?') + '</span>' +
+          '</div>' +
+          '<div class="repo-card-desc">' + escapeHtml(a.description || '（无描述）') + '</div>' +
+          '<div class="repo-card-meta">' + (cur ? escapeHtml(cur.method) + ' · ' : '') + expCount + ' 次实验 · 更新于 ' + (a.updatedAt ? new Date(a.updatedAt).toLocaleString('zh-CN', {hour12:false, month:'2-digit', day:'2-digit', hour:'2-digit', minute:'2-digit'}) : '?') + '</div>';
+        card.addEventListener('click', () => {
+          agentRepoSelectedId = a.id;
+          agentRepoTab = 'info';
+          renderAgentRepoList();
+          renderAgentRepoDetail();
+        });
+        list.appendChild(card);
+      });
+    }
+
+    function renderAgentRepoDetail() {
+      const detail = document.getElementById('agent-repo-detail');
+      const empty = document.getElementById('agent-repo-empty');
+      if (!agentRepoSelectedId) {
+        empty.style.display = '';
+        Array.from(detail.children).forEach(c => { if (c !== empty) c.remove(); });
+        return;
+      }
+      const a = getAgent(agentRepoSelectedId);
+      if (!a) { agentRepoSelectedId = null; renderAgentRepoDetail(); return; }
+      empty.style.display = 'none';
+      Array.from(detail.children).forEach(c => { if (c !== empty) c.remove(); });
+
+      const cur = getCurrentAgentVersion(a);
+      const expCount = getAgentExperiments(a.id).length;
+
+      const tabs = document.createElement('div');
+      tabs.className = 'repo-tabs';
+      tabs.innerHTML =
+        '<button type="button" class="repo-tab' + (agentRepoTab==='info'?' is-active':'') + '" data-tab="info">基础信息</button>' +
+        '<button type="button" class="repo-tab' + (agentRepoTab==='versions'?' is-active':'') + '" data-tab="versions">版本（' + a.versions.length + '）</button>' +
+        '<button type="button" class="repo-tab' + (agentRepoTab==='experiments'?' is-active':'') + '" data-tab="experiments">实验记录（' + expCount + '）</button>';
+      tabs.addEventListener('click', e => {
+        const t = e.target.closest('.repo-tab');
+        if (!t) return;
+        agentRepoTab = t.dataset.tab;
+        renderAgentRepoDetail();
+      });
+      detail.appendChild(tabs);
+
+      if (agentRepoTab === 'info')             renderAgentRepoTabInfo(detail, a, cur);
+      else if (agentRepoTab === 'versions')    renderAgentRepoTabVersions(detail, a);
+      else if (agentRepoTab === 'experiments') renderAgentRepoTabExperiments(detail, a);
+    }
+
+    function renderAgentRepoTabInfo(detail, a, cur) {
+      const wrap = document.createElement('div');
+      wrap.className = 'repo-form';
+      const headersPreview = (cur && cur.headers || []).length
+        ? (cur.headers).map(h => escapeHtml((h.name || '') + ': ' + (h.value || ''))).join('\n')
+        : '（无 headers）';
+      const bodyPreview = !cur
+        ? '（无 body）'
+        : cur.bodyMode === 'kv'
+          ? ((cur.bodyKv || []).length
+              ? (cur.bodyKv).map(kv => escapeHtml((kv.name || '') + ' = ' + (kv.value || ''))).join('\n')
+              : '（结构化 body 为空）')
+          : escapeHtml(cur.bodyRaw || '（原始 body 为空）');
+      const varHintsPreview = (cur && cur.varHints || []).length
+        ? (cur.varHints).map(v => escapeHtml('{{' + (v.name || '?') + '}} = ' + (v.value || ''))).join('\n')
+        : '（无变量预设）';
+      wrap.innerHTML =
+        '<label>名称</label>' +
+        '<input type="text" class="is-name" data-field="name" value="' + escapeHtml(a.name || '') + '">' +
+        '<label>描述</label>' +
+        '<textarea class="is-desc" data-field="description">' + escapeHtml(a.description || '') + '</textarea>' +
+        '<div class="repo-parts-section">' +
+          '<div class="repo-parts-label"><span>当前版本 · ' + escapeHtml((cur && cur.label) || 'v?') + '</span></div>' +
+          '<div style="font-family:var(--font-mono);font-size:12px;color:var(--body);line-height:1.55">' +
+            '<div style="margin:6px 0 4px;font-weight:500">METHOD / URL</div>' +
+            '<div class="repo-version-part is-none">' + escapeHtml((cur && cur.method) || '?') + ' ' + escapeHtml((cur && cur.url) || '') + '</div>' +
+            '<div style="margin:10px 0 4px;font-weight:500">HEADERS</div>' +
+            '<div class="repo-version-part is-none">' + headersPreview + '</div>' +
+            '<div style="margin:10px 0 4px;font-weight:500">BODY（' + escapeHtml((cur && cur.bodyMode) || 'kv') + ' 模式）</div>' +
+            '<div class="repo-version-part is-none">' + bodyPreview + '</div>' +
+            '<div style="margin:10px 0 4px;font-weight:500">变量预设</div>' +
+            '<div class="repo-version-part is-none">' + varHintsPreview + '</div>' +
+          '</div>' +
+        '</div>' +
+        '<div class="repo-meta-row">' +
+          '<span>创建于 ' + (a.createdAt ? new Date(a.createdAt).toLocaleString('zh-CN', {hour12:false}) : '?') + '</span>' +
+          '<span>更新于 ' + (a.updatedAt ? new Date(a.updatedAt).toLocaleString('zh-CN', {hour12:false}) : '?') + '</span>' +
+        '</div>' +
+        '<div class="repo-form-actions">' +
+          '<button type="button" class="ai-btn-ghost" data-act="insert">在 canvas 插实验块（应用当前版本）</button>' +
+          '<button type="button" class="ai-btn-ghost" data-act="delete" style="color:var(--error)">删除此 agent</button>' +
+          '<button type="button" class="ai-btn-primary" data-act="save">保存名称 / 描述</button>' +
+        '</div>';
+      detail.appendChild(wrap);
+
+      wrap.addEventListener('click', e => {
+        const b = e.target.closest('button[data-act]');
+        if (!b) return;
+        const act = b.dataset.act;
+        const fields = {};
+        wrap.querySelectorAll('[data-field]').forEach(el => fields[el.dataset.field] = el.value);
+        if (act === 'save') {
+          const repo = loadAgentRepo();
+          const ag = repo.agents.find(x => x.id === a.id);
+          ag.name = fields.name;
+          ag.description = fields.description;
+          ag.updatedAt = nowIso();
+          saveAgentRepo(repo);
+          renderAgentRepoList(); renderAgentRepoDetail();
+          toast('已保存');
+        } else if (act === 'delete') {
+          if (!confirm('确认删除 "' + (a.name || '未命名') + '" 及其所有版本和实验记录？')) return;
+          const repo = loadAgentRepo();
+          repo.agents = repo.agents.filter(x => x.id !== a.id);
+          repo.experiments = repo.experiments.filter(e => e.agentId !== a.id);
+          saveAgentRepo(repo);
+          agentRepoSelectedId = null;
+          renderAgentRepoList(); renderAgentRepoDetail();
+          toast('已删除');
+        } else if (act === 'insert') {
+          // Create an Agent 实验块 in canvas, prepopulated from this version
+          if (!cur) { toast('该 agent 还没有版本可用'); return; }
+          closeAgentRepoModal();
+          createAgentLabAt(null, {
+            method: cur.method,
+            url: cur.url,
+            headers: (cur.headers || []).map(h => ({ ...h })),
+            bodyMode: cur.bodyMode || 'kv',
+            bodyKv: (cur.bodyKv || []).map(kv => ({ ...kv })),
+            bodyRaw: cur.bodyRaw || '',
+            vars: (cur.varHints || []).map(v => ({ ...v })),
+            title: a.name + ' · ' + (cur.label || 'v?'),
+          });
+          toast('已插入 Agent 实验块（基于 ' + a.name + ' · ' + (cur.label || 'v?') + '）');
+        }
+      });
+    }
+
+    function renderAgentRepoTabVersions(detail, a) {
+      const wrap = document.createElement('div');
+      wrap.className = 'repo-versions-list';
+      if (!a.versions.length) {
+        wrap.innerHTML = '<div class="repo-list-empty-tab">还没有版本。</div>';
+      } else {
+        a.versions.slice().reverse().forEach(v => {
+          const card = document.createElement('div');
+          const isCurrent = v.id === a.currentVersionId;
+          card.className = 'repo-version-card' + (isCurrent ? ' is-current' : '');
+          // Render the four sections (endpoint/headers/body/vars) inline for at-a-glance browsing
+          const headersText = (v.headers || []).length
+            ? (v.headers).map(h => (h.name || '') + ': ' + (h.value || '')).join('\n')
+            : '（无 headers）';
+          const bodyText = v.bodyMode === 'raw'
+            ? (v.bodyRaw || '（原始 body 为空）')
+            : ((v.bodyKv || []).length
+                ? (v.bodyKv).map(kv => (kv.name || '') + ' = ' + (kv.value || '')).join('\n')
+                : '（结构化 body 为空）');
+          const varText = (v.varHints || []).length
+            ? (v.varHints).map(vv => vv.source === 'prompt-repo'
+                ? '{{' + (vv.name || '?') + '}} → prompt-repo ref'
+                : '{{' + (vv.name || '?') + '}} = ' + (vv.value || '')
+              ).join('\n')
+            : '（无变量预设）';
+          const section = (name, content, cls) =>
+            '<div class="repo-version-part is-' + (cls || 'none') + '">' +
+              '<div class="repo-version-part-head"><span class="repo-version-part-name">' + escapeHtml(name) + '</span></div>' +
+              escapeHtml(content) +
+            '</div>';
+          card.innerHTML =
+            '<div class="repo-version-head">' +
+              '<div><strong>' + escapeHtml(v.label) + '</strong>' +
+                (isCurrent ? '<span class="repo-version-current-tag">当前</span>' : '') +
+              '</div>' +
+              '<div>' + (v.createdAt ? new Date(v.createdAt).toLocaleString('zh-CN', {hour12:false}) : '') + '</div>' +
+            '</div>' +
+            '<div class="repo-version-parts-preview" title="点击查看完整版本详情">' +
+              section('METHOD / URL', (v.method || '?') + ' ' + (v.url || ''), 'none') +
+              section('HEADERS', headersText, 'system') +
+              section('BODY · ' + (v.bodyMode || 'kv') + ' 模式', bodyText, 'user') +
+              section('变量预设', varText, 'assistant') +
+            '</div>' +
+            (isCurrent ? '' :
+              '<div style="margin-top:8px;display:flex;gap:8px">' +
+                '<button type="button" class="ai-btn-ghost" data-act="set-current" data-id="' + v.id + '">设为当前</button>' +
+                '<button type="button" class="ai-btn-ghost" data-act="del-version" data-id="' + v.id + '" style="color:var(--error)">删除此版本</button>' +
+              '</div>'
+            );
+          // Click anywhere on the preview to open the full-detail modal
+          card.querySelector('.repo-version-parts-preview').addEventListener('click', () => {
+            openVersionDetailModal(a.name + ' · ' + v.label, buildAgentVersionDetailHtml(v));
+          });
+          wrap.appendChild(card);
+        });
+      }
+      detail.appendChild(wrap);
+      wrap.addEventListener('click', e => {
+        const b = e.target.closest('button[data-act]');
+        if (!b) return;
+        const repo = loadAgentRepo();
+        const ag = repo.agents.find(x => x.id === agentRepoSelectedId);
+        if (b.dataset.act === 'set-current') {
+          ag.currentVersionId = b.dataset.id;
+          ag.updatedAt = nowIso();
+        } else if (b.dataset.act === 'del-version') {
+          if (ag.versions.length <= 1) { toast('至少保留一个版本'); return; }
+          if (!confirm('删除该版本？相关实验记录保留，但失去版本指向。')) return;
+          ag.versions = ag.versions.filter(v => v.id !== b.dataset.id);
+          if (ag.currentVersionId === b.dataset.id) ag.currentVersionId = ag.versions[ag.versions.length-1].id;
+          ag.updatedAt = nowIso();
+        }
+        saveAgentRepo(repo);
+        renderAgentRepoList(); renderAgentRepoDetail();
+      });
+    }
+
+    function renderAgentRepoTabExperiments(detail, a) {
+      const wrap = document.createElement('div');
+      wrap.className = 'repo-experiments-list';
+      const exps = getAgentExperiments(a.id);
+      if (!exps.length) {
+        wrap.innerHTML = '<div class="repo-list-empty-tab">还没有实验记录。<br>把 Agent 实验块关联到此 agent 并跑（C4+C5 上线后自动写入）。</div>';
+      } else {
+        exps.forEach(e => {
+          const verLabel = (a.versions.find(v => v.id === e.versionId) || {}).label || '未知版本';
+          const cls = e.status >= 200 && e.status < 300 ? 'is-2xx'
+                    : e.status >= 300 && e.status < 400 ? 'is-3xx'
+                    : 'is-4xx';
+          const card = document.createElement('div');
+          card.className = 'repo-experiment-card';
+          card.innerHTML =
+            '<div class="repo-experiment-head">' +
+              '<div><span class="al-status-pill ' + cls + '">' + escapeHtml((e.status || 0) + '') + '</span> ' + escapeHtml(verLabel) + ' · ' + ((e.duration_ms||0)/1000).toFixed(2) + 's</div>' +
+              '<div>' + (e.ranAt ? new Date(e.ranAt).toLocaleString('zh-CN', {hour12:false}) : '?') + '</div>' +
+            '</div>' +
+            '<div class="repo-experiment-body">' +
+              '<div class="repo-experiment-msg repo-experiment-msg-user">' + escapeHtml((e.method || '') + ' ' + (e.url || '')) + '</div>' +
+              '<div class="repo-experiment-msg repo-experiment-msg-assistant">' + escapeHtml((e.responseText || '').slice(0, 800)) + ((e.responseText || '').length > 800 ? '\n…' : '') + '</div>' +
+            '</div>';
+          wrap.appendChild(card);
+        });
+      }
+      detail.appendChild(wrap);
+    }
+
+    document.getElementById('agent-repo-new-btn').addEventListener('click', () => {
+      const repo = loadAgentRepo();
+      const v = {
+        id: newAgentRepoId('av'),
+        label: 'v1.0',
+        createdAt: nowIso(),
+        method: 'POST',
+        url: '',
+        headers: [{ name: 'Content-Type', value: 'application/json' }],
+        bodyMode: 'kv',
+        bodyKv: [],
+        bodyRaw: '',
+        varHints: [],
+      };
+      const a = {
+        id: newAgentRepoId('ag'),
+        name: '新 agent',
+        description: '',
+        versions: [v],
+        currentVersionId: v.id,
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+      };
+      repo.agents.push(a);
+      saveAgentRepo(repo);
+      agentRepoSelectedId = a.id;
+      agentRepoTab = 'info';
+      renderAgentRepoList(); renderAgentRepoDetail();
+      setTimeout(() => {
+        const n = document.querySelector('#agent-repo-detail .repo-form input[data-field="name"]');
+        if (n) { n.focus(); n.select(); }
+      }, 50);
+    });
+
+    document.getElementById('agent-repo-export-btn').addEventListener('click', () => {
+      const repo = loadAgentRepo();
+      const blob = new Blob([JSON.stringify(repo, null, 2)], { type: 'application/json' });
+      const aEl = document.createElement('a');
+      aEl.href = URL.createObjectURL(blob);
+      aEl.download = 'agent-repo-' + new Date().toISOString().slice(0, 10) + '.json';
+      aEl.click();
+      setTimeout(() => URL.revokeObjectURL(aEl.href), 1000);
+    });
+    const agentRepoImportFile = document.getElementById('agent-repo-import-file');
+    document.getElementById('agent-repo-import-btn').addEventListener('click', () => agentRepoImportFile.click());
+    agentRepoImportFile.addEventListener('change', async () => {
+      const f = agentRepoImportFile.files && agentRepoImportFile.files[0];
+      if (!f) return;
+      try {
+        const data = JSON.parse(await f.text());
+        if (!Array.isArray(data.agents)) { toast('文件不是合法的 agent 仓库'); return; }
+        const mode = confirm('导入 ' + data.agents.length + ' 个 agent + ' + (data.experiments || []).length + ' 条实验。\n确定 = 追加；取消 = 替换全部') ? 'append' : 'replace';
+        if (mode === 'append') {
+          const cur = loadAgentRepo();
+          const newAgents = data.agents.map(a => ({ ...a, id: newAgentRepoId('ag') }));
+          cur.agents = [...cur.agents, ...newAgents];
+          cur.experiments = [...cur.experiments, ...(data.experiments || [])];
+          saveAgentRepo(cur);
+        } else {
+          saveAgentRepo({ version: 1, agents: data.agents, experiments: data.experiments || [] });
+          agentRepoSelectedId = null;
+        }
+        renderAgentRepoList(); renderAgentRepoDetail();
+        toast('已导入');
+      } catch (err) {
+        toast('导入失败：' + (err.message || err));
+      } finally {
+        agentRepoImportFile.value = '';
+      }
+    });
+
     // ---- Export / Import ----
     document.getElementById('repo-export-btn').addEventListener('click', () => {
       const repo = loadRepo();
@@ -7604,12 +8061,16 @@ erDiagram
       }
     });
 
-    // ---- Keyboard ⌘⇧P ----
+    // ---- Keyboard ⌘⇧P / ⌘⇧A ----
     document.addEventListener('keydown', e => {
       if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'p') {
         e.preventDefault();
         if (repoModal.classList.contains('is-show')) closeRepoModal();
         else openRepoModal();
+      } else if ((e.metaKey || e.ctrlKey) && e.shiftKey && e.key.toLowerCase() === 'a') {
+        e.preventDefault();
+        if (agentRepoModal.classList.contains('is-show')) closeAgentRepoModal();
+        else openAgentRepoModal();
       }
     });
 
@@ -8354,6 +8815,152 @@ erDiagram
     function getAgentPreset(id) {
       return [...BUILTIN_AGENT_PRESETS, ...loadUserAgentPresets()].find(p => p.id === id) || null;
     }
+
+    // ---- Version detail modal (shared) ----
+    const versionDetailModal = document.getElementById('version-detail-modal');
+    const versionDetailTitle = document.getElementById('version-detail-title');
+    const versionDetailBody  = document.getElementById('version-detail-body');
+    function openVersionDetailModal(title, sectionsHtml) {
+      versionDetailTitle.textContent = title;
+      versionDetailBody.innerHTML = sectionsHtml;
+      versionDetailModal.classList.add('is-show');
+      versionDetailModal.setAttribute('aria-hidden', 'false');
+    }
+    function closeVersionDetailModal() {
+      versionDetailModal.classList.remove('is-show');
+      versionDetailModal.setAttribute('aria-hidden', 'true');
+    }
+    document.getElementById('version-detail-close').addEventListener('click', closeVersionDetailModal);
+    versionDetailModal.addEventListener('click', e => { if (e.target === versionDetailModal) closeVersionDetailModal(); });
+
+    // Renderers for the two repo types — output HTML used by the modal body
+    function buildPromptVersionDetailHtml(v) {
+      const parts = Array.isArray(v.parts) ? v.parts : [];
+      if (!parts.length) return '<div class="vd-section-body">（无 parts）</div>';
+      return parts.map(part => {
+        const role = part.role || null;
+        return '<div class="vd-section">' +
+          '<div class="vd-section-label">' + escapeHtml(part.name || '(unnamed)') + (role ? ' · ' + role : '') + '</div>' +
+          '<div class="vd-section-body is-' + (role || 'none') + '">' + escapeHtml(part.content || '(空)') + '</div>' +
+        '</div>';
+      }).join('');
+    }
+    function buildAgentVersionDetailHtml(v) {
+      const headersText = (v.headers || []).length
+        ? (v.headers).map(h => (h.name || '') + ': ' + (h.value || '')).join('\n')
+        : '（无 headers）';
+      const bodyText = v.bodyMode === 'raw'
+        ? (v.bodyRaw || '（原始 body 为空）')
+        : ((v.bodyKv || []).length
+            ? (v.bodyKv).map(kv => (kv.name || '') + ' = ' + (kv.value || '')).join('\n')
+            : '（结构化 body 为空）');
+      const varText = (v.varHints || []).length
+        ? (v.varHints).map(vv => vv.source === 'prompt-repo'
+            ? '{{' + (vv.name || '?') + '}} → prompt-repo ref'
+            : '{{' + (vv.name || '?') + '}} = ' + (vv.value || '')
+          ).join('\n')
+        : '（无变量预设）';
+      return '<div class="vd-section">' +
+          '<div class="vd-section-label">METHOD / URL</div>' +
+          '<div class="vd-section-body">' + escapeHtml((v.method || '?') + ' ' + (v.url || '')) + '</div>' +
+        '</div>' +
+        '<div class="vd-section">' +
+          '<div class="vd-section-label">HEADERS</div>' +
+          '<div class="vd-section-body">' + escapeHtml(headersText) + '</div>' +
+        '</div>' +
+        '<div class="vd-section">' +
+          '<div class="vd-section-label">BODY · ' + escapeHtml(v.bodyMode || 'kv') + ' 模式</div>' +
+          '<div class="vd-section-body">' + escapeHtml(bodyText) + '</div>' +
+        '</div>' +
+        '<div class="vd-section">' +
+          '<div class="vd-section-label">变量预设</div>' +
+          '<div class="vd-section-body">' + escapeHtml(varText) + '</div>' +
+        '</div>';
+    }
+
+    // ============================================================
+    // Agent 仓库 (C1) — mirror of Prompt 仓库 for agents.
+    // Storage: localStorage `md-canvas:agent-repo`.
+    // Shape: { version, agents: [{id, name, description, versions[], currentVersionId}],
+    //          experiments: [{id, agentId, versionId, request, response, ranAt}] }
+    // First open: seed with the 7 built-in presets as v1.0 agents + migrate any
+    // user-saved presets from the old key.
+    // ============================================================
+    const AGENT_REPO_KEY = 'md-canvas:agent-repo';
+
+    function newAgentRepoId(prefix) { return prefix + '_' + Math.random().toString(36).slice(2, 10); }
+
+    function presetToAgent(preset, description) {
+      return {
+        id: newAgentRepoId('ag'),
+        name: preset.name,
+        description: description || '',
+        createdAt: nowIso(),
+        updatedAt: nowIso(),
+        currentVersionId: null, // set right below
+        versions: [{
+          id: newAgentRepoId('av'),
+          label: 'v1.0',
+          createdAt: nowIso(),
+          method:   preset.method,
+          url:      preset.url,
+          headers:  preset.headers  || parseHeadersTextToKv(preset.headersText || ''),
+          bodyMode: preset.bodyMode || (preset.bodyText ? 'raw' : 'kv'),
+          bodyKv:   preset.bodyKv   || [],
+          bodyRaw:  preset.bodyRaw != null ? preset.bodyRaw : (preset.bodyText || ''),
+          varHints: preset.varHints || [],
+        }],
+      };
+    }
+
+    function seedAgentRepo() {
+      const agents = BUILTIN_AGENT_PRESETS.map(p => presetToAgent(p, '内置：' + p.name));
+      // Also migrate any user-saved presets from the previous key
+      try {
+        loadUserAgentPresets().forEach(p => {
+          agents.push(presetToAgent(p, '从旧预设迁移'));
+        });
+      } catch {}
+      agents.forEach(a => { a.currentVersionId = a.versions[0].id; });
+      return { version: 1, agents, experiments: [] };
+    }
+
+    function loadAgentRepo() {
+      try {
+        const raw = localStorage.getItem(AGENT_REPO_KEY);
+        if (raw) {
+          const p = JSON.parse(raw);
+          if (!p.agents) p.agents = [];
+          if (!p.experiments) p.experiments = [];
+          return p;
+        }
+        // First-time seed
+        const seeded = seedAgentRepo();
+        localStorage.setItem(AGENT_REPO_KEY, JSON.stringify(seeded));
+        return seeded;
+      } catch { return { version: 1, agents: [], experiments: [] }; }
+    }
+
+    function saveAgentRepo(data) {
+      try { localStorage.setItem(AGENT_REPO_KEY, JSON.stringify(data)); }
+      catch (e) { toast('Agent 仓库保存失败：' + e.message); }
+    }
+    function getAgent(id) { return loadAgentRepo().agents.find(a => a.id === id) || null; }
+    function getCurrentAgentVersion(agent) {
+      if (!agent) return null;
+      return agent.versions.find(v => v.id === agent.currentVersionId) || agent.versions[0] || null;
+    }
+    function getAgentExperiments(agentId) {
+      return loadAgentRepo().experiments.filter(e => e.agentId === agentId)
+        .sort((a, b) => (b.ranAt || '').localeCompare(a.ranAt || ''));
+    }
+    function nextAgentVersionLabel(agent) {
+      const labels = (agent.versions || []).map(v => v.label || 'v0');
+      const last = labels[labels.length - 1] || 'v0';
+      const m = last.match(/v(\d+)(?:\.(\d+))?/);
+      if (!m) return 'v1.0';
+      return 'v' + parseInt(m[1], 10) + '.' + (parseInt(m[2] || '0', 10) + 1);
+    }
     function newAgentPresetId() { return 'preset_' + Math.random().toString(36).slice(2, 10); }
 
     function applyAgentPreset(section, preset) {
@@ -9082,7 +9689,8 @@ erDiagram
       }
     }
 
-    function createAgentLabAt(refSection) {
+    function createAgentLabAt(refSection, opts) {
+      opts = opts || {};
       const list = loadAgentLabs();
       const content = document.getElementById('content');
       const blocks = Array.from(content.children).filter(c =>
@@ -9098,14 +9706,14 @@ erDiagram
       const a = {
         id: newAgentLabId(),
         insertAt,
-        title: '',
-        method: 'POST',
-        url: '',
-        headers: [{ name: 'Content-Type', value: 'application/json' }],
-        bodyMode: 'kv',
-        bodyKv: [],
-        bodyRaw: '',
-        vars: [],
+        title: opts.title || '',
+        method: opts.method || 'POST',
+        url: opts.url || '',
+        headers: opts.headers || [{ name: 'Content-Type', value: 'application/json' }],
+        bodyMode: opts.bodyMode || 'kv',
+        bodyKv: opts.bodyKv || [],
+        bodyRaw: opts.bodyRaw || '',
+        vars: opts.vars || [],
         lastOutput: null,
       };
       list.push(a);
