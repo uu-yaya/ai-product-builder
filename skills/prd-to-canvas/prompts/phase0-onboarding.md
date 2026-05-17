@@ -23,19 +23,64 @@ Step 5: 选 server + 有缺 → 逐项 walkthrough（每个改环境命令都征
 Step 6: 确认 ready，进 Phase 1
 ```
 
-## Step 1: 解释 skill
+## Step 1: 解释 skill + 两种模式（要具体）
 
-用 1 句话 + 2 行表格说清楚：
+skill 自我介绍 + 两种模式的**真实工作流**对比。不要光列"支持/不支持"——要让用户看完直接知道选了会发生什么。
+
+向用户输出（按这个结构，可调措辞但内容必须覆盖）：
 
 ```
-prd-to-canvas: 把你的 markdown PRD 转成可交互的 canvas HTML 页面（接口契约 / mermaid / 表格 / 评论 / 等都能渲染成块）。
+👋 prd-to-canvas
 
-两种模式可选:
+把你的 markdown PRD 转成**可交互的 canvas HTML 页面**——
+段落能编辑、接口能渲染成契约块（可发请求测试 + 多 status 响应）、
+mermaid 自动画图、能加 Mock / Prompt 实验 / 评论等。
 
-| 模式 | 编辑保存在哪 | 多人协作 | 需要 |
-| --- | --- | --- | --- |
-| file 模式（简单）| 浏览器 localStorage | 不行（要下载 .md 手动给队友） | 只需 Python（生成 HTML 用）|
-| server 模式（推荐）| 直接写源 .md + 自动 git push | 走 git 异步协作 | Python + flask + git 配好能 push |
+它有两种工作模式，区别主要在"保存到哪 + 队友怎么看到"：
+
+──────────────────────────────────────────────────────────────
+📝 file 模式（双击 HTML 用）
+──────────────────────────────────────────────────────────────
+  · 生成的是一份独立 HTML 文件，浏览器双击就能开
+  · 你的编辑保存到**当前浏览器的 localStorage**
+  · 关浏览器、换电脑、清缓存 → 编辑可能丢
+  · 给队友看：你点"下载"按钮 → 拿到改过的 .md →
+    手动发给队友 → 队友手动重生成 → 才能看到
+  · 适合: 自己看 / 给老板 demo / 一次性快速看效果
+
+──────────────────────────────────────────────────────────────
+🚀 server 模式（本地起 server，浏览器编辑直接进文件 + git）
+──────────────────────────────────────────────────────────────
+  · 启动一个本地小 server（python3 server.py），浏览器开
+    http://localhost:7799 看你所有 PRD
+  · Cmd+S → server 直接写源 .md 文件 + 自动 git commit + push
+  · 关浏览器 / 换电脑 → git pull 拿最新继续
+  · 给队友看：你 push 完，队友 git pull 就有
+  · 适合: 团队协作 / 自己跨电脑工作 / 需要历史版本控制
+
+  ⚠ 注意 server 模式不替你配 git——用的是你 terminal 里现有的
+    git 配置（remote URL、SSH key、push 权限）。我下面会自检告诉
+    你 git 是否配好。
+```
+
+如果用户问"我没用过 git 怎么办"——展示这个补充说明：
+
+```
+没 git 也能用，会出现三种情况（你可以随时升级）:
+
+  · 没建过 git 仓库:
+       Cmd+S 只写 .md 文件，不做 git。内容不丢，但没历史版本
+       (=本地草稿模式)
+
+  · 本地 git init 了但没远端仓库:
+       Cmd+S 写 .md + 本地 commit，但 push 失败
+       本地版本历史在累积，等以后配好远端一次性 push 上去
+
+  · 从工蜂等远端 clone 下来的:
+       Cmd+S 写 .md + commit + push，全流程跑通，队友能看到
+       (= 推荐的协作姿势)
+
+我会在下面自检告诉你你当前在哪种情况，需要补什么就告诉你具体命令。
 ```
 
 ## Step 2: 环境检查（read-only，静默跑）
@@ -92,74 +137,161 @@ git config user.name
 
 ## Step 4: 问用户选模式
 
+用 AskUserQuestion 同时问 2 个问题（一次 multi-question call）。**每个 option 必须带 description 字段**，告诉用户选了之后实际会发生什么。
+
+### Q1: 工作模式
+
 ```
-AskUserQuestion: "你想用哪种模式？"
-  options:
-    - "file 模式（简单，单人 demo）"
-    - "server 模式（推荐，团队协作）— 我帮你配齐缺的"
-    - "先 file 模式跑通，之后再升级 server"
+question: "你这次想怎么用？"
+header: "工作模式"
+options:
+  - label: "file 模式（单人 demo / 给老板看）"
+    description:
+      "Phase 4 生成一份独立 HTML，你双击就能看。编辑存浏览器
+       localStorage，给队友看要手动下载 .md 发过去。0 配置 0 依赖
+       但不能多人协作。"
+  - label: "server 模式（团队协作 / 跨电脑） (推荐)"
+    description:
+      "起本地 server，Cmd+S 直接写源 .md + 自动 git push。队友
+       git pull 就能看到。需要装 Flask + git 配好能 push（我下面
+       会检查 + 帮你补齐缺的）。"
+  - label: "file 模式跑通，过几天再升级 server"
+    description:
+      "先 file 模式快速看效果，之后想要团队协作了再回来跑 skill
+       升级到 server。零承诺起步。"
 ```
 
-如果用户选 file 模式：跳到 **Step 6**。
+### Q2: agent 内部模式（如果工具支持子 agent）
 
-如果用户选 server 模式：进 Step 5 walkthrough。
+仅在用户环境支持子 agent 工具时问这个（Claude Code 通常支持，Codex 看版本）。如果不支持就默认 A 模式，不问。
+
+```
+question: "处理 PRD 时用单 agent 还是 执行+审核 双 agent？"
+header: "agent 模式"
+options:
+  - label: "执行 + 审核 (推荐)"
+    description:
+      "Phase 1 检测块 + Phase 4 重写时各起一个执行 agent 干活，
+       再起一个审核 agent 用新鲜上下文复查（挡误检/漏检/破坏语气/
+       不合法 YAML）。慢一倍但 checklist 干净、错误少。"
+  - label: "单 agent (最快)"
+    description:
+      "一个 agent 串行干完 4 phase。最快，但容易有误检（把普通段落
+       标成 callout 候选之类）。适合小型 PRD 或想快速过一遍。"
+```
+
+### 处理结果
+
+- 选 file 模式 → 跳到 **Step 6**，跳过 server 配置
+- 选 server 模式：
+  - 环境检查全 ✓ → 跳到 Step 6
+  - 有缺项 → 进 **Step 5** walkthrough 逐项问怎么补
 
 ## Step 5: server 模式缺啥逐项 walkthrough
 
 对 Step 2 检查中**每一个缺的项**，单独发 AskUserQuestion。**任何会改用户环境的命令都必须先征求同意**——绝不静默 `pip install` / `git config` / 等。
 
+每个修复都带详细 description，让用户清楚选了之后 agent 会跑什么命令、产生什么 side-effect。
+
 ### 缺 Flask
 
 ```
-AskUserQuestion: "需要装 Flask（python web 框架，server 用）。怎么装？"
-  options:
-    - "我帮你跑 pip3 install flask"
-    - "我自己 pip install"
-    - "用 venv（先建 venv，我贴命令给你）"
-    - "跳过，先 file 模式"
+question: "需要装 Flask（server 模式必备的 python web 框架）。怎么装？"
+header: "装 Flask"
+options:
+  - label: "我帮你跑 pip3 install flask"
+    description:
+      "agent 直接在你 terminal 跑 `pip3 install flask`，装到当前 python
+       全局环境。装完会 import 验证一次。如果你用的是系统 python 可能
+       需要 sudo / --user，遇到权限报错我会告诉你。"
+  - label: "我自己装"
+    description:
+      "agent 不动你环境，只给你命令。装完回来按继续。"
+  - label: "用 venv 隔离"
+    description:
+      "推荐用 venv 隔离依赖。agent 贴一份 3 行命令：python3 -m venv
+       .venv && source .venv/bin/activate && pip install flask。你自己
+       跑。后续 server 也要在这个 venv 里跑。"
+  - label: "跳过，先用 file 模式"
+    description:
+      "不装 Flask。skill 退回 file 模式跑完 4 phase 生成 HTML 双击看。
+       以后想升级 server 再说。"
 ```
 
-如果用户选第一个，agent 跑 `pip3 install flask` 并等结果，再次验证 `import flask` 成功。
+如果用户选第一个，agent 跑 `pip3 install flask` 并等结果，再次验证 `import flask` 成功。如果失败（权限 / 网络），告诉用户错误并退回第二个选项。
 
 ### 不是 git 仓库
 
 ```
-AskUserQuestion: "<prd_dir> 不是 git 仓库。建一个？"
-  options:
-    - "是，跑 git init"
-    - "不要，先用 file 模式"
-    - "我自己处理后回来"
+question: "<prd_dir> 不是 git 仓库。怎么处理？"
+header: "git 仓库"
+options:
+  - label: "在当前目录跑 git init"
+    description:
+      "agent 跑 `git init`。会创建 .git/ 隐藏目录。从此你这个目录就是
+       git 仓库，可以 commit 但还没远端，要进一步 git remote add 才能
+       push。我会在下面接着问。"
+  - label: "我已经有别的 git 仓库目录，搞错了"
+    description:
+      "你的 PRD 路径不在 git 仓库里。退出 skill，cd 到正确目录再调
+       /prd-to-canvas。"
+  - label: "不要 git，直接用 file 模式"
+    description:
+      "跳过 git 相关检查，跑 file 模式。"
 ```
 
 ### 没 git remote
 
 ```
-AskUserQuestion: "git 还没配远端仓库。你的工蜂仓库 URL 是？"
-  options:
-    - "我没有 git 仓库，帮我说怎么在工蜂建一个"
-    - "Other（让用户贴 URL，agent 跑 git remote add origin <URL>）"
-    - "跳过，先 file 模式"
+question: "git 仓库没配远端。你的远端仓库 URL（如工蜂）是？"
+header: "git remote"
+options:
+  - label: "我没远端仓库，怎么在工蜂建？"
+    description:
+      "agent 贴一份工蜂建仓库指引（创建项目 → 取 SSH URL → 回来粘贴）。
+       不动你环境。"
+  - label: "[让我贴 URL]"
+    description:
+      "选 Other 然后输入完整 git URL（如 git@git.code.tencent.com:你的名/项目.git）。
+       agent 会跑 `git remote add origin <URL>` 注册它。"
+  - label: "跳过，先用 file 模式"
+    description: "保留无远端状态。Cmd+S 时本地 commit 还会做（情况 2），push 那步会失败。"
 ```
-
-如果用户贴了 URL，agent 跑 `git remote add origin <URL>`，再次验证。
 
 ### 没 upstream
 
 ```
-AskUserQuestion: "当前分支 '<branch>' 没设 upstream。怎么处理？"
-  options:
-    - "Push 一次同时设 upstream（git push -u origin <branch>，会触发首次推送）"
-    - "我自己 terminal 配，跳过"
+question: "当前分支 '<branch>' 没设 upstream（git 不知道 push 推到哪）。怎么办？"
+header: "upstream"
+options:
+  - label: "agent 帮我跑 git push -u origin <branch>"
+    description:
+      "这条命令会做两件事：1) 设当前分支的 upstream 是 origin/<branch>
+       2) 立即把本地 commit 推上去。需要远端仓库存在 + 你有 push 权限。
+       推送的内容是你当前所有 unpushed commits。"
+  - label: "跳过，我自己 terminal 配"
+    description:
+      "agent 不动。Cmd+S 时 push 会失败（提示要 set-upstream），但本地
+       commit 还会做。"
 ```
 
 ### 没 git 身份
 
 ```
-AskUserQuestion: "git 没配 user.email / user.name。要设吗？"
-  options:
-    - "Other（让用户写名字 + 邮箱，agent 跑 git config）"
-    - "用全局 git config 已有的（如果有）"
-    - "跳过"
+question: "git 没配 user.email / user.name。需要设（commit 必须用）。"
+header: "git 身份"
+options:
+  - label: "[让我填 email + 名字]"
+    description:
+      "选 Other 然后输入 邮箱,名字（逗号分隔）。agent 跑两条命令:
+       `git config user.email <你的邮箱>` + `git config user.name <你的名字>`。
+       默认设到这个仓库，不动全局 ~/.gitconfig。"
+  - label: "用全局已有的"
+    description:
+      "如果你之前在别的地方设过全局 git config，agent 跳过这步。
+       commit 时会用全局值。"
+  - label: "跳过"
+    description: "commit 时会 prompt 你设。"
 ```
 
 ## Step 6: 确认 ready，进 Phase 1
