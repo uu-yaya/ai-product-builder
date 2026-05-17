@@ -1282,6 +1282,156 @@
     }
     .repo-add-part-btn:hover { color: var(--ink); border-color: var(--ink); }
 
+    /* Part fullscreen-edit modal */
+    .part-edit-modal {
+      position: fixed; inset: 0;
+      background: rgba(20, 20, 19, 0.55);
+      display: none; align-items: center; justify-content: center;
+      z-index: 220; backdrop-filter: blur(2px);
+    }
+    .part-edit-modal.is-show { display: flex; }
+    .part-edit-modal-box {
+      background: var(--canvas);
+      border-radius: var(--r-xl);
+      width: min(1100px, calc(100vw - 48px));
+      height: min(720px, calc(100vh - 48px));
+      box-shadow: 0 20px 60px rgba(20, 20, 19, 0.30);
+      display: flex; flex-direction: column; overflow: hidden;
+    }
+    .part-edit-head {
+      padding: 14px 20px;
+      border-bottom: 1px solid var(--hairline);
+      display: flex; align-items: center; gap: 12px;
+    }
+    .part-edit-head h3 {
+      font-family: var(--font-serif);
+      font-size: 18px; font-weight: 500; color: var(--ink);
+      margin: 0;
+    }
+    .part-edit-head .part-edit-name-input {
+      flex: 1;
+      padding: 5px 10px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      background: var(--canvas);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      color: var(--ink);
+      outline: none;
+      max-width: 280px;
+    }
+    .part-edit-head .part-edit-name-input:focus { border-color: var(--primary); }
+    .part-edit-head .part-edit-role-select {
+      padding: 5px 10px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      background: var(--canvas);
+      font-family: var(--font-mono);
+      font-size: 12px;
+      color: var(--ink);
+      cursor: pointer;
+    }
+    .part-edit-head .ai-close { margin-left: auto; }
+    .part-edit-body {
+      flex: 1;
+      display: grid;
+      grid-template-columns: 1fr 320px;
+      overflow: hidden;
+    }
+    .part-edit-content-pane {
+      display: flex; flex-direction: column;
+      padding: 16px 20px;
+      border-right: 1px solid var(--hairline);
+    }
+    .part-edit-content-pane label {
+      font-size: 11px; font-weight: 500; color: var(--muted);
+      text-transform: uppercase; letter-spacing: 0.8px;
+      margin-bottom: 6px;
+    }
+    .part-edit-content {
+      flex: 1;
+      padding: 12px 14px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      font-family: var(--font-mono);
+      font-size: 13px;
+      line-height: 1.6;
+      color: var(--ink);
+      background: var(--canvas);
+      resize: none;
+      outline: none;
+    }
+    .part-edit-content:focus { border-color: var(--primary); }
+    .part-edit-examples-pane {
+      background: var(--surface-soft);
+      overflow-y: auto;
+      padding: 16px 18px;
+    }
+    .part-edit-examples-pane h4 {
+      font-family: var(--font-sans);
+      font-size: 12px; font-weight: 600;
+      color: var(--ink);
+      text-transform: uppercase; letter-spacing: 0.6px;
+      margin: 0 0 4px;
+    }
+    .part-edit-examples-hint {
+      font-size: 11.5px; color: var(--muted);
+      margin: 0 0 12px;
+      font-family: var(--font-sans);
+      line-height: 1.5;
+    }
+    .part-edit-example-card {
+      background: var(--canvas);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-md);
+      padding: 10px 12px;
+      margin-bottom: 10px;
+    }
+    .part-edit-example-head {
+      display: flex; align-items: center; justify-content: space-between;
+      margin-bottom: 6px;
+      gap: 6px;
+    }
+    .part-edit-example-title {
+      font-family: var(--font-sans);
+      font-size: 12px; font-weight: 500;
+      color: var(--ink);
+    }
+    .part-edit-example-actions { display: flex; gap: 4px; }
+    .part-edit-example-actions button {
+      background: transparent;
+      border: 1px solid var(--hairline);
+      color: var(--muted);
+      padding: 2px 8px;
+      border-radius: var(--r-sm);
+      font-size: 10.5px;
+      cursor: pointer;
+      font-family: var(--font-sans);
+    }
+    .part-edit-example-actions button:hover { color: var(--ink); border-color: var(--ink); }
+    .part-edit-example-actions .is-primary { color: var(--primary); border-color: var(--primary); }
+    .part-edit-example-actions .is-primary:hover { background: var(--primary); color: var(--on-primary); }
+    .part-edit-example-content {
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      line-height: 1.55;
+      color: var(--body);
+      background: var(--surface-soft);
+      padding: 8px 10px;
+      border-radius: var(--r-sm);
+      white-space: pre-wrap; word-break: break-word;
+      max-height: 140px; overflow-y: auto;
+    }
+    .part-edit-foot {
+      padding: 12px 20px;
+      border-top: 1px solid var(--hairline);
+      display: flex; justify-content: flex-end; gap: 10px;
+    }
+
+    /* Edit (open-modal) button on part card head */
+    .repo-part-ctrl-btn.is-edit { color: var(--primary); }
+    .repo-part-ctrl-btn.is-edit:hover { background: var(--surface-card); border-radius: var(--r-sm); }
+
     /* Template picker (D1) */
     .repo-template-picker { padding: 8px 0; }
     .repo-template-picker h4 {
@@ -1811,8 +1961,10 @@
     .al-var-row.is-prompt-ref {
       background: var(--surface-card);
       border-radius: var(--r-sm);
-      padding: 2px 4px;
+      padding: 4px;
+      display: flex; flex-direction: column; gap: 6px;
     }
+    .al-var-ref-head { display: flex; gap: 6px; align-items: center; }
     .al-var-ref-select {
       flex: 1; min-width: 0;
       padding: 5px 9px;
@@ -1836,6 +1988,79 @@
       font-size: 10px;
       flex-shrink: 0;
       letter-spacing: 0.5px;
+    }
+    /* Detail panel — content preview + fillers sub-form */
+    .al-var-ref-detail {
+      display: flex; flex-direction: column; gap: 6px;
+      padding: 0 6px 4px;
+    }
+    .al-var-ref-section-label {
+      font-size: 10px; font-weight: 500;
+      color: var(--muted); text-transform: uppercase;
+      letter-spacing: 0.6px;
+      font-family: var(--font-sans);
+    }
+    .al-var-ref-preview {
+      background: var(--canvas);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      padding: 8px 10px;
+      font-family: var(--font-mono);
+      font-size: 11px;
+      line-height: 1.55;
+      color: var(--body);
+      max-height: 120px; overflow-y: auto;
+      white-space: pre-wrap; word-break: break-word;
+      margin: 0;
+    }
+    .al-var-ref-preview .al-var-ref-ph {
+      background: rgba(204, 120, 92, 0.15);
+      color: var(--primary-active);
+      padding: 1px 3px;
+      border-radius: 3px;
+    }
+    .al-var-ref-fillers { display: flex; flex-direction: column; gap: 4px; }
+    .al-var-ref-filler-row {
+      display: flex; gap: 6px; align-items: center;
+    }
+    .al-var-ref-filler-name {
+      flex-shrink: 0;
+      padding: 4px 8px;
+      background: var(--surface-soft);
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono);
+      font-size: 11px;
+      color: var(--primary-active);
+      min-width: 100px;
+    }
+    .al-var-ref-filler-value {
+      flex: 1; min-width: 0;
+      padding: 4px 9px;
+      border: 1px solid var(--hairline);
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono);
+      font-size: 11.5px;
+      color: var(--ink);
+      background: var(--canvas);
+      outline: none;
+    }
+    .al-var-ref-filler-value:focus { border-color: var(--primary); }
+    .al-var-ref-filler-hint {
+      font-size: 10px; color: var(--muted-soft);
+      font-family: var(--font-mono);
+      padding-left: 4px;
+    }
+
+    /* Body KV / headers: missing-var warning chip */
+    .al-kv-missing {
+      margin-left: 6px;
+      font-size: 10px; color: var(--error);
+      font-family: var(--font-mono);
+      background: rgba(198, 69, 69, 0.08);
+      padding: 1px 6px;
+      border-radius: var(--r-pill);
+      flex-shrink: 0;
     }
     .al-vars-list { display: flex; flex-direction: column; gap: 6px; }
     .al-vars-actions { display: flex; gap: 6px; margin-top: 6px; }
@@ -2862,7 +3087,7 @@
       <button type="button" class="find-btn" id="find-prev" title="上一个 (⇧Enter)">↑</button>
       <button type="button" class="find-btn" id="find-next" title="下一个 (Enter)">↓</button>
       <button type="button" class="find-btn" id="find-toggle-replace" title="切换替换">⇄</button>
-      <button type="button" class="find-btn" id="find-close" title="关闭 (Esc)"></button>
+      <button type="button" class="find-btn" id="find-close" title="关闭 (Esc)">×</button>
     </div>
     <div class="find-row find-row-replace" id="find-row-replace" hidden>
       <span class="find-icon">⇆</span>
@@ -2877,7 +3102,7 @@
     <div class="prototype-modal-box">
       <header class="pmd-head">
         <h3> 插入原型预览</h3>
-        <button type="button" class="pmd-close" id="prototype-modal-close" title="关闭"></button>
+        <button type="button" class="pmd-close" id="prototype-modal-close" title="关闭">×</button>
       </header>
       <div class="pmd-body">
         <p class="pmd-note">原型块仅保存在浏览器（localStorage），<strong>不会写入下载的 .md</strong>。可在评审时插入交互原型，评论可挂到块级。</p>
@@ -2938,7 +3163,7 @@
           <button type="button" class="ai-btn-ghost" id="repo-import-btn" title="从 JSON 文件导入">导入</button>
           <button type="button" class="ai-btn-ghost" id="repo-export-btn" title="导出所有 prompt + 实验记录">导出</button>
           <button type="button" class="ai-btn-primary" id="repo-new-btn">+ 新建 prompt</button>
-          <button type="button" class="ai-close" id="repo-close" title="关闭"></button>
+          <button type="button" class="ai-close" id="repo-close" title="关闭">×</button>
         </div>
       </header>
       <div class="repo-body">
@@ -2964,7 +3189,7 @@
     <div class="ai-modal-box">
       <header class="ai-modal-head">
         <h3> AI 改写 Mermaid 图</h3>
-        <button type="button" class="ai-close" id="ai-modal-close" title="关闭"></button>
+        <button type="button" class="ai-close" id="ai-modal-close" title="关闭">×</button>
       </header>
       <div class="ai-modal-body">
         <div class="ai-row">
@@ -3007,7 +3232,7 @@
     <div class="ai-settings-box">
       <header class="ai-modal-head">
         <h3>MiniMax API 设置</h3>
-        <button type="button" class="ai-close" id="ai-settings-close" title="关闭"></button>
+        <button type="button" class="ai-close" id="ai-settings-close" title="关闭">×</button>
       </header>
       <div class="ai-modal-body">
         <p class="ai-warn">
@@ -3034,7 +3259,7 @@
   <aside class="mermaid-detail-panel" id="mermaid-detail-panel" aria-hidden="true">
     <header class="mdp-head">
       <span class="mdp-key" id="mdp-key"></span>
-      <button type="button" class="mdp-close" id="mdp-close" title="关闭"></button>
+      <button type="button" class="mdp-close" id="mdp-close" title="关闭">×</button>
     </header>
     <div class="mdp-body" id="mdp-body"></div>
   </aside>
@@ -3043,7 +3268,7 @@
   <aside class="comments-panel" id="comments-panel" aria-hidden="true">
     <header class="cp-head">
       <h4>评论 <span class="cp-count" id="cp-count">0</span></h4>
-      <button type="button" class="cp-close" id="cp-close" title="关闭"></button>
+      <button type="button" class="cp-close" id="cp-close" title="关闭">×</button>
     </header>
     <div class="cp-empty" id="cp-empty">还没有评论。在编辑模式下选中文字，工具栏点  即可添加。</div>
     <div class="cp-list" id="cp-list"></div>
@@ -3072,6 +3297,34 @@
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
+  <!-- Part fullscreen-edit modal (Prompt 仓库) -->
+  <div class="part-edit-modal" id="part-edit-modal" aria-hidden="true">
+    <div class="part-edit-modal-box">
+      <header class="part-edit-head">
+        <h3>编辑 part</h3>
+        <input type="text" class="part-edit-name-input" id="part-edit-name" placeholder="part_name">
+        <select class="part-edit-role-select" id="part-edit-role" title="LLM 消息角色">
+          <option value="">(no role)</option>
+          <option value="system">system</option>
+          <option value="user">user</option>
+          <option value="assistant">assistant</option>
+        </select>
+        <button type="button" class="ai-close" id="part-edit-close" title="取消">×</button>
+      </header>
+      <div class="part-edit-body">
+        <div class="part-edit-content-pane">
+          <label>内容（支持 {{var}} 占位）</label>
+          <textarea class="part-edit-content" id="part-edit-content" placeholder="在这里编辑 part 的完整内容…"></textarea>
+        </div>
+        <aside class="part-edit-examples-pane" id="part-edit-examples"></aside>
+      </div>
+      <footer class="part-edit-foot">
+        <button type="button" class="ai-btn-ghost" id="part-edit-cancel">取消</button>
+        <button type="button" class="ai-btn-primary" id="part-edit-save">应用到 part</button>
+      </footer>
+    </div>
+  </div>
+
   <!-- Agent preset manage modal -->
   <div class="al-preset-modal" id="al-preset-modal" aria-hidden="true">
     <div class="al-preset-modal-box">
@@ -3081,7 +3334,7 @@
           <input type="file" id="al-preset-import-file" accept="application/json,.json" hidden>
           <button type="button" class="ai-btn-ghost" id="al-preset-import-btn" title="从 JSON 导入预设">导入</button>
           <button type="button" class="ai-btn-ghost" id="al-preset-export-btn" title="把我的预设导出为 JSON">导出</button>
-          <button type="button" class="ai-close" id="al-preset-close" title="关闭"></button>
+          <button type="button" class="ai-close" id="al-preset-close" title="关闭">×</button>
         </div>
       </header>
       <div class="al-preset-modal-body" id="al-preset-list"></div>
@@ -4403,7 +4656,7 @@ erDiagram
           btn.dataset.skipSerialize = 'true';
           btn.setAttribute('aria-label', '折叠 / 展开');
           btn.type = 'button';
-          btn.textContent = '';
+          btn.textContent = '▼';
           h.insertBefore(btn, h.firstChild);
         }
       }
@@ -6151,7 +6404,7 @@ erDiagram
         (supportsDetail
           ? '<button type="button" class="mtb-add-detail" title="为图中节点挂详情面板（点击节点可打开）">+ 详情</button>'
           : '') +
-        '<button type="button" class="mtb-ai" title="用自然语言让 AI 改写 mermaid"> AI</button>';
+        '<button type="button" class="mtb-ai" title="用自然语言让 AI 改写 mermaid">AI</button>';
       section.appendChild(tb);
       tb.addEventListener('mousedown', e => {
         const btn = e.target.closest('button');
@@ -6324,7 +6577,7 @@ erDiagram
         '<button type="button" data-mode="both" title="源 + 预览">两者</button>' +
         '<button type="button" data-mode="preview" title="只看预览">预览</button>' +
         '<span class="ptb-divider"></span>' +
-        '<button type="button" class="ptb-comment" title="给原型块加评论"></button>' +
+        '<button type="button" class="ptb-comment" title="给原型块加评论">评</button>' +
         '<button type="button" class="ptb-edit" title="改 URL / 代码 / 高度">改</button>';
       section.appendChild(tb);
 
@@ -6528,15 +6781,6 @@ erDiagram
     //   role ∈ 'system' | 'user' | 'assistant' | null
     //   - role-tagged parts go into LLM messages (in declared order)
     //   - role=null parts are just text snippets / metadata
-    // For back-compat with existing prompt-lab / prompt-ref callers, we also keep
-    // .systemPrompt and .userPromptTemplate on each version, auto-derived from parts.
-    function syncLegacyFieldsFromParts(v) {
-      const parts = Array.isArray(v.parts) ? v.parts : [];
-      const sys  = parts.find(p => p && p.role === 'system');
-      const user = parts.find(p => p && p.role === 'user');
-      v.systemPrompt        = sys  ? (sys.content  || '') : '';
-      v.userPromptTemplate  = user ? (user.content || '') : '';
-    }
     function migratePromptVersion(v) {
       if (!v) return v;
       if (!Array.isArray(v.parts)) {
@@ -6549,7 +6793,9 @@ erDiagram
         }
         v.parts = parts;
       }
-      syncLegacyFieldsFromParts(v);
+      // D3 cleanup: drop legacy fields once consumers are gone
+      delete v.systemPrompt;
+      delete v.userPromptTemplate;
       return v;
     }
     function getPartByName(version, name) {
@@ -6667,9 +6913,17 @@ erDiagram
         const p = JSON.parse(raw);
         if (!p.prompts) p.prompts = [];
         if (!p.experiments) p.experiments = [];
+        // D3 cleanup: detect if any version still carries legacy fields and
+        // write back to disk after migration so they don't linger.
+        let dirty = false;
         p.prompts.forEach(prompt => {
-          (prompt.versions || []).forEach(migratePromptVersion);
+          (prompt.versions || []).forEach(v => {
+            const hadLegacy = ('systemPrompt' in v) || ('userPromptTemplate' in v) || !Array.isArray(v.parts);
+            migratePromptVersion(v);
+            if (hadLegacy) dirty = true;
+          });
         });
+        if (dirty) localStorage.setItem(REPO_KEY, JSON.stringify(p));
         return p;
       } catch { return { version: 1, prompts: [], experiments: [] }; }
     }
@@ -6838,7 +7092,6 @@ erDiagram
           const curV = pp.versions.find(v => v.id === pp.currentVersionId);
           if (curV) {
             curV.parts = partsSnapshot;
-            syncLegacyFieldsFromParts(curV);
           }
           pp.updatedAt = nowIso();
           saveRepo(repo);
@@ -6855,7 +7108,6 @@ erDiagram
             parts: partsSnapshot,
             createdAt: nowIso(),
           };
-          syncLegacyFieldsFromParts(newV);
           pp.versions.push(newV);
           pp.currentVersionId = newV.id;
           pp.name = fields.name; pp.description = fields.description;
@@ -6880,7 +7132,11 @@ erDiagram
       });
     }
 
-    function appendPartCard(listEl, part) {
+    // appendPartCard(listEl, part, persistFn?)
+    //   persistFn (optional): if provided, attached to name/role/content
+    //   input events for autosave. 仓库 form omits this (explicit save button).
+    //   实验块 provides one (autosave like agent block).
+    function appendPartCard(listEl, part, persistFn) {
       const role = part.role || null;
       const card = document.createElement('div');
       card.className = 'repo-part-card is-' + (role || 'none');
@@ -6893,31 +7149,219 @@ erDiagram
             '<option value="user">user</option>' +
             '<option value="assistant">assistant</option>' +
           '</select>' +
+          '<button type="button" class="repo-part-ctrl-btn is-edit" data-act="edit" title="全屏编辑 + 示例">↗</button>' +
           '<button type="button" class="repo-part-ctrl-btn" data-act="up" title="上移">↑</button>' +
           '<button type="button" class="repo-part-ctrl-btn" data-act="down" title="下移">↓</button>' +
           '<button type="button" class="repo-part-ctrl-btn is-danger" data-act="del" title="删除">×</button>' +
         '</div>' +
         '<textarea class="repo-part-content" placeholder="内容（支持 {{var}} 占位）">' + escapeHtml(part.content || '') + '</textarea>';
-      const roleSel = card.querySelector('.repo-part-role');
+      const nameInput  = card.querySelector('.repo-part-name');
+      const roleSel    = card.querySelector('.repo-part-role');
+      const contentTa  = card.querySelector('.repo-part-content');
       roleSel.value = role || '';
       roleSel.addEventListener('change', () => {
         card.className = 'repo-part-card is-' + (roleSel.value || 'none');
       });
+      if (typeof persistFn === 'function') {
+        nameInput.addEventListener('input',   persistFn);
+        roleSel.addEventListener('change',    persistFn);
+        contentTa.addEventListener('input',   persistFn);
+      }
       card.querySelectorAll('.repo-part-ctrl-btn').forEach(btn => {
         btn.addEventListener('click', () => {
           const act = btn.dataset.act;
-          if (act === 'del') {
+          if (act === 'edit') {
+            openPartEditModal(card);
+          } else if (act === 'del') {
             card.remove();
+            if (typeof persistFn === 'function') persistFn();
           } else if (act === 'up' && card.previousElementSibling) {
             listEl.insertBefore(card, card.previousElementSibling);
+            if (typeof persistFn === 'function') persistFn();
           } else if (act === 'down' && card.nextElementSibling) {
             listEl.insertBefore(card.nextElementSibling, card);
+            if (typeof persistFn === 'function') persistFn();
           }
         });
       });
       listEl.appendChild(card);
       return card;
     }
+
+    // ----- Part fullscreen-edit modal + examples library -----
+    // Examples keyed by common part-name patterns. Lookup is case-insensitive
+    // substring match; falls back to _default if nothing matches.
+    const PART_EXAMPLES = {
+      system: [
+        { title: '简洁助手',     content: '你是一个简洁、准确的助手。直接回答，不解释。' },
+        { title: '带约束',       content: '你是一个助手。回答时遵守：\n- 不要超过 100 字\n- 不要使用 markdown\n- 用中文' },
+        { title: '角色定义',     content: '你是 {{role}}。你的专业领域是 {{expertise}}。回答时严格按这个身份的视角。' },
+        { title: '安全 system',  content: '你是一个有帮助的助手。如果用户问及暴力、违法、隐私相关，礼貌拒绝并简要解释原因。' },
+      ],
+      user: [
+        { title: '直接问题',     content: '{{question}}' },
+        { title: '带上下文',     content: '我现在在做 {{task}}。请帮我 {{action}}。\n\n附加信息：{{context}}' },
+        { title: '让模型选择',   content: '我有以下选项：\n{{options}}\n\n请推荐一个并说明理由。' },
+      ],
+      assistant: [
+        { title: '示例回复',     content: '示例 assistant 回复内容（用于 few-shot 或多轮上下文）' },
+        { title: '工具调用',     content: '我来调用工具 X 查询 …\n[tool_call(X)]\n根据返回的 …，最终答案是 …' },
+      ],
+      output_format: [
+        { title: 'JSON',         content: '请按下面 JSON 格式返回（除 JSON 外不要任何文字）：\n```json\n{\n  "field": "value"\n}\n```' },
+        { title: 'Markdown 表格', content: '用 markdown 表格返回，列：\n| 字段A | 字段B | 字段C |\n| --- | --- | --- |' },
+        { title: '编号列表',     content: '用编号列表返回，每项一行：\n1. ...\n2. ...' },
+        { title: '只回 yes/no',  content: '只回答"是"或"否"，不要解释。' },
+      ],
+      output_schema: [
+        { title: '简单 JSON',    content: '```json\n{\n  "summary": "string",\n  "score": 0,\n  "tags": ["string"]\n}\n```' },
+        { title: '带嵌套 JSON',  content: '```json\n{\n  "user": { "id": "string", "name": "string" },\n  "items": [{ "type": "string", "qty": 0 }]\n}\n```' },
+      ],
+      rules: [
+        { title: 'do / dont',    content: '## 必须做\n- 第一条\n- 第二条\n\n## 禁止做\n- 第一条\n- 第二条' },
+        { title: '语气规则',     content: '语气要求：\n- 用第一人称\n- 30-80 字\n- 不要太正式' },
+      ],
+      context: [
+        { title: '运行时注入',   content: '## 当前上下文\n用户 id：{{user_id}}\n时间：{{now}}\n场景：{{scene}}' },
+        { title: '历史摘要',     content: '## 用户历史摘要\n{{history_summary}}\n\n请基于这些信息回答。' },
+      ],
+      character: [
+        { title: '通用人物设定', content: '你扮演的角色：\n- 名字：{{name}}\n- 性格：{{traits}}\n- 说话风格：{{style}}\n- 喜好：{{likes}}\n- 禁忌：{{taboos}}' },
+        { title: '游戏 NPC',     content: '你是一只游戏桌宠。\n- 性格：俏皮、贴心\n- 说话短小精悍（30-80 字）\n- 偶尔加语气词（呐~、喵）但别每句都加' },
+      ],
+      persona: [
+        { title: '专业人设',     content: '你是一名资深 {{role}}，有 {{years}} 年经验。你的特长是 {{specialty}}。' },
+        { title: '助手人设',     content: '你是用户的私人助手，了解他的偏好和习惯。说话直接但有耐心。' },
+      ],
+      task: [
+        { title: '抽取任务',     content: '你的任务是从输入中提取以下信息：\n- 字段 A\n- 字段 B\n\n严格按 schema 输出 JSON，不要解释。' },
+        { title: '分类任务',     content: '你的任务是将输入分到以下类别之一：\n- 类别 A：描述\n- 类别 B：描述\n\n只回类别名。' },
+        { title: '生成任务',     content: '你的任务是基于输入生成 {{output_type}}。\n约束：\n- {{constraint_1}}\n- {{constraint_2}}' },
+      ],
+      tools: [
+        { title: '工具列表（参考）', content: '可用工具：\n- get_data(id): 查询 id 对应的数据\n- save_data(id, value): 保存数据\n- search(query): 全文搜索\n\n实际 schema 通过 API 的 tools 字段传入；这里只是文档。' },
+      ],
+      state: [
+        { title: '用户状态',     content: '当前用户状态快照（运行时注入）：\n- 偏好：{{preferences}}\n- 最近行为：{{recent_actions}}\n- 上次会话：{{last_session}}' },
+      ],
+      example: [
+        { title: '示例 I/O',      content: '示例输入：{{example_input}}\n示例输出：{{example_output}}' },
+        { title: '场景示例',     content: '场景：用户问 "怎么去最快"\n回应：走 A 路 10 分钟' },
+      ],
+      good: [
+        { title: '好的回答示例', content: '示例（好的回答）：\n用户：怎么样\n你：今天还行，跑完三个会，刚坐下。' },
+      ],
+      bad: [
+        { title: '反面示例',     content: '示例（不要这样）：\n用户：怎么样\n你：我是一个 AI 助手，我没有感受。…（这样太冷漠）' },
+      ],
+      reasoning: [
+        { title: 'CoT 引导',     content: '思考步骤：\n1. 先复述问题\n2. 列关键事实\n3. 推导\n4. 给最终回答\n\n把思考过程包在 <think>…</think> 里。' },
+      ],
+      _default: [
+        { title: '空白起手',     content: '在这里写内容。可用 {{variable_name}} 占位符引用变量。' },
+        { title: 'Markdown 段',  content: '## 标题\n这段是 …\n\n- 列表项 1\n- 列表项 2' },
+        { title: '只用占位符',   content: '{{variable_name}}' },
+      ],
+    };
+    function getExamplesForPart(partName) {
+      const name = (partName || '').toLowerCase();
+      if (!name) return PART_EXAMPLES._default;
+      // First try exact key match
+      if (PART_EXAMPLES[name]) return PART_EXAMPLES[name];
+      // Then substring: e.g. "output_format" should match "format" or "output"
+      for (const key of Object.keys(PART_EXAMPLES)) {
+        if (key === '_default') continue;
+        if (name.includes(key) || key.includes(name)) return PART_EXAMPLES[key];
+      }
+      return PART_EXAMPLES._default;
+    }
+
+    // The card currently bound to the modal (so save writes back to right place)
+    let partEditCard = null;
+    const partEditModal      = document.getElementById('part-edit-modal');
+    const partEditNameInput  = document.getElementById('part-edit-name');
+    const partEditRoleSelect = document.getElementById('part-edit-role');
+    const partEditContentTa  = document.getElementById('part-edit-content');
+    const partEditExamplesEl = document.getElementById('part-edit-examples');
+
+    function openPartEditModal(card) {
+      partEditCard = card;
+      partEditNameInput.value  = card.querySelector('.repo-part-name').value;
+      partEditRoleSelect.value = card.querySelector('.repo-part-role').value || '';
+      partEditContentTa.value  = card.querySelector('.repo-part-content').value;
+      renderPartEditExamples(partEditNameInput.value);
+      partEditModal.classList.add('is-show');
+      partEditModal.setAttribute('aria-hidden', 'false');
+      setTimeout(() => partEditContentTa.focus(), 30);
+    }
+    function closePartEditModal() {
+      partEditCard = null;
+      partEditModal.classList.remove('is-show');
+      partEditModal.setAttribute('aria-hidden', 'true');
+    }
+    function renderPartEditExamples(partName) {
+      const examples = getExamplesForPart(partName);
+      const isDefault = examples === PART_EXAMPLES._default;
+      const matchedKey = isDefault ? null : Object.keys(PART_EXAMPLES).find(k => PART_EXAMPLES[k] === examples);
+      partEditExamplesEl.innerHTML =
+        '<h4>参考示例</h4>' +
+        '<p class="part-edit-examples-hint">' +
+          (isDefault
+            ? '没匹配到特定 part 类型，给你看通用片段。改一下 part name（如 system / user / output_format / character）就能拿到更针对性的示例。'
+            : '按 part name "' + escapeHtml(matchedKey || partName) + '" 匹配。点"复制"放剪贴板，点"应用"直接替换左边内容。') +
+        '</p>' +
+        examples.map((ex, i) =>
+          '<div class="part-edit-example-card" data-idx="' + i + '">' +
+            '<div class="part-edit-example-head">' +
+              '<span class="part-edit-example-title">' + escapeHtml(ex.title) + '</span>' +
+              '<div class="part-edit-example-actions">' +
+                '<button type="button" data-act="copy">复制</button>' +
+                '<button type="button" data-act="apply" class="is-primary">应用</button>' +
+              '</div>' +
+            '</div>' +
+            '<div class="part-edit-example-content">' + escapeHtml(ex.content) + '</div>' +
+          '</div>'
+        ).join('');
+      partEditExamplesEl.querySelectorAll('.part-edit-example-card').forEach(c => {
+        const idx = parseInt(c.dataset.idx, 10);
+        const ex = examples[idx];
+        c.querySelector('[data-act="copy"]').addEventListener('click', async () => {
+          try { await navigator.clipboard.writeText(ex.content); toast('已复制：' + ex.title); }
+          catch { toast('复制失败'); }
+        });
+        c.querySelector('[data-act="apply"]').addEventListener('click', () => {
+          if (partEditContentTa.value.trim() && !confirm('替换左侧内容（' + ex.title + '）？取消则改为追加。')) {
+            partEditContentTa.value += (partEditContentTa.value.endsWith('\n') ? '' : '\n') + ex.content;
+          } else {
+            partEditContentTa.value = ex.content;
+          }
+          partEditContentTa.focus();
+        });
+      });
+    }
+    // When user changes name in modal, re-render examples to match
+    partEditNameInput.addEventListener('input', () => renderPartEditExamples(partEditNameInput.value));
+    document.getElementById('part-edit-close').addEventListener('click', closePartEditModal);
+    document.getElementById('part-edit-cancel').addEventListener('click', closePartEditModal);
+    partEditModal.addEventListener('click', e => { if (e.target === partEditModal) closePartEditModal(); });
+    document.getElementById('part-edit-save').addEventListener('click', () => {
+      if (!partEditCard) return;
+      const nameEl    = partEditCard.querySelector('.repo-part-name');
+      const roleEl    = partEditCard.querySelector('.repo-part-role');
+      const contentEl = partEditCard.querySelector('.repo-part-content');
+      nameEl.value    = partEditNameInput.value;
+      roleEl.value    = partEditRoleSelect.value;
+      contentEl.value = partEditContentTa.value;
+      // Sync card color band based on role
+      partEditCard.className = 'repo-part-card is-' + (partEditRoleSelect.value || 'none');
+      // Fire input/change events so any autosave wired on the card (e.g. in
+      // Prompt 实验块) picks up the modal edits.
+      nameEl.dispatchEvent(new Event('input', { bubbles: true }));
+      roleEl.dispatchEvent(new Event('change', { bubbles: true }));
+      contentEl.dispatchEvent(new Event('input', { bubbles: true }));
+      closePartEditModal();
+      toast('已应用');
+    });
     function readPartsFromDom(listEl) {
       return Array.from(listEl.querySelectorAll('.repo-part-card')).map(card => ({
         name: card.querySelector('.repo-part-name').value,
@@ -7075,7 +7519,6 @@ erDiagram
         parts: partsCopy,
         createdAt: nowIso(),
       };
-      syncLegacyFieldsFromParts(v);
       const p = {
         id: newRepoId('pr'),
         name: '新 prompt（' + tpl.name + '）',
@@ -7176,12 +7619,42 @@ erDiagram
     // ============================================================
     const PROMPTLAB_KEY = 'md-canvas:' + FILENAME + ':prompts';
 
+    // D2: lab blocks store parts[]. Migrate old shape (systemPrompt + userPrompt)
+    // once on read, then DELETE the legacy fields so they don't pollute disk
+    // after the next savePromptLabs.
+    function migratePromptLab(p) {
+      if (!p) return p;
+      if (!Array.isArray(p.parts)) {
+        const parts = [];
+        if (p.systemPrompt != null && p.systemPrompt !== '') {
+          parts.push({ name: 'system', content: p.systemPrompt, role: 'system' });
+        }
+        if (p.userPrompt != null && p.userPrompt !== '') {
+          parts.push({ name: 'user', content: p.userPrompt, role: 'user' });
+        }
+        p.parts = parts;
+      }
+      delete p.systemPrompt;
+      delete p.userPrompt;
+      return p;
+    }
+
     function loadPromptLabs() {
       try {
         const raw = localStorage.getItem(PROMPTLAB_KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw);
-        return Array.isArray(parsed.blocks) ? parsed.blocks : [];
+        const list = Array.isArray(parsed.blocks) ? parsed.blocks : [];
+        let dirty = false;
+        list.forEach(p => {
+          if (!p) return;
+          if (!Array.isArray(p.parts) || ('systemPrompt' in p) || ('userPrompt' in p)) {
+            migratePromptLab(p);
+            dirty = true;
+          }
+        });
+        if (dirty) savePromptLabs(list);
+        return list;
       } catch { return []; }
     }
     function savePromptLabs(list) {
@@ -7209,7 +7682,7 @@ erDiagram
         ? '<span class="pl-linked" title="关联到仓库 prompt · ' + escapeHtml(linked.name) + '">' +
             '<span>链</span>' +
             '<span class="pl-linked-text">' + escapeHtml(linked.name + ' · ' + (linkedVer && linkedVer.label || 'v?')) + '</span>' +
-            '<button type="button" class="pl-unlink" title="解除关联"></button>' +
+            '<button type="button" class="pl-unlink" title="解除关联">×</button>' +
           '</span>'
         : '<select class="pl-repo-select" title="关联仓库里的 prompt"><option value=""> 关联仓库 prompt…</option></select>';
 
@@ -7259,17 +7732,18 @@ erDiagram
           const pp = getPrompt(pid);
           const cv = getCurrentVersion(pp);
           if (!pp || !cv) return;
-          section.querySelector('.pl-sys').value = cv.systemPrompt || '';
-          section.querySelector('.pl-user').value = cv.userPromptTemplate || '';
+          // Copy the version's parts into the block (replaces any current parts)
+          const partsCopy = (cv.parts || []).map(part => ({
+            name: part.name, content: part.content, role: part.role || null,
+          }));
           updatePromptLab(p.id, {
             linkedPromptId: pid,
             linkedVersionId: cv.id,
-            systemPrompt: cv.systemPrompt,
-            userPrompt: cv.userPromptTemplate,
+            parts: partsCopy,
           });
-          // Rebuild head in-place with the SAME section closure
+          // Replace the WHOLE section so the new parts list renders fresh
           const fresh = loadPromptLabs().find(x => x.id === p.id);
-          head.replaceWith(buildPromptLabHead(section, fresh));
+          section.replaceWith(createPromptLabSection(fresh));
         });
       }
 
@@ -7320,21 +7794,32 @@ erDiagram
       // close over THIS DOM section, so rebuilds after linking stay consistent).
       section.appendChild(buildPromptLabHead(section, p));
 
-      // Body — system + user prompts
+      // Body — parts list (D2). Each part has name/role/content; LLM messages
+      // built at run time from parts with non-null role, in declared order.
       const body = document.createElement('div');
       body.className = 'pl-body';
       body.contentEditable = 'false';
       body.dataset.skipSerialize = 'true';
       body.innerHTML =
-        '<div class="pl-row"><label>System Prompt</label><textarea class="pl-sys" placeholder="你是一只游戏里的桌宠..."></textarea></div>' +
-        '<div class="pl-row"><label>User Prompt</label><textarea class="pl-user" placeholder="生成一篇 200 字以内的日记..."></textarea></div>';
+        '<div class="pl-row">' +
+          '<label>PARTS · 按 role 拼成 LLM messages（无 role 的 part 不入消息，仅作为模板片段）</label>' +
+          '<div class="repo-parts-list pl-parts-list"></div>' +
+          '<button type="button" class="repo-add-part-btn pl-add-part">+ 加 part</button>' +
+        '</div>';
       section.appendChild(body);
-      const sysTa = body.querySelector('.pl-sys');
-      const userTa = body.querySelector('.pl-user');
-      sysTa.value = p.systemPrompt || '';
-      userTa.value = p.userPrompt || '';
-      sysTa.addEventListener('input', () => updatePromptLab(p.id, { systemPrompt: sysTa.value }));
-      userTa.addEventListener('input', () => updatePromptLab(p.id, { userPrompt: userTa.value }));
+      const partsList = body.querySelector('.pl-parts-list');
+      const snapshotLabParts = () => Array.from(partsList.querySelectorAll('.repo-part-card')).map(card => ({
+        name: card.querySelector('.repo-part-name').value,
+        role: card.querySelector('.repo-part-role').value || null,
+        content: card.querySelector('.repo-part-content').value,
+      }));
+      const persistLabParts = () => updatePromptLab(p.id, { parts: snapshotLabParts() });
+      (p.parts || []).forEach(part => appendPartCard(partsList, part, persistLabParts));
+      body.querySelector('.pl-add-part').addEventListener('click', () => {
+        const card = appendPartCard(partsList, { name: '', content: '', role: null }, persistLabParts);
+        persistLabParts();
+        card.querySelector('.repo-part-name').focus();
+      });
 
       // Output area
       const out = document.createElement('div');
@@ -7400,16 +7885,26 @@ erDiagram
     async function runPromptLab(section, runBtn) {
       const settings = loadAiSettings();
       if (!settings.minimax_key) {
-        alert('请先在  AI 设置里填好 MiniMax API key 和模型');
+        alert('请先在 AI 设置里填好 MiniMax API key 和模型');
         return;
       }
-      const sys = section.querySelector('.pl-sys').value.trim();
-      const usr = section.querySelector('.pl-user').value.trim();
+      // Read parts from DOM (latest edits, even if persist callback hasn't fired)
+      const cards = section.querySelectorAll('.pl-parts-list .repo-part-card');
+      const parts = Array.from(cards).map(card => ({
+        name: card.querySelector('.repo-part-name').value,
+        role: card.querySelector('.repo-part-role').value || null,
+        content: card.querySelector('.repo-part-content').value,
+      }));
       const model = section.querySelector('.pl-model').value;
-      if (!usr) { alert('User Prompt 不能为空'); return; }
-      const messages = [];
-      if (sys) messages.push({ role: 'system', content: sys });
-      messages.push({ role: 'user', content: usr });
+
+      // Build messages from role-tagged parts in declared order
+      const messages = parts
+        .filter(p => p.role && (p.content || '').length)
+        .map(p => ({ role: p.role, content: p.content }));
+      if (!messages.length) { alert('至少需要一个有 role + 内容的 part'); return; }
+      if (!messages.some(m => m.role === 'user')) {
+        if (!confirm('没有 user 角色的 part — LLM 调用通常需要至少一个 user。仍要继续吗？')) return;
+      }
 
       const statusEl = section.querySelector('.pl-out-status');
       const bodyEl = section.querySelector('.pl-output-body');
@@ -7431,13 +7926,18 @@ erDiagram
         // If linked to a repo prompt, also append this experiment to the repo
         if (blockData && blockData.linkedPromptId) {
           const repo = loadRepo();
+          // Synthesize legacy single-field for the experiments tab UI; also keep
+          // the full parts snapshot for future parts-aware tab renders.
+          const sysJoined  = parts.filter(p => p.role === 'system').map(p => p.content).join('\n\n');
+          const userJoined = parts.filter(p => p.role === 'user').map(p => p.content).join('\n\n');
           repo.experiments.push({
             id: newRepoId('e'),
             promptId: blockData.linkedPromptId,
             versionId: blockData.linkedVersionId || (getCurrentVersion(getPrompt(blockData.linkedPromptId)) || {}).id,
             model,
-            systemPromptUsed: sys,
-            userPromptUsed: usr,
+            partsUsed: parts,
+            systemPromptUsed: sysJoined,
+            userPromptUsed:   userJoined,
             response: text,
             duration_ms: dt,
             ranAt: last.ranAt,
@@ -7446,7 +7946,7 @@ erDiagram
         }
       } catch (err) {
         bodyEl.className = 'pl-output-body is-error';
-        bodyEl.textContent = ' ' + (err.message || String(err));
+        bodyEl.textContent = (err.message || String(err));
         statusEl.textContent = '失败';
       } finally {
         runBtn.disabled = false;
@@ -7463,15 +7963,19 @@ erDiagram
         const idx = blocks.indexOf(refSection);
         if (idx >= 0) insertAt = idx;
       }
-      // If linking to a repo prompt, prefill system/user from its current version
-      let initialSys = '', initialUser = '';
+      // If linking to a repo prompt, copy the version's parts as starter
+      let initialParts = [
+        { name: 'system', content: '', role: 'system' },
+        { name: 'user',   content: '', role: 'user' },
+      ];
       let linkedPromptId = null, linkedVersionId = null;
       if (opts.linkedPromptId) {
         const pp = getPrompt(opts.linkedPromptId);
         const cv = pp && getCurrentVersion(pp);
         if (pp && cv) {
-          initialSys = cv.systemPrompt || '';
-          initialUser = cv.userPromptTemplate || '';
+          initialParts = (cv.parts || []).map(part => ({
+            name: part.name, content: part.content, role: part.role || null,
+          }));
           linkedPromptId = pp.id;
           linkedVersionId = cv.id;
         }
@@ -7480,8 +7984,7 @@ erDiagram
         id: newPromptLabId(),
         insertAt,
         title: opts.title || '',
-        systemPrompt: initialSys,
-        userPrompt: initialUser,
+        parts: initialParts,
         model: (loadAiSettings().default_model || 'MiniMax-M2.7'),
         lastOutput: null,
         linkedPromptId, linkedVersionId,
@@ -7493,7 +7996,7 @@ erDiagram
       else content.appendChild(section);
       toast('已插入 Prompt 实验块（本地保存，不写 .md）');
       setTimeout(() => {
-        const focusTarget = section.querySelector(linkedPromptId ? '.pl-title' : '.pl-sys');
+        const focusTarget = section.querySelector(linkedPromptId ? '.pl-title' : '.pl-parts-list .repo-part-content');
         if (focusTarget) focusTarget.focus();
       }, 50);
     }
@@ -7553,25 +8056,51 @@ erDiagram
       });
       return out;
     }
+    // Pull the linked part object for a prompt-ref var, or null if anything is broken.
+    function getPromptRefPart(v) {
+      if (!v || v.source !== 'prompt-repo' || !v.promptId) return null;
+      const prompt = getPrompt(v.promptId);
+      if (!prompt) return null;
+      const ver = v.versionId
+        ? (prompt.versions || []).find(x => x.id === v.versionId)
+        : getCurrentVersion(prompt);
+      if (!ver) return null;
+      return (ver.parts || []).find(p => p && p.name === v.partName) || null;
+    }
+
+    // Detect unique {{xx}} placeholders in a text.
+    function extractPlaceholders(text) {
+      const set = new Set();
+      (text || '').replace(/\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g, (_, name) => {
+        set.add(name);
+        return _;
+      });
+      return Array.from(set);
+    }
+
     // Resolve agent-lab variables into a flat name→string dict.
-    // Prompt-ref vars dereference into the linked Prompt 仓库 version's text;
-    // text vars pass through unchanged. Falls back to '' on broken refs.
+    // Two-pass: text vars first (sibling lookup), then prompt-ref vars get their
+    // part content interpolated with (fillers ∪ sibling text vars, fillers win).
     function resolveAgentVars(vars) {
       const out = {};
       (vars || []).forEach(v => {
         const name = (v && v.name || '').trim();
         if (!name) return;
         if (v.source === 'prompt-repo') {
-          if (!v.promptId) { out[name] = ''; return; }
-          const prompt = getPrompt(v.promptId);
-          if (!prompt) { out[name] = ''; return; }
-          const ver = v.versionId
-            ? (prompt.versions || []).find(x => x.id === v.versionId)
-            : getCurrentVersion(prompt);
-          out[name] = (ver && ver[v.field || 'systemPrompt']) || '';
+          const part = getPromptRefPart(v);
+          out[name] = part ? (part.content || '') : '';
         } else {
           out[name] = v.value == null ? '' : String(v.value);
         }
+      });
+      // 2nd pass: interpolate prompt-ref content with fillers + sibling fallback.
+      (vars || []).forEach(v => {
+        const name = (v && v.name || '').trim();
+        if (!name || v.source !== 'prompt-repo') return;
+        const ctx = Object.assign({}, out);
+        delete ctx[name];                    // don't let var reference itself
+        Object.assign(ctx, v.fillers || {}); // fillers override siblings
+        out[name] = interpolateVars(out[name], ctx);
       });
       return out;
     }
@@ -7588,13 +8117,32 @@ erDiagram
       return s;
     }
 
+    // D3: prompt-ref var migration — old shape used { field: 'systemPrompt' |
+    // 'userPromptTemplate' } against legacy repo fields. New shape uses
+    // { partName } against the parts array. Delete the obsolete `field` key.
+    function migrateAgentVarRef(v) {
+      if (!v || v.source !== 'prompt-repo') return false;
+      let changed = false;
+      if (!('partName' in v) && ('field' in v)) {
+        v.partName = (v.field === 'userPromptTemplate') ? 'user' : 'system';
+        changed = true;
+      }
+      if ('field' in v) { delete v.field; changed = true; }
+      return changed;
+    }
+
     function loadAgentLabs() {
       try {
         const raw = localStorage.getItem(AGENTLAB_KEY);
         if (!raw) return [];
         const parsed = JSON.parse(raw);
         const list = Array.isArray(parsed.blocks) ? parsed.blocks : [];
-        list.forEach(migrateAgentLab);
+        let dirty = false;
+        list.forEach(a => {
+          migrateAgentLab(a);
+          (a.vars || []).forEach(v => { if (migrateAgentVarRef(v)) dirty = true; });
+        });
+        if (dirty) saveAgentLabs(list);
         return list;
       } catch { return []; }
     }
@@ -7791,7 +8339,13 @@ erDiagram
         const raw = localStorage.getItem(AGENT_PRESETS_KEY);
         if (!raw) return [];
         const data = JSON.parse(raw);
-        return Array.isArray(data.presets) ? data.presets : [];
+        const list = Array.isArray(data.presets) ? data.presets : [];
+        let dirty = false;
+        list.forEach(p => {
+          (p.varHints || []).forEach(v => { if (migrateAgentVarRef(v)) dirty = true; });
+        });
+        if (dirty) saveUserAgentPresets(list);
+        return list;
       } catch { return []; }
     }
     function saveUserAgentPresets(list) {
@@ -7814,6 +8368,7 @@ erDiagram
         bodyKv: preset.bodyKv || [],
         bodyRaw: preset.bodyRaw != null ? preset.bodyRaw : (preset.bodyText || ''),
         vars: (preset.varHints || []).map(v => ({ name: v.name || '', value: v.value || '' })),
+        appliedPresetId: preset.id,
       });
       const fresh = loadAgentLabs().find(x => x.id === id);
       const newSection = createAgentLabSection(fresh);
@@ -7991,14 +8546,21 @@ erDiagram
       presetSel.appendChild(makeOpt('', '──────────', true));
       presetSel.appendChild(makeOpt('__save__', '存为新预设…'));
       presetSel.appendChild(makeOpt('__manage__', '管理预设 (' + userPresets.length + ')'));
+      // Reflect the last-applied preset so the picker shows it instead of "选预设…"
+      if (a.appliedPresetId && getAgentPreset(a.appliedPresetId)) {
+        presetSel.value = a.appliedPresetId;
+      }
       presetSel.addEventListener('change', () => {
         const val = presetSel.value;
-        presetSel.value = '';
-        if (!val) return;
-        if (val === '__save__') return saveCurrentAsAgentPreset(section);
-        if (val === '__manage__') return openAgentPresetManageModal();
+        if (val === '__save__' || val === '__manage__') {
+          // Action items — bounce the selection back to whatever was applied
+          presetSel.value = a.appliedPresetId || '';
+          if (val === '__save__') return saveCurrentAsAgentPreset(section);
+          return openAgentPresetManageModal();
+        }
+        if (!val) return; // user picked the placeholder
         const p = getAgentPreset(val);
-        if (p) applyAgentPreset(section, p);
+        if (p) applyAgentPreset(section, p);  // re-renders section; this select goes away
       });
 
       const titleInput = head.querySelector('.al-title');
@@ -8132,47 +8694,132 @@ erDiagram
 
       // Variables — supports two kinds:
       //   text:        { name, value }
-      //   prompt-ref:  { name, source: 'prompt-repo', promptId, versionId, field }
+      //   prompt-ref:  { name, source: 'prompt-repo', promptId, versionId, partName }
       function snapshotVars() {
         return Array.from(varsList.querySelectorAll('.al-var-row')).map(r => {
           const name = r.querySelector('.al-var-name').value;
           if (r.classList.contains('is-prompt-ref')) {
             const refVal = r.querySelector('.al-var-ref-select').value;
             const m = refVal && refVal.match(/^([^@]+)@([^:]+):(.+)$/);
+            const fillers = {};
+            r.querySelectorAll('.al-var-ref-filler-row').forEach(fr => {
+              fillers[fr.dataset.ph] = fr.querySelector('.al-var-ref-filler-value').value;
+            });
             return {
               name,
               source: 'prompt-repo',
               promptId:  m ? m[1] : null,
               versionId: m ? m[2] : null,
-              field:     m ? m[3] : 'systemPrompt',
+              partName:  m ? m[3] : null,
+              fillers,
             };
           }
           return { name, value: r.querySelector('.al-var-value').value };
         });
       }
-      const persistVars = () => updateAgentLab(a.id, { vars: snapshotVars() });
+      const persistVars = () => { updateAgentLab(a.id, { vars: snapshotVars() }); refreshBodyMissingVars(); };
+      // Wrap content text for preview so placeholders are visually highlighted.
+      function highlightPlaceholdersHtml(text) {
+        return escapeHtml(text || '').replace(
+          /\{\{\s*([a-zA-Z_][a-zA-Z0-9_]*)\s*\}\}/g,
+          '<span class="al-var-ref-ph">{{$1}}</span>'
+        );
+      }
+      // Re-render the detail panel (preview + fillers) for a prompt-ref row.
+      // Pulls the latest part from the ref select, preserves typed filler values
+      // when the placeholder names overlap.
+      function refreshPromptRefDetail(row) {
+        const detail = row.querySelector('.al-var-ref-detail');
+        if (!detail) return;
+        const sel = row.querySelector('.al-var-ref-select');
+        const m = sel.value && sel.value.match(/^([^@]+)@([^:]+):(.+)$/);
+        const fakeV = m
+          ? { source: 'prompt-repo', promptId: m[1], versionId: m[2], partName: m[3] }
+          : null;
+        const part = fakeV && getPromptRefPart(fakeV);
+        // Preserve user-typed filler values across re-renders where possible.
+        const existing = {};
+        detail.querySelectorAll('.al-var-ref-filler-row').forEach(fr => {
+          existing[fr.dataset.ph] = fr.querySelector('.al-var-ref-filler-value').value;
+        });
+        detail.innerHTML = '';
+        if (!part) {
+          detail.hidden = true;
+          return;
+        }
+        detail.hidden = false;
+        const phNames = extractPlaceholders(part.content);
+        const previewLabel = 'CONTENT 预览（来自 ' + escapeHtml(part.name) + (part.role ? ' [' + part.role + ']' : '') + '）';
+        let html =
+          '<div class="al-var-ref-section-label">' + previewLabel + '</div>' +
+          '<pre class="al-var-ref-preview">' + highlightPlaceholdersHtml(part.content) + '</pre>';
+        if (phNames.length) {
+          html += '<div class="al-var-ref-section-label">待填占位符（' + phNames.length + '）· 留空则用外层同名变量</div>' +
+                  '<div class="al-var-ref-fillers"></div>';
+        }
+        detail.innerHTML = html;
+        if (phNames.length) {
+          const fillersEl = detail.querySelector('.al-var-ref-fillers');
+          phNames.forEach(ph => {
+            const fr = document.createElement('div');
+            fr.className = 'al-var-ref-filler-row';
+            fr.dataset.ph = ph;
+            const initial = existing[ph] != null ? existing[ph] : '';
+            fr.innerHTML =
+              '<span class="al-var-ref-filler-name">{{' + escapeHtml(ph) + '}}</span>' +
+              '<input type="text" class="al-var-ref-filler-value" placeholder="值" value="' + escapeHtml(initial) + '">';
+            fr.querySelector('.al-var-ref-filler-value').addEventListener('input', persistVars);
+            fillersEl.appendChild(fr);
+          });
+        }
+      }
+      // Add red chip "缺：{{xx}}" to body KV rows whose value references undefined vars.
+      function refreshBodyMissingVars() {
+        const knownVarNames = new Set(
+          Array.from(varsList.querySelectorAll('.al-var-row'))
+            .map(r => (r.querySelector('.al-var-name').value || '').trim())
+            .filter(Boolean)
+        );
+        bodyKvList.querySelectorAll('.al-kv-row').forEach(r => {
+          const val = r.querySelector('.al-kv-value').value;
+          let chip = r.querySelector('.al-kv-missing');
+          const missing = extractPlaceholders(val).filter(ph => !knownVarNames.has(ph));
+          if (missing.length) {
+            if (!chip) {
+              chip = document.createElement('span');
+              chip.className = 'al-kv-missing';
+              r.appendChild(chip);
+            }
+            chip.textContent = '缺：' + missing.map(m => '{{' + m + '}}').join(' ');
+          } else if (chip) {
+            chip.remove();
+          }
+        });
+      }
       function populatePromptRefSelect(sel, v) {
         const repo = loadRepo();
         sel.innerHTML = '';
         const placeholder = document.createElement('option');
         placeholder.value = '';
-        placeholder.textContent = repo.prompts.length ? '选 prompt · 版本 · 字段…' : '（Prompt 仓库还没东西）';
+        placeholder.textContent = repo.prompts.length ? '选 prompt · 版本 · part…' : '（Prompt 仓库还没东西）';
         sel.appendChild(placeholder);
         repo.prompts.forEach(p => {
           const og = document.createElement('optgroup');
           og.label = p.name || '(未命名)';
           (p.versions || []).forEach(ver => {
-            ['systemPrompt', 'userPromptTemplate'].forEach(field => {
+            (ver.parts || []).forEach(part => {
+              if (!part || !part.name) return;
               const o = document.createElement('option');
-              o.value = p.id + '@' + ver.id + ':' + field;
-              o.textContent = (ver.label || 'v?') + ' · ' + (field === 'systemPrompt' ? 'system' : 'user 模板');
+              o.value = p.id + '@' + ver.id + ':' + part.name;
+              const roleTag = part.role ? ' [' + part.role + ']' : '';
+              o.textContent = (ver.label || 'v?') + ' · ' + part.name + roleTag;
               og.appendChild(o);
             });
           });
           sel.appendChild(og);
         });
-        if (v && v.promptId && v.versionId && v.field) {
-          sel.value = v.promptId + '@' + v.versionId + ':' + v.field;
+        if (v && v.promptId && v.versionId && v.partName) {
+          sel.value = v.promptId + '@' + v.versionId + ':' + v.partName;
         }
       }
       function appendVarRow(v) {
@@ -8183,12 +8830,32 @@ erDiagram
         if (isRef) row.classList.add('is-prompt-ref');
         if (isRef) {
           row.innerHTML =
-            '<span class="al-var-ref-tag" title="变量值来自 Prompt 仓库，运行时解析">PROMPT</span>' +
-            '<input type="text" class="al-var-name" placeholder="var_name" value="' + escapeHtml(v.name || '') + '">' +
-            '<select class="al-var-ref-select"></select>' +
-            '<button type="button" class="al-var-del" title="删除变量">×</button>';
-          populatePromptRefSelect(row.querySelector('.al-var-ref-select'), v);
-          row.querySelector('.al-var-ref-select').addEventListener('change', persistVars);
+            '<div class="al-var-ref-head">' +
+              '<span class="al-var-ref-tag" title="变量值来自 Prompt 仓库，运行时解析">PROMPT</span>' +
+              '<input type="text" class="al-var-name" placeholder="var_name" value="' + escapeHtml(v.name || '') + '">' +
+              '<select class="al-var-ref-select"></select>' +
+              '<button type="button" class="al-var-del" title="删除变量">×</button>' +
+            '</div>' +
+            '<div class="al-var-ref-detail" hidden></div>';
+          const sel = row.querySelector('.al-var-ref-select');
+          populatePromptRefSelect(sel, v);
+          sel.addEventListener('change', () => {
+            refreshPromptRefDetail(row);
+            persistVars();
+          });
+          // Pre-populate fillers from stored data before first refresh
+          if (v.fillers && Object.keys(v.fillers).length) {
+            row.querySelector('.al-var-ref-detail').dataset.preFillers = JSON.stringify(v.fillers);
+          }
+          // Initial render of detail (will read pre-fillers if present)
+          refreshPromptRefDetail(row);
+          // If pre-fillers were present, hydrate the just-rendered inputs
+          row.querySelectorAll('.al-var-ref-filler-row').forEach(fr => {
+            const ph = fr.dataset.ph;
+            if (v.fillers && v.fillers[ph] != null) {
+              fr.querySelector('.al-var-ref-filler-value').value = v.fillers[ph];
+            }
+          });
         } else {
           row.innerHTML =
             '<input type="text" class="al-var-name"  placeholder="var_name" value="' + escapeHtml(v.name || '') + '">' +
@@ -8216,7 +8883,7 @@ erDiagram
           toast('Prompt 仓库还没东西，先去仓库建一个 prompt（顶部"仓库 ⌘⇧P"）');
           return;
         }
-        const row = appendVarRow({ name: '', source: 'prompt-repo', promptId: null, versionId: null, field: 'systemPrompt' });
+        const row = appendVarRow({ name: '', source: 'prompt-repo', promptId: null, versionId: null, partName: null });
         persistVars();
         row.querySelector('.al-var-name').focus();
       });
@@ -8256,7 +8923,7 @@ erDiagram
       });
 
       // Body KV
-      const persistBodyKv = () => updateAgentLab(a.id, { bodyKv: snapshotKvRows(bodyKvList) });
+      const persistBodyKv = () => { updateAgentLab(a.id, { bodyKv: snapshotKvRows(bodyKvList) }); refreshBodyMissingVars(); };
       (a.bodyKv || []).forEach(kv => appendKvRow(bodyKvList, persistBodyKv, kv, {
         namePlaceholder: 'field', valuePlaceholder: '值（可用 {{var}}）',
       }));
@@ -8267,6 +8934,8 @@ erDiagram
         persistBodyKv();
         row.querySelector('.al-kv-name').focus();
       });
+      // Initial pass to mark any pre-existing missing vars
+      refreshBodyMissingVars();
 
       // Body mode tabs
       function setBodyMode(mode) {
@@ -8328,12 +8997,17 @@ erDiagram
         if (r.classList.contains('is-prompt-ref')) {
           const refVal = r.querySelector('.al-var-ref-select').value;
           const m = refVal && refVal.match(/^([^@]+)@([^:]+):(.+)$/);
+          const fillers = {};
+          r.querySelectorAll('.al-var-ref-filler-row').forEach(fr => {
+            fillers[fr.dataset.ph] = fr.querySelector('.al-var-ref-filler-value').value;
+          });
           return {
             name,
             source: 'prompt-repo',
             promptId:  m ? m[1] : null,
             versionId: m ? m[2] : null,
-            field:     m ? m[3] : 'systemPrompt',
+            partName:  m ? m[3] : null,
+            fillers,
           };
         }
         return { name, value: r.querySelector('.al-var-value').value };
