@@ -14,6 +14,28 @@ skill 默认生成的 `index.html` 是单文件，**保存只写浏览器 localS
 
 ---
 
+## 前置：你的 git 要先能 push
+
+server **不替你配 git**。它就是个 shell 调用 `git add/commit/pull/push` 的小壳子，**用的全是你 terminal 里现有的 git 配置**（remote URL、SSH key/token、user 身份、当前分支的 upstream）。
+
+如果你 terminal 里这一行能 work：
+
+```bash
+cd <你的项目> && touch /tmp/x && git add /tmp/x && git commit --allow-empty -m test && git push
+```
+
+那 server 一定能 work。否则先按下面 checklist 配好：
+
+| 缺啥 | 怎么补 |
+| --- | --- |
+| 不是 git 仓库 | `cd <项目根> && git init` |
+| 没远端 | `git remote add origin git@git.code.tencent.com:你/项目.git` |
+| 分支没 upstream | `git push -u origin <你的分支名>` |
+| 没 SSH key 或 token | 走工蜂的 SSH key / personal access token 流程 |
+| 没 git 身份 | `git config user.email you@tencent.com && git config user.name '你的名字'` |
+
+server 启动时会自动检查上面这些，缺啥会在 terminal 顶部列出来 + 告诉你具体跑啥命令。
+
 ## 安装
 
 第一次：

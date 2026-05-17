@@ -94,6 +94,73 @@ def git(*args: str, capture: bool = True) -> subprocess.CompletedProcess:
                           text=True)
 
 
+def preflight_git_check() -> list[str]:
+    """Sanity-check user's git setup. Returns list of human-readable issues."""
+    issues: list[str] = []
+
+    # 1. Is cwd inside a git repo?
+    r = git("rev-parse", "--git-dir")
+    if r.returncode != 0:
+        issues.append(
+            "当前目录不是 git 仓库 → 保存只会写文件不会 push。\n"
+            f"     如果想用 git 协作，先: cd <项目根> && git init"
+        )
+        return issues  # everything below requires being in a git repo
+
+    # 2. Has any remote?
+    r = git("remote")
+    if not r.stdout.strip():
+        issues.append(
+            "没配 git remote → push 时会失败。\n"
+            "     加远端仓库: git remote add origin git@git.code.tencent.com:你/项目.git"
+        )
+
+    # 3. Current branch has upstream?
+    branch_r = git("rev-parse", "--abbrev-ref", "HEAD")
+    branch = branch_r.stdout.strip() if branch_r.returncode == 0 else "?"
+    if branch and branch != "HEAD":
+        up_r = git("rev-parse", "--abbrev-ref", "@{u}")
+        if up_r.returncode != 0:
+            issues.append(
+                f"当前分支 '{branch}' 没设 upstream → push 不知道推哪。\n"
+                f"     设一次: git push -u origin {branch}"
+            )
+    elif branch == "HEAD":
+        issues.append("当前是 detached HEAD 状态。先 git checkout <分支名>")
+
+    # 4. Has identity?
+    email = git("config", "user.email").stdout.strip()
+    name = git("config", "user.name").stdout.strip()
+    if not email or not name:
+        issues.append(
+            "git 身份没配 → commit 时会失败。\n"
+            "     git config user.email you@tencent.com\n"
+            "     git config user.name '你的名字'"
+        )
+
+    return issues
+
+
+def friendly_git_error(stderr: str) -> str:
+    """Translate common git errors to Chinese hints."""
+    s = (stderr or "").lower()
+    if "not a git repository" in s:
+        return "当前目录不是 git 仓库（cd 到项目根再启 server）"
+    if "no configured push destination" in s or "no upstream" in s:
+        return ("当前分支没设 upstream。terminal 运行: "
+                "git push -u origin <你的分支名>")
+    if "permission denied" in s or "publickey" in s:
+        return ("git 认证失败（SSH key 没配 / token 过期）。"
+                "先在 terminal 试试 git push 能不能成")
+    if "merge conflict" in s or "conflict" in s:
+        return ("队友刚也改了这个文件且自动 merge 失败。"
+                "terminal: git pull --rebase → 解 conflict → git push")
+    if "rejected" in s and "non-fast-forward" in s:
+        return ("远端有新提交还没拉。"
+                "terminal: git pull --rebase 后再保存")
+    return stderr.strip()[:300] or "未知 git 错误"
+
+
 # ---------------------------------------------------------------------------
 # Routes
 # ---------------------------------------------------------------------------
@@ -177,7 +244,8 @@ def api_save():
     # Stage 2: git add + commit
     r = git("add", str(abs_path))
     if r.returncode != 0:
-        return jsonify(ok=False, stage="add", error=r.stderr.strip()), 200
+        return jsonify(ok=False, stage="add",
+                       error=friendly_git_error(r.stderr)), 200
 
     msg = f"edit {relpath} via md-canvas"
     r = git("commit", "-m", msg)
@@ -188,7 +256,7 @@ def api_save():
             return jsonify(ok=True, stage="noop", saved_path=relpath,
                            note="no changes to commit"), 200
         return jsonify(ok=False, stage="commit",
-                       error=r.stderr.strip() or r.stdout.strip()), 200
+                       error=friendly_git_error(r.stderr or r.stdout)), 200
 
     sha = git("rev-parse", "HEAD").stdout.strip()[:7]
 
@@ -202,15 +270,14 @@ def api_save():
         return jsonify(
             ok=False, stage="pull-rebase", conflict=True,
             commit_sha=sha,
-            error="队友刚也改了这个文件且 git rebase 自动 merge 失败。"
-                  "请到 terminal 手动: git pull --rebase → 解 conflict → git push",
+            error=friendly_git_error(r.stderr or r.stdout),
         ), 200
     pulled = "Successfully rebased" in r.stdout or "Current branch" in r.stdout
 
     r = git("push")
     if r.returncode != 0:
         return jsonify(ok=False, stage="push", commit_sha=sha,
-                       error=r.stderr.strip() or r.stdout.strip()), 200
+                       error=friendly_git_error(r.stderr or r.stdout)), 200
 
     return jsonify(ok=True, stage="done", saved_path=relpath,
                    commit_sha=sha, pulled=pulled, pushed=True), 200
@@ -259,6 +326,18 @@ def main():
     print(f"  template:  {TEMPLATE_PATH}")
     print(f"  url:       {url}")
     print(f"  (Ctrl-C to stop)")
+
+    # Sanity-check git setup so user knows up front whether save+push will work
+    issues = preflight_git_check()
+    if issues:
+        print()
+        print("  ⚠  git 配置不完整，server 模式 Cmd+S 会失败：")
+        for i, issue in enumerate(issues, 1):
+            print(f"     {i}. {issue}")
+        print()
+        print("  → 修完后重启 server。或者继续跑（保存会失败但不影响只读浏览）")
+    else:
+        print(f"  git:       ✓ 已配 remote + upstream + 身份")
 
     if not args.no_browser:
         threading.Thread(target=_open_browser, args=(url,), daemon=True).start()
