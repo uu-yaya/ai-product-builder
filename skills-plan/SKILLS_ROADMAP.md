@@ -29,6 +29,7 @@ Skills package repeatable, high-frequency workflows so the workspace can stay li
 - `ui-ux-reviewer`
 - `figma-prototype`
 - `mvp-builder`
+- `md-canvas` *(Draft / WIP — spec in `MD_CANVAS_SKILL_SPEC.md`, demo in `projects/desktop-pet/02-design/branches/Diary/md-canvas-demo/`)*
 
 ### P2
 
@@ -54,6 +55,7 @@ Skills package repeatable, high-frequency workflows so the workspace can stay li
 | `ui-ux-reviewer` | User asks for UI/UX critique, page review, or design improvement suggestions. |
 | `figma-prototype` | User needs a Figma Prompt or high-fidelity prototype brief. |
 | `mvp-builder` | User wants to turn a product plan into an implementation plan or MVP. |
+| `md-canvas` | User wants to view, review, edit, or annotate a markdown file as an interactive HTML canvas; round-trip edits back to `.md` + diff + optional `comments.json`. |
 | `ai-trend-radar` | User asks for recent AI trends, product launches, GitHub projects, or papers. |
 | `metrics-designer` | User needs product metrics, success criteria, or dashboards. |
 | `user-research` | User needs interview plans, survey design, or insight synthesis. |
