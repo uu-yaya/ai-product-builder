@@ -29,10 +29,10 @@ cd <你的项目> && touch /tmp/x && git add /tmp/x && git commit --allow-empty 
 | 缺啥 | 怎么补 |
 | --- | --- |
 | 不是 git 仓库 | `cd <项目根> && git init` |
-| 没远端 | `git remote add origin git@git.code.tencent.com:你/项目.git` |
+| 没远端 | `git remote add origin <your-git-url>`（GitHub / GitLab / 工蜂 / Gitea 都行） |
 | 分支没 upstream | `git push -u origin <你的分支名>` |
-| 没 SSH key 或 token | 走工蜂的 SSH key / personal access token 流程 |
-| 没 git 身份 | `git config user.email you@tencent.com && git config user.name '你的名字'` |
+| 没 SSH key 或 token | 走你 git host 的 SSH key / personal access token 流程 |
+| 没 git 身份 | `git config user.email <your-email> && git config user.name <your-name>` |
 
 server 启动时会自动检查上面这些，缺啥会在 terminal 顶部列出来 + 告诉你具体跑啥命令。
 
@@ -41,8 +41,10 @@ server 启动时会自动检查上面这些，缺啥会在 terminal 顶部列出
 第一次：
 
 ```bash
-pip install -r skills/prd-to-canvas/requirements.txt
-# 或单独装:  pip install flask
+python3 -m pip install -r skills/prd-to-canvas/requirements.txt
+# 或单独装:  python3 -m pip install flask
+# (用 python3 -m pip 而不是直接 pip，避开 pip 脚本 shebang 在某些
+#  挪过的 venv 里失效的问题)
 ```
 
 ## 日常用
@@ -125,7 +127,7 @@ python3 server.py [--port 7799] [--root /custom/path] [--no-browser]
   │      ↓                                                        │
   │  PRD.md (源文件)                                              │
   │      ↓                                                        │
-  │  git push → 工蜂仓库 → 队友 git pull                          │
+  │  git push → 你的远端仓库（GitHub / GitLab / 工蜂等）→ 队友 git pull  │
   └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -158,7 +160,7 @@ OSError: [Errno 48] Address already in use
 
 ### `git push` 报权限错
 
-→ 检查你 terminal 里能不能正常 `git push`。工蜂走 SSH key 或 token，server 用你 terminal 的 git config，不另搞 auth
+→ 检查你 terminal 里能不能正常 `git push`。server 复用你 terminal 现有的 git config（包括 remote URL、SSH key/token、user 身份），不另搞 auth
 
 ### canvas 里 Cmd+S 没反应
 

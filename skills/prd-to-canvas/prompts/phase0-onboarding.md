@@ -150,7 +150,7 @@ mermaid 自动画图、能加 Mock / Prompt 实验 / 评论等。
        Cmd+S 写 .md + 本地 commit，但 push 失败
        本地版本历史在累积，等以后配好远端一次性 push 上去
 
-  · 从工蜂等远端 clone 下来的:
+  · 从远端 clone 下来的（GitHub / GitLab / 工蜂 / Gitea 等）:
        Cmd+S 写 .md + commit + push，全流程跑通，队友能看到
        (= 推荐的协作姿势)
 
@@ -200,9 +200,9 @@ git config user.name
 | Python 3 | ✓ 3.11.5 | 生成 HTML / 跑 server 都需要 |
 | Flask | ⚠ 未安装 | server 模式需要（file 模式不需要）|
 | Git 仓库 | ✓ /Users/me/work/proj | OK |
-| Git remote | ✓ origin = git@git.code.tencent.com:你/项目.git | OK |
+| Git remote | ✓ origin = git@github.com:you/your-repo.git | OK |
 | Git upstream | ⚠ 分支 'main' 没设 upstream | server 模式 push 时需要 |
-| Git 身份 | ✓ you@tencent.com | OK |
+| Git 身份 | ✓ you@example.com | OK |
 
 → 评估:
   · file 模式可立即用 ✓
@@ -262,12 +262,13 @@ options:
   - label: "file 模式（单人 demo / 给老板看） (推荐)"
     description:
       "基于你的环境，目录不是 git 仓库，server 模式要先配 git
-       仓库 + 工蜂远端 + push 一次（新手大概 5-15 分钟）。先 file
+       仓库 + 远端 + push 一次（新手大概 5-15 分钟）。先 file
        模式可以零配置看效果。Phase 4 生成 HTML 你双击就能开。"
   - label: "server 模式（团队协作 / 跨电脑）"
     description:
       "我会带你配齐 git init + remote + 第一次 push。需要你有
-       工蜂等仓库 URL。配完之后 Cmd+S 自动同步队友。"
+       远端仓库 URL（GitHub / GitLab / 工蜂 / Gitea 等都行）。配完
+       之后 Cmd+S 自动同步队友。"
   - label: "先 file 跑通，过几天再升级 server"
     description:
       "和上面 file 一样，但显式表态"以后会升级"——agent 会在最后
@@ -340,12 +341,32 @@ options:
 
 **先自检 venv 状态**，再决定 prompt 的选项。venv vs 全局是 WHERE，agent vs 你 是 WHO——这两个轴是正交的。
 
+**不能只看变量 + 目录是否存在，必须实际跑一次 python 验证 venv 是否真能用**（user 可能有"僵尸 venv": $VIRTUAL_ENV 指向已删除的目录 / .venv/bin/python 软链接坏 / pip 脚本 shebang 坏）：
+
 ```bash
-# 检查环境变量 + 当前 python 位置
+# 1. 看变量
 echo "$VIRTUAL_ENV"
 which python3
-ls .venv 2>/dev/null || ls venv 2>/dev/null
+
+# 2. 如果 $VIRTUAL_ENV 非空，验证它真能跑
+if [ -n "$VIRTUAL_ENV" ]; then
+  "$VIRTUAL_ENV/bin/python" --version 2>&1 || echo "STALE_VIRTUAL_ENV"
+fi
+
+# 3. 看本地 .venv/venv 目录
+for d in .venv venv; do
+  if [ -d "$d" ]; then
+    "$d/bin/python" --version 2>&1 || echo "BROKEN_${d}_PYTHON"
+    "$d/bin/python" -m pip --version 2>&1 || echo "BROKEN_${d}_PIP"
+  fi
+done
 ```
+
+判断结果：
+
+- `STALE_VIRTUAL_ENV` = 你 shell config 里 $VIRTUAL_ENV 指向不存在的目录，**忽略它当没 venv**（同时建议用户清掉 shell config，但不是阻塞项）
+- `BROKEN_*_PYTHON` = venv 的 python 软链接坏 → 这个 venv **没法用**，按 "no venv" 处理
+- `BROKEN_*_PIP` = python 能跑但 pip 脚本坏（shebang 残留）→ 仍可用！**永远调用 `<venv>/bin/python -m pip install xxx`** 绕开坏脚本
 
 #### 情况 A: 已经在 venv 里（$VIRTUAL_ENV 非空）
 
@@ -355,9 +376,11 @@ header: "装 Flask"
 options:
   - label: "agent 装到当前 venv (推荐)"
     description:
-      "agent 跑 `pip install flask`（继承当前 venv），装完 import 验证。
-       后续 server 也要在这个 venv 里跑（我会记住）。"
-  - label: "我自己跑 pip install flask"
+      "agent 跑 `\"$VIRTUAL_ENV/bin/python\" -m pip install flask` —— 用
+       venv 自己的 python 调 pip 模块（不依赖 pip 脚本，避开 shebang
+       坏的情况）。装完 import 验证。后续 server 也要在这个 venv 里跑
+       （我会记住）。"
+  - label: "我自己跑 python -m pip install flask"
     description: "agent 不动，你 terminal 自己装。装完按继续。"
   - label: "跳过，用 file 模式"
     description: "不装。skill 退回 file 模式跑完。"
@@ -369,16 +392,20 @@ options:
 question: "需要装 Flask。你目录里有 .venv/ 但没 activate。怎么处理？"
 header: "装 Flask"
 options:
-  - label: "agent 帮你 activate + 装到这个 venv (推荐)"
+  - label: "agent 帮你装到这个 venv (推荐)"
     description:
-      "agent 在新 shell 里跑 `source .venv/bin/activate && pip install
-       flask`。后续 server 启动命令我会自动加上 venv 前缀。"
+      "agent 直接调 `.venv/bin/python -m pip install flask` —— 用 venv
+       的 python 调 pip 模块，不需要 activate（避开 fish/csh 不支持
+       activate 的问题、也避开 pip 脚本 shebang 可能坏的问题）。后续
+       server 启动命令我会自动用这个 venv 的 python。"
   - label: "我自己 activate 再装"
-    description: "你 terminal 跑 `source .venv/bin/activate && pip install flask`。装完按继续。"
+    description:
+      "你 terminal 跑 `source .venv/bin/activate && python -m pip install
+       flask`。装完按继续。"
   - label: "忽略 venv，装到全局 python"
     description:
-      "agent 跑 `pip3 install flask`（不进 venv），装到系统全局。
-       如果你之后想用 venv，记得自己装一遍。"
+      "agent 跑 `python3 -m pip install flask`（不进 venv），装到系统
+       全局或 user site-packages。如果你之后想用 venv，记得自己装一遍。"
   - label: "跳过，用 file 模式"
     description: "不装。"
 ```
@@ -391,14 +418,14 @@ header: "装 Flask"
 options:
   - label: "建 venv 再装到 venv (推荐)"
     description:
-      "agent 跑 3 条命令: `python3 -m venv .venv` + `source .venv/bin/activate`
-       + `pip install flask`。从此 server 也在这个 venv 里跑。优点：不污染
-       系统 python；缺点：每次开新 terminal 要 `source .venv/bin/activate`。"
+      "agent 跑 2 条命令: `python3 -m venv .venv` + `.venv/bin/python -m
+       pip install flask`。不需要 activate（用 venv 的 python 直接调 pip
+       模块），后续 server 也用这个 venv。优点：不污染系统 python；
+       缺点：venv 目录占空间（~30MB）。"
   - label: "直接装到系统全局 python"
     description:
-      "agent 跑 `pip3 install flask`，装到全局 site-packages。优点：简单，
-       不需要 activate；缺点：会污染系统 python（如果你有别的 python 项目
-       可能冲突）。"
+      "agent 跑 `python3 -m pip install flask`，装到全局 site-packages。
+       优点：简单；缺点：可能污染系统 python（如果你有别的项目可能冲突）。"
   - label: "我自己装"
     description: "agent 给你命令，你 terminal 自己处理。"
   - label: "跳过，用 file 模式"
@@ -433,17 +460,20 @@ options:
 ### 没 git remote
 
 ```
-question: "git 仓库没配远端。你的远端仓库 URL（如工蜂）是？"
+question: "git 仓库没配远端。你的远端仓库 URL 是？"
 header: "git remote"
 options:
-  - label: "我没远端仓库，怎么在工蜂建？"
+  - label: "我没远端仓库，告诉我怎么建一个"
     description:
-      "agent 贴一份工蜂建仓库指引（创建项目 → 取 SSH URL → 回来粘贴）。
-       不动你环境。"
+      "agent 简要列 GitHub / GitLab / 工蜂 / Gitea 各自的建仓步骤指引
+       （创建项目 → 取 SSH URL → 回来粘贴）。不动你环境。"
   - label: "[让我贴 URL]"
     description:
-      "选 Other 然后输入完整 git URL（如 git@git.code.tencent.com:你的名/项目.git）。
-       agent 会跑 `git remote add origin <URL>` 注册它。"
+      "选 Other 然后输入完整 git URL，常见格式：\n"
+      "  GitHub  git@github.com:you/your-repo.git\n"
+      "  GitLab  git@gitlab.com:you/your-repo.git\n"
+      "  工蜂    git@git.code.tencent.com:you/your-repo.git\n"
+      "agent 会跑 `git remote add origin <URL>` 注册它。"
   - label: "跳过，先用 file 模式"
     description: "保留无远端状态。Cmd+S 时本地 commit 还会做（情况 2），push 那步会失败。"
 ```

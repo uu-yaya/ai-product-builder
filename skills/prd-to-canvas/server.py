@@ -5,7 +5,7 @@ commit + pull --rebase + push.
 
 Usage:
   cd <your project root>
-  pip install flask
+  python3 -m pip install flask              # if not already installed
   python3 path/to/skills/prd-to-canvas/server.py
 
 Then your browser auto-opens http://localhost:7799/. Pick any .md file
@@ -39,7 +39,7 @@ import webbrowser
 try:
     from flask import Flask, request, jsonify, send_file, abort
 except ImportError:
-    sys.exit("error: flask not installed. run:  pip install flask")
+    sys.exit("error: flask not installed. run:  python3 -m pip install flask")
 
 DEFAULT_PORT = 7799
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
@@ -113,7 +113,10 @@ def preflight_git_check() -> list[str]:
     if not r.stdout.strip():
         issues.append(
             "没配 git remote → push 时会失败。\n"
-            "     加远端仓库: git remote add origin git@git.code.tencent.com:你/项目.git"
+            "     加远端仓库: git remote add origin <your-git-url>\n"
+            "       例: GitHub  git@github.com:you/your-repo.git\n"
+            "           GitLab  git@gitlab.com:you/your-repo.git\n"
+            "           工蜂    git@git.code.tencent.com:you/your-repo.git"
         )
 
     # 3. Current branch has upstream?
@@ -135,8 +138,8 @@ def preflight_git_check() -> list[str]:
     if not email or not name:
         issues.append(
             "git 身份没配 → commit 时会失败。\n"
-            "     git config user.email you@tencent.com\n"
-            "     git config user.name '你的名字'"
+            "     git config user.email <your-email>\n"
+            "     git config user.name <your-name>"
         )
 
     return issues
