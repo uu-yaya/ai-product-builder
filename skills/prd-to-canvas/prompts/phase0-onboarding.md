@@ -162,8 +162,26 @@ mermaid 自动画图、能加 Mock / Prompt 实验 / 评论等。
 跑这些命令，记结果。**全部 read-only，不动用户环境**：
 
 ```bash
-# Python — 只接受 python3，不 fallback bare python（可能命中 Python 2）
-python3 --version 2>&1 || echo "MISSING: 必须装 Python 3（不接受 Python 2）"
+# Python — 必须 Python 3，不接受 Python 2
+# macOS/Linux 一般 `python3`；Windows 一般 `python` 或 `py -3`
+# 策略: 依次试 python3 / py -3 / python，但每次都校验是 3.x，避免命中 Py2
+
+for cmd in python3 "py -3" python; do
+  v=$($cmd --version 2>&1 || true)
+  case "$v" in Python\ 3.*)
+    echo "PYTHON_CMD=$cmd"
+    echo "PYTHON_VERSION=$v"
+    PYTHON_CMD=$cmd
+    break;;
+  esac
+done
+if [ -z "$PYTHON_CMD" ]; then
+  echo "MISSING: 必须装 Python 3"
+fi
+
+# 平台 — 后续 venv / server / alias 命令按 macOS/Linux/Windows 分支
+[ -n "$PYTHON_CMD" ] && $PYTHON_CMD -c "import platform; print('PLATFORM='+platform.system())"
+# 输出 PLATFORM=Darwin (macOS) / Linux / Windows
 
 # Flask
 python3 -c "import flask; print(flask.__version__)" 2>&1 || echo "MISSING"
@@ -353,11 +371,19 @@ if [ -n "$VIRTUAL_ENV" ]; then
   "$VIRTUAL_ENV/bin/python" --version 2>&1 || echo "STALE_VIRTUAL_ENV"
 fi
 
-# 3. 看本地 .venv/venv 目录
+# 3. 看本地 .venv/venv 目录 — POSIX 下 bin/python, Windows 下 Scripts/python.exe
 for d in .venv venv; do
   if [ -d "$d" ]; then
-    "$d/bin/python" --version 2>&1 || echo "BROKEN_${d}_PYTHON"
-    "$d/bin/python" -m pip --version 2>&1 || echo "BROKEN_${d}_PIP"
+    # 先 POSIX 再 Windows
+    PYBIN=""
+    [ -x "$d/bin/python" ] && PYBIN="$d/bin/python"
+    [ -x "$d/Scripts/python.exe" ] && PYBIN="$d/Scripts/python.exe"
+    if [ -n "$PYBIN" ]; then
+      "$PYBIN" --version 2>&1 || echo "BROKEN_${d}_PYTHON"
+      "$PYBIN" -m pip --version 2>&1 || echo "BROKEN_${d}_PIP"
+    else
+      echo "BROKEN_${d}_NO_PYTHON_BIN"
+    fi
   fi
 done
 ```
@@ -388,24 +414,29 @@ options:
 
 #### 情况 B: 目录里有 .venv/ 或 venv/ 但没 activate
 
+POSIX `<venv>/bin/python`，Windows `<venv>\Scripts\python.exe` —— agent 用 Step 2 检测到的 PLATFORM 选合适路径。
+
 ```
 question: "需要装 Flask。你目录里有 .venv/ 但没 activate。怎么处理？"
 header: "装 Flask"
 options:
   - label: "agent 帮你装到这个 venv (推荐)"
     description:
-      "agent 直接调 `.venv/bin/python -m pip install flask` —— 用 venv
-       的 python 调 pip 模块，不需要 activate（避开 fish/csh 不支持
-       activate 的问题、也避开 pip 脚本 shebang 可能坏的问题）。后续
-       server 启动命令我会自动用这个 venv 的 python。"
+      "agent 直接调 venv 自己的 python 跑 pip 模块（不依赖 pip 脚本 +
+       不需要 activate）。
+       · macOS/Linux: `.venv/bin/python -m pip install flask`
+       · Windows:     `.venv\\Scripts\\python.exe -m pip install flask`
+       后续 server 启动命令我会自动用这个 venv 的 python。"
   - label: "我自己 activate 再装"
     description:
-      "你 terminal 跑 `source .venv/bin/activate && python -m pip install
-       flask`。装完按继续。"
+      "· macOS/Linux: `source .venv/bin/activate && python -m pip install flask`
+       · Windows cmd:    `.venv\\Scripts\\activate.bat`  然后 `pip install flask`
+       · Windows PSh:    `.venv\\Scripts\\Activate.ps1`  然后 `pip install flask`
+       装完按继续。"
   - label: "忽略 venv，装到全局 python"
     description:
-      "agent 跑 `python3 -m pip install flask`（不进 venv），装到系统
-       全局或 user site-packages。如果你之后想用 venv，记得自己装一遍。"
+      "agent 跑 `<PYTHON_CMD> -m pip install flask`（PYTHON_CMD 是 Step 2
+       检测到的 python3 / python / py -3）。装到系统全局或 user site-packages。"
   - label: "跳过，用 file 模式"
     description: "不装。"
 ```
@@ -418,14 +449,15 @@ header: "装 Flask"
 options:
   - label: "建 venv 再装到 venv (推荐)"
     description:
-      "agent 跑 2 条命令: `python3 -m venv .venv` + `.venv/bin/python -m
-       pip install flask`。不需要 activate（用 venv 的 python 直接调 pip
-       模块），后续 server 也用这个 venv。优点：不污染系统 python；
-       缺点：venv 目录占空间（~30MB）。"
+      "agent 跑 2 条命令：
+       · macOS/Linux: `python3 -m venv .venv` + `.venv/bin/python -m pip install flask`
+       · Windows:     `python -m venv .venv` + `.venv\\Scripts\\python.exe -m pip install flask`
+       不需要 activate（用 venv 的 python 直接调 pip 模块），后续 server
+       也用这个 venv。优点：不污染系统 python；缺点：venv 目录占空间（~30MB）。"
   - label: "直接装到系统全局 python"
     description:
-      "agent 跑 `python3 -m pip install flask`，装到全局 site-packages。
-       优点：简单；缺点：可能污染系统 python（如果你有别的项目可能冲突）。"
+      "agent 跑 `<PYTHON_CMD> -m pip install flask`，装到全局 site-packages
+       或 user site-packages。优点：简单；缺点：可能污染系统 python。"
   - label: "我自己装"
     description: "agent 给你命令，你 terminal 自己处理。"
   - label: "跳过，用 file 模式"
@@ -434,8 +466,11 @@ options:
 
 **执行原则**：
 - agent 跑 install 失败（权限 / 网络）→ 报告错误 + 退回"我自己装"那个选项
-- 装完一定 `python3 -c "import flask; print(flask.__version__)"` 验证一次
-- 如果用了 venv，**记到 session state**，后续 server 启动命令自动加 venv 激活前缀（`source .venv/bin/activate && python3 server.py`）
+- 装完一定用 `<python> -c "import flask; print(flask.__version__)"` 验证一次
+- 如果用了 venv，**记到 session state**，后续 server 启动命令自动用对应平台
+  的 venv python：
+  - macOS/Linux:  `.venv/bin/python skills/prd-to-canvas/server.py`
+  - Windows:      `.venv\Scripts\python.exe skills\prd-to-canvas\server.py`
 
 ### 不是 git 仓库
 
@@ -650,6 +685,10 @@ options:
 
 **server 模式下**，skill 跑完 Step 6 之前一定要给一份"以后怎么启 server"的明确指引。打印这段（替换尖括号占位符为实际路径）：
 
+**根据 PLATFORM 选 cheatsheet 的措辞**（agent 用 Step 2 检测到的平台）：
+
+#### macOS / Linux 版本
+
 ```
 ─────────────────────────────────────────
 📋 Server 启动 cheatsheet（收藏）
@@ -657,26 +696,50 @@ options:
 方式 1: 现在跑（如果你上面选了"agent 帮你启"）
   ✓ agent 已经在后台启了。PID: <12345>
   · URL:    http://localhost:7799/
-  · 停止:   在 terminal 跑  kill <12345>   或者关掉 agent 会话
-  
-  (上面 PID 是真实 PID，agent 启动后从 run_in_background 任务拿到)
+  · 停止:   kill <12345>  或者关掉 agent 会话
 
-方式 2: 以后手动启（推荐你记住这条）
-  cd <project_root>            # 例如: cd ~/work/ai-product-builder
+方式 2: 以后手动启
+  cd <project_root>            # 例: cd ~/work/ai-product-builder
   python3 skills/prd-to-canvas/server.py
-  # 然后浏览器开 http://localhost:7799/
-  # Ctrl-C 停
+  # 浏览器开 http://localhost:7799/ ，Ctrl-C 停
+  # venv 用户: 改成 .venv/bin/python skills/prd-to-canvas/server.py
+  # 端口被占: 加 --port 7800
 
-  如果你用了 venv，前面加 source <venv>/bin/activate &&
-  例如: source .venv/bin/activate && python3 skills/prd-to-canvas/server.py
+方式 3: 固化成 shell alias（最方便）
+  # 在 ~/.zshrc 或 ~/.bashrc 末尾:
+  alias prd-canvas='cd <project_root> && python3 skills/prd-to-canvas/server.py'
+  source ~/.zshrc
+  # 之后任何 terminal:  prd-canvas
+─────────────────────────────────────────
+```
 
-方式 3: 固化成 shell alias（最方便，加一次终身用）
-  在你的 ~/.zshrc 或 ~/.bashrc 末尾加一行:
-  
-    alias prd-canvas='cd <project_root> && python3 skills/prd-to-canvas/server.py'
-  
-  然后 source ~/.zshrc 一次。之后任何 terminal:
-    prd-canvas       # 启动 server
+#### Windows 版本
+
+```
+─────────────────────────────────────────
+📋 Server 启动 cheatsheet（收藏）
+
+方式 1: 现在跑（如果你上面选了"agent 帮你启"）
+  ✓ agent 已经在后台启了。PID: <12345>
+  · URL:    http://localhost:7799/
+  · 停止:   Stop-Process -Id <12345>  或者关掉 agent 会话
+
+方式 2: 以后手动启（PowerShell）
+  cd <project_root>            # 例: cd C:\Users\you\work\ai-product-builder
+  python skills\prd-to-canvas\server.py
+  # 浏览器开 http://localhost:7799/ ，Ctrl-C 停
+  # venv 用户: 改成 .venv\Scripts\python.exe skills\prd-to-canvas\server.py
+  # 端口被占: 加 --port 7800
+  # 'python' 不是 Python 3 时: py -3 skills\prd-to-canvas\server.py
+
+方式 3: 固化成 PowerShell function（最方便）
+  # 编辑 PowerShell profile: notepad $PROFILE
+  function prd-canvas {
+      Set-Location <project_root>
+      python skills\prd-to-canvas\server.py
+  }
+  # 重启 PowerShell 或 . $PROFILE
+  # 之后任何 PowerShell terminal:  prd-canvas
 ─────────────────────────────────────────
 ```
 

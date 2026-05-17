@@ -405,6 +405,8 @@ def main():
     url = f"http://localhost:{args.port}/"
     pid = os.getpid()
     script_path = pathlib.Path(sys.argv[0]).resolve() if sys.argv[0] else SCRIPT_DIR / "server.py"
+    is_windows = sys.platform.startswith("win")
+    py_cmd = "python" if is_windows else "python3"
     print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     print(f"  md-canvas server")
     print(f"━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -412,11 +414,17 @@ def main():
     print(f"  template:  {TEMPLATE_PATH}")
     print(f"  url:       {url}")
     print(f"  PID:       {pid}")
+    print(f"  platform:  {sys.platform}")
     print(f"")
     print(f"  📂 浏览器打开:   {url}")
-    print(f"  ⛔ 停止 server:  Ctrl-C （或 kill {pid}）")
-    print(f"  🔁 再启 server:  python3 {script_path}")
-    print(f"  ♾  后台保活:     nohup python3 {script_path} > server.log 2>&1 &")
+    if is_windows:
+        print(f"  ⛔ 停止 server:  Ctrl-C  或新 terminal: Stop-Process -Id {pid}")
+        print(f"  🔁 再启 server:  {py_cmd} {script_path}")
+        print(f"  ♾  后台保活:     Start-Process {py_cmd} -ArgumentList \"{script_path}\" -WindowStyle Hidden")
+    else:
+        print(f"  ⛔ 停止 server:  Ctrl-C  或 kill {pid}")
+        print(f"  🔁 再启 server:  {py_cmd} {script_path}")
+        print(f"  ♾  后台保活:     nohup {py_cmd} {script_path} > server.log 2>&1 &")
     print(f"")
 
     # Sanity-check git setup so user knows up front whether save+push will work

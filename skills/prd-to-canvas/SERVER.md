@@ -18,10 +18,14 @@ skill 默认生成的 `index.html` 是单文件，**保存只写浏览器 localS
 
 server **不替你配 git**。它就是个 shell 调用 `git add/commit/pull/push` 的小壳子，**用的全是你 terminal 里现有的 git 配置**（remote URL、SSH key/token、user 身份、当前分支的 upstream）。
 
-如果你 terminal 里这一行能 work：
+如果你 terminal 里下面这条能 work（验证 git push 通路）：
 
 ```bash
-cd <你的项目> && touch /tmp/x && git add /tmp/x && git commit --allow-empty -m test && git push
+# macOS / Linux:
+cd <你的项目> && git commit --allow-empty -m "test push" && git push
+
+# Windows (PowerShell):
+cd <你的项目>; git commit --allow-empty -m "test push"; git push
 ```
 
 那 server 一定能 work。否则先按下面 checklist 配好：
@@ -38,25 +42,42 @@ server 启动时会自动检查上面这些，缺啥会在 terminal 顶部列出
 
 ## 安装
 
-第一次：
+### macOS / Linux
 
 ```bash
 python3 -m pip install -r skills/prd-to-canvas/requirements.txt
 # 或单独装:  python3 -m pip install flask
-# (用 python3 -m pip 而不是直接 pip，避开 pip 脚本 shebang 在某些
-#  挪过的 venv 里失效的问题)
 ```
+
+### Windows（cmd / PowerShell）
+
+```powershell
+python -m pip install -r skills\prd-to-canvas\requirements.txt
+# 或: python -m pip install flask
+# (如果 'python' 不是 Python 3, 用 'py -3' 替换)
+```
+
+> 用 `python -m pip` 而不是直接 `pip`，避开 pip 脚本 shebang 在某些挪过的 venv 里失效的问题。
 
 ## 日常用
 
-到你的项目根目录跑：
+### macOS / Linux
 
 ```bash
 cd ~/work/ai-product-builder
 python3 skills/prd-to-canvas/server.py
 ```
 
-懒得每次敲？加 alias 一次永久用：
+### Windows
+
+```powershell
+cd C:\Users\you\work\ai-product-builder
+python skills\prd-to-canvas\server.py
+```
+
+懒得每次敲？加 alias / 函数一次永久用：
+
+### macOS / Linux alias
 
 ```bash
 # 在 ~/.zshrc 或 ~/.bashrc 末尾
@@ -66,6 +87,20 @@ alias prd-canvas='cd ~/work/ai-product-builder && python3 skills/prd-to-canvas/s
 source ~/.zshrc
 
 # 之后任何 terminal 一行启:
+prd-canvas
+```
+
+### Windows PowerShell function
+
+```powershell
+# 编辑 PowerShell profile（notepad $PROFILE，没文件就让它创建）
+function prd-canvas {
+    Set-Location C:\Users\you\work\ai-product-builder
+    python skills\prd-to-canvas\server.py
+}
+
+# 重启 PowerShell 或: . $PROFILE
+# 之后任何 PowerShell 终端:
 prd-canvas
 ```
 
