@@ -3551,6 +3551,21 @@
       transform: scale(1.12);
     }
 
+    /* ============================================ Embedded images ============================================ */
+    /* Pasted / dropped images become inline <img> with a data: URL src.
+       Constrain size so a big screenshot doesn't blow up a narrow column. */
+    .md-block img, .md-block .md-img {
+      max-width: 100%;
+      height: auto;
+    }
+    .md-table td img, .md-table th img {
+      max-width: 100%;
+      max-height: 240px;
+      height: auto;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
     /* ============================================ Cell-level lists (ul / ol) ============================================ */
     /* GFM doesn't natively support block lists inside cells, so we render
        and serialize them as inline HTML — supported by GitHub / marked /
@@ -4313,6 +4328,14 @@
           return '<li>' + liInner + '</li>';
         }).join('');
         return '<' + tag + '>' + itemsHtml + '</' + tag + '>';
+      }
+      // Embedded images — emit as ![alt](src). Works in paragraphs and in
+      // GFM table cells. data: URLs survive .md download (the requirement).
+      if (node.tagName === 'IMG') {
+        const src = node.getAttribute('src') || '';
+        if (!src) return '';
+        const alt = node.getAttribute('alt') || '';
+        return '![' + alt + '](' + src + ')';
       }
       const inner = Array.from(node.childNodes).map(domToInlineMd).join('');
       switch (node.tagName) {
@@ -12961,6 +12984,106 @@
         }
       }
       markTableEdited(cell);
+    });
+
+    // ============================================================
+    // Embedded image — paste an image from clipboard (Cmd+V after a
+    // screenshot or after Copy-Image in any browser) or drag-drop an
+    // image file onto any editable area. Image is base64-encoded inline
+    // as a data: URL so the downloaded .md keeps the image without
+    // needing external asset files.
+    // ============================================================
+    function readBlobAsDataURL(blob) {
+      return new Promise((resolve, reject) => {
+        const fr = new FileReader();
+        fr.onload = () => resolve(fr.result);
+        fr.onerror = reject;
+        fr.readAsDataURL(blob);
+      });
+    }
+
+    async function insertImageAtCaret(blob, fallbackTarget) {
+      if (!blob || !blob.type || !blob.type.startsWith('image/')) return;
+      const dataUrl = await readBlobAsDataURL(blob);
+      const target = currentEditableTarget() || fallbackTarget;
+      if (!target) return;
+      target.focus();
+      const img = document.createElement('img');
+      img.src = dataUrl;
+      img.alt = '';
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount && target.contains(sel.anchorNode)) {
+        const range = sel.getRangeAt(0);
+        range.deleteContents();
+        range.insertNode(img);
+        range.setStartAfter(img);
+        range.collapse(true);
+        sel.removeAllRanges();
+        sel.addRange(range);
+      } else {
+        target.appendChild(img);
+      }
+      const block = target.closest('.md-block');
+      if (block) {
+        block.dataset.edited = 'true';
+        updateEditCount();
+      }
+      if (target.closest('.md-table')) markTableEdited(target);
+    }
+
+    // Paste handler — runs on every paste in #content. Detects image items
+    // BEFORE the TSV-paste handler does its work (they don't conflict —
+    // image clipboard usually has no text/plain content — but ordering here
+    // makes intent explicit).
+    document.getElementById('content').addEventListener('paste', e => {
+      if (!editMode) return;
+      const target = e.target.closest && e.target.closest('[contenteditable="true"]');
+      if (!target) return;
+      const cd = e.clipboardData || window.clipboardData;
+      if (!cd || !cd.items) return;
+      for (const item of cd.items) {
+        if (item.kind === 'file' && item.type && item.type.startsWith('image/')) {
+          e.preventDefault();
+          const file = item.getAsFile();
+          if (file) insertImageAtCaret(file, target);
+          return;
+        }
+      }
+    }, true /* capture so we get first crack at the event */);
+
+    // Drag-drop image file onto any editable area
+    document.getElementById('content').addEventListener('dragover', e => {
+      if (!editMode) return;
+      const target = e.target.closest && e.target.closest('[contenteditable="true"]');
+      if (!target) return;
+      if (e.dataTransfer && e.dataTransfer.types && [].indexOf.call(e.dataTransfer.types, 'Files') !== -1) {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'copy';
+      }
+    });
+    document.getElementById('content').addEventListener('drop', e => {
+      if (!editMode) return;
+      const target = e.target.closest && e.target.closest('[contenteditable="true"]');
+      if (!target) return;
+      if (!e.dataTransfer || !e.dataTransfer.files || !e.dataTransfer.files.length) return;
+      const imgFile = Array.from(e.dataTransfer.files).find(f => f.type && f.type.startsWith('image/'));
+      if (!imgFile) return;
+      e.preventDefault();
+      // Place caret at the drop point if the browser supports it
+      const r = (document.caretRangeFromPoint && document.caretRangeFromPoint(e.clientX, e.clientY))
+             || (document.caretPositionFromPoint && (() => {
+                 const cp = document.caretPositionFromPoint(e.clientX, e.clientY);
+                 if (!cp) return null;
+                 const rng = document.createRange();
+                 rng.setStart(cp.offsetNode, cp.offset);
+                 rng.collapse(true);
+                 return rng;
+               })());
+      if (r) {
+        const sel = window.getSelection();
+        if (sel) { sel.removeAllRanges(); sel.addRange(r); }
+      }
+      insertImageAtCaret(imgFile, target);
     });
 
     // ============================================================
