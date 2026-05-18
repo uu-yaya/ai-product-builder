@@ -542,10 +542,15 @@
     [contenteditable="true"]:focus, [contenteditable="plaintext-only"]:focus { caret-color: var(--primary); }
 
     /* Edit-mode cell / cell-level highlights for tables and code */
+    /* outline (not box-shadow:inset) — the inset box-shadow leaks into the
+       whole column when table-layout:fixed + <col> widths are in play
+       (after the user resizes a column), painting a vertical red line
+       through every row at the focused cell's right edge. */
     body.edit-mode .md-table th[contenteditable]:focus,
     body.edit-mode .md-table td[contenteditable]:focus {
       background: rgba(204, 120, 92, 0.08);
-      box-shadow: inset 0 0 0 2px var(--primary);
+      outline: 2px solid var(--primary);
+      outline-offset: -2px;
     }
     body.edit-mode .md-code pre[contenteditable],
     body.edit-mode .md-code pre code[contenteditable] {
