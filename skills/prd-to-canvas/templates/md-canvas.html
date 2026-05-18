@@ -3996,11 +3996,15 @@
     <button type="button" class="ta-btn" data-act="italic" title="斜体"><i>I</i></button>
     <button type="button" class="ta-btn" data-act="list-ul" title="无序列表">•</button>
     <button type="button" class="ta-btn" data-act="list-ol" title="有序列表">1.</button>
+    <button type="button" class="ta-btn" data-act="insert-image" title="插入图片">🖼</button>
     <button type="button" class="ta-btn" data-act="clear-content" title="清空所选 cell 内容">⌫</button>
     <span class="ta-sep"></span>
     <button type="button" class="ta-btn ta-danger" data-act="row-delete" title="删除当前行">－行</button>
     <button type="button" class="ta-btn ta-danger" data-act="col-delete" title="删除当前列">－列</button>
   </div>
+
+  <!-- Hidden file input shared by the image-insert button(s) -->
+  <input type="file" id="ta-img-input" accept="image/*" hidden>
 
   <!-- Comment composer popover -->
   <div class="comment-composer" id="comment-composer" aria-hidden="true">
@@ -12745,7 +12749,25 @@
       else if (act === 'italic') toggleInlineWrap('EM');
       else if (act === 'list-ul') tableActionTargets().forEach(c => toggleCellList(c, 'UL'));
       else if (act === 'list-ol') tableActionTargets().forEach(c => toggleCellList(c, 'OL'));
+      else if (act === 'insert-image') triggerImagePicker(tableActionsCell);
       else if (act === 'clear-content') clearTargetsContent();
+    });
+
+    // ---- Image picker (used by table-actions 🖼) ----
+    let pendingImageInsertTarget = null;
+    function triggerImagePicker(fallbackTarget) {
+      // Stash the current target so we can restore it after the OS file
+      // dialog returns (focus typically moves to the dialog and back).
+      pendingImageInsertTarget = currentEditableTarget() || fallbackTarget;
+      const input = document.getElementById('ta-img-input');
+      if (input) input.click();
+    }
+    document.getElementById('ta-img-input').addEventListener('change', e => {
+      const file = e.target.files && e.target.files[0];
+      if (file) insertImageAtCaret(file, pendingImageInsertTarget);
+      // Reset so picking the same file twice still fires `change`
+      e.target.value = '';
+      pendingImageInsertTarget = null;
     });
 
     document.getElementById('content').addEventListener('focusin', e => {
