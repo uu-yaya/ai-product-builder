@@ -4570,6 +4570,15 @@
         toolbar.classList.remove('is-show');
         return;
       }
+      // Inside a table cell: the table action bar already exposes the
+      // common inline operations (B / I / list / align). Showing both
+      // pop-ups stacked on the same cell is confusing, so suppress this
+      // one. (Cmd+B / Cmd+I still work via the shared shortcut handler.)
+      if (target.closest('.md-table')) {
+        toolbar.classList.remove('is-show');
+        toolbar.setAttribute('aria-hidden', 'true');
+        return;
+      }
       const range = sel.getRangeAt(0);
       const rect = range.getBoundingClientRect();
       if (rect.width === 0 && rect.height === 0) {
