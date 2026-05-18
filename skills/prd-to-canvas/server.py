@@ -43,7 +43,7 @@ try:
 except ImportError:
     sys.exit("error: flask not installed. run:  python3 -m pip install flask")
 
-__version__ = "0.6.0"
+__version__ = "0.6.1"
 DEFAULT_PORT = 7799
 SCRIPT_DIR = pathlib.Path(__file__).resolve().parent
 TEMPLATE_PATH = SCRIPT_DIR / "templates" / "md-canvas.html"
@@ -212,12 +212,18 @@ def friendly_git_error(stderr: str) -> str:
     if "permission denied" in s or "publickey" in s:
         return ("git SSH 认证失败（SSH key 没配 / 没添加到 GitHub / 等）。"
                 "→ terminal 跑一次 git push 试试，看具体 SSH 报错。")
-    if "merge conflict" in s or "conflict" in s:
+    if "merge conflict" in s or ("conflict" in s and "could not apply" in s):
         return ("队友刚也改了这个文件且自动 merge 失败。"
                 "terminal: git pull --rebase → 解 conflict → git push")
     if "rejected" in s and "non-fast-forward" in s:
         return ("远端有新提交还没拉。"
                 "terminal: git pull --rebase 后再保存")
+    # Common: dirty working tree blocks pull --rebase (other agents' uncommitted work)
+    if "cannot pull with rebase" in s or "unstaged changes" in s or "uncommitted changes" in s:
+        return ("工作目录有别的未提交改动 (可能是别的 agent / 你 terminal 里的"
+                "草稿)，git 不让自动 rebase。server v0.6.0+ 已自动用 --autostash"
+                "处理，理论上不该撞到这。看到这个说明 server 太老了，"
+                "建议 ctrl-c 重启 server。")
     return stderr.strip()[:300] or "未知 git 错误"
 
 
@@ -513,19 +519,45 @@ def api_save():
 
     sha = git("rev-parse", "HEAD").stdout.strip()[:7]
 
-    # Stage 3: pull --rebase → push. If rebase fails, abort to restore
-    # the workdir to clean (post-commit) state and report conflict
-    # so the user can resolve in terminal.
+    # Stage 3: smart pull-rebase. Naive "always pull --rebase" fails when
+    # working tree has other agents' uncommitted changes (git refuses
+    # rebase to protect them). We only NEED rebase when origin actually
+    # has new commits ahead of us. So: fetch first, check ahead/behind,
+    # skip pull entirely when origin = HEAD or origin behind HEAD.
     pulled = False
-    r = git("pull", "--rebase")
-    if r.returncode != 0:
-        git("rebase", "--abort")
-        return jsonify(
-            ok=False, stage="pull-rebase", conflict=True,
-            commit_sha=sha,
-            error=friendly_git_error(r.stderr or r.stdout),
-        ), 200
-    pulled = "Successfully rebased" in r.stdout or "Current branch" in r.stdout
+    fetch_r = git("fetch", "origin")
+    if fetch_r.returncode != 0:
+        return jsonify(ok=False, stage="fetch", commit_sha=sha,
+                       error=friendly_git_error(
+                           fetch_r.stderr or fetch_r.stdout)), 200
+    # ahead-behind vs upstream
+    ab_r = git("rev-list", "--left-right", "--count", "HEAD...@{u}")
+    if ab_r.returncode == 0 and ab_r.stdout.strip():
+        try:
+            ahead, behind = map(int, ab_r.stdout.strip().split())
+        except ValueError:
+            ahead, behind = 0, 0
+    else:
+        ahead, behind = 0, 0
+    if behind > 0:
+        # Origin moved ahead. Must rebase. Use --autostash so it works
+        # even when other agents' uncommitted changes are in tree.
+        r = git("pull", "--rebase", "--autostash")
+        if r.returncode != 0:
+            git("rebase", "--abort")
+            err_lower = (r.stderr + r.stdout).lower()
+            is_real_conflict = (
+                "conflict" in err_lower or "could not apply" in err_lower
+                or "auto-merging" in err_lower
+            )
+            return jsonify(
+                ok=False, stage="pull-rebase",
+                conflict=is_real_conflict,
+                commit_sha=sha,
+                error=friendly_git_error(r.stderr or r.stdout),
+            ), 200
+        pulled = True
+    # behind == 0: origin is at-or-behind HEAD, push directly
 
     r = git("push")
     if r.returncode != 0:
