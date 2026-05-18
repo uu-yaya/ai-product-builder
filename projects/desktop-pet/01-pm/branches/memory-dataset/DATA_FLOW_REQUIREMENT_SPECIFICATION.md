@@ -131,7 +131,7 @@ flowchart LR
 | 用户变更回写 | `user_action.save_highlight`、`user_action.delete_memory`、`user_action.correct_memory`、`user_action.confirm_profile`、`consent_update` | 用户执行保存 / 删除 / 纠错 / 确认 / 授权变更时 | 不批量 | 高优先级 mutation；影响 Memory 状态；失败需重试或提示用户 | P0 |
 | 批量补传 | 离线期间积压的 `source_records`、低频日志、延迟上传事件 | 网络恢复 / 客户端空闲 / 退出前 flush | 是 | 多条 Envelope 批量发送；单条仍保留独立 `record_id`、`occurred_at`、`consent_snapshot_id` | P1 |
 
-补充规则：
+**补充规则：**
 
 - 上报通道不按数据来源统一打包，而按业务时机拆分：游戏事件实时发，生命周期和 IDIP 在关键边界发，心跳按频率发，用户 mutation 立即发。
 - 对客户端来说，完整 `idip_snapshot` 可以全量发送；是否做差异比较、摘要或生成记忆，由 Memory 处理。
@@ -142,8 +142,8 @@ flowchart LR
 
 Memory Push 只推“有变化通知 + 轻摘要”，不推大对象。客户端真正使用时再 pull 详情。
 
-| data_field | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 消费侧获取的时机 / 场景 | 消费侧回写的时机 / 场景 | 优先级 |
-|---|---|---|---|---|---|---|---|---|
+| 数据 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 消费侧获取的时机 / 场景 | 消费侧回写的时机 / 场景 | 优先级 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `push_id` | 推送 ID | string | `"push_001"` | Memory → Client | push | 客户端去重 / 展示轻提示 | 客户端 ack push 状态 | P0 |
 | `push_type` | 推送类型 | enum | `memory_changed` | Memory → Client | push | 判断是否需要 pull 详情 | 不直接回写 | P0 |
 | `summary` | 轻摘要 | string | `"本局游戏已生成 1 条高光候选"` | Memory → Client | push | 低打扰提示、状态更新 | 不直接回写 | P0 |
