@@ -12419,17 +12419,29 @@
       if (!table || !block) return;
       tableActionsCell = cell;
       tableActionsTable = table;
-      const rect = table.getBoundingClientRect();
+      // Anchor on the cell itself so the toolbar tracks the user's focus,
+      // not the column header. Stays inside the viewport horizontally and
+      // flips below the cell if the top of the cell is too close to the
+      // viewport top (e.g., after scroll).
+      const cellRect = cell.getBoundingClientRect();
       tableActions.classList.add('is-show');
       tableActions.setAttribute('aria-hidden', 'false');
       const w = tableActions.offsetWidth || 360;
-      let left = window.scrollX + rect.left;
-      if (left + w > window.scrollX + document.documentElement.clientWidth - 12) {
-        left = window.scrollX + document.documentElement.clientWidth - 12 - w;
+      const viewportW = document.documentElement.clientWidth;
+      let left = window.scrollX + cellRect.left;
+      if (left + w > window.scrollX + viewportW - 12) {
+        left = window.scrollX + viewportW - 12 - w;
       }
       if (left < window.scrollX + 12) left = window.scrollX + 12;
+      const h = tableActions.offsetHeight || 32;
+      const GAP = 6;
+      let top = window.scrollY + cellRect.top - h - GAP;
+      if (cellRect.top - h - GAP < 0) {
+        // Not enough room above — flip below
+        top = window.scrollY + cellRect.bottom + GAP;
+      }
       tableActions.style.left = left + 'px';
-      tableActions.style.top = (window.scrollY + rect.top - 38) + 'px';
+      tableActions.style.top = top + 'px';
     }
     function hideTableActions() {
       tableActions.classList.remove('is-show');
