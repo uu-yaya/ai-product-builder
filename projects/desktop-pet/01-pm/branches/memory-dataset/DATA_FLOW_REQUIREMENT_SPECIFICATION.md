@@ -68,10 +68,10 @@
 ### 2.3 证据链规则
 
 | 规则 | 要求 |
-|---|---|
+| --- | --- |
 | 加工结果必须可追溯 | `derived_memory` 尽量带 `source_record_ids[]` |
-| `current_context` 不完整回写 | 它是客户端运行时判断，不是长期事实 |
-| 回写事实源而不是回写判断 | 记忆系统应优先接收标准化事实，而不是“客户端觉得用户紧张”这种二次判断 |
+| `current_context` 不完整回写 | 它是客户端运行时判断，不是长期事实，但只做筛选，不做内容加工处理！ |
+| 回写事实源而不是回写判断 | 记忆系统应优先接收标准化事实，而不是二次处理的数据结果 |
 | VLM 原图不作为 source record | 只有 VLM 语义结果可在业务场景允许时成为 `source_record` |
 | 用户确认优先 | 用户保存、确认、纠错、删除等动作可以把临时候选升级为明确记忆操作 |
 
@@ -79,15 +79,17 @@
 
 ```mermaid
 flowchart LR
-  GameSDK["Game SDK"] --> Client["Client"]
-  PC["PC / OS Signals"] --> Client
-  Screen["Screen Frames"] --> LocalVLM["Local VLM"]
+  GameSDK["游戏 SDK"] --> Client["客户端"]
+  PC["PC / OS 低敏信号"] --> Client
+  UserPet["用户 / 桌宠交互"] --> Client
+  Screen["屏幕画面帧"] --> LocalVLM["客户端本地 VLM"]
   LocalVLM --> Client
-  Client -->|source_records| Memory["Memory System"]
-  Memory -->|push: light notification / digest| Client
-  Client -->|pull: scenario query| Memory
-  Memory -->|query_response: details| Client
-  Client -->|mutation: save / delete / correct / consent| Memory
+
+  Client -->|事实源记录| Memory["记忆系统"]
+  Memory -->|轻量推送：变化通知 / 摘要| Client
+  Client -->|主动查询：业务场景请求| Memory
+  Memory -->|查询返回：详情数据| Client
+  Client -->|变更回写：保存 / 删除 / 纠错 / 授权| Memory
 ```
 
 ---
