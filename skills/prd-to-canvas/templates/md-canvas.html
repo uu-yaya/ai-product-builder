@@ -4318,9 +4318,16 @@
     function serializeTable(block, tok) {
       const table = block.querySelector('table');
       if (!table) return tok.raw;
-      const headers = Array.from(table.querySelectorAll('thead th')).map(th => cleanInline(th));
+      // GFM tables require one row per source line and use `|` as a hard column
+      // delimiter. Two things have to be escaped per cell:
+      //   - Newlines from <br> (Cmd/Shift+Enter in a cell): emit literal <br>
+      //     so the parser keeps the row intact and renders the break visually.
+      //   - Literal `|` typed by the user: backslash-escape so it doesn't
+      //     spawn phantom columns / mis-align the row.
+      const escapeCell = s => s.replace(/\|/g, '\\|').replace(/\n+/g, '<br>');
+      const headers = Array.from(table.querySelectorAll('thead th')).map(th => escapeCell(cleanInline(th)));
       const rows = Array.from(table.querySelectorAll('tbody tr')).map(tr =>
-        Array.from(tr.children).map(td => cleanInline(td))
+        Array.from(tr.children).map(td => escapeCell(cleanInline(td)))
       );
       const colCount = headers.length;
       rows.forEach(r => { while (r.length < colCount) r.push(''); });
@@ -12375,6 +12382,7 @@
       const colIdx = cellColumnIndex(tableActionsCell);
       const insertAt = direction === 'left' ? colIdx : colIdx + 1;
       const allRows = tableActionsTable.querySelectorAll('tr');
+      let newCellForFocus = null;
       allRows.forEach(tr => {
         const isHead = tr.parentNode.tagName === 'THEAD';
         const cell = document.createElement(isHead ? 'th' : 'td');
@@ -12382,15 +12390,35 @@
         cell.dataset.placeholder = isHead ? '表头' : '内容';
         if (tr.children[insertAt]) tr.insertBefore(cell, tr.children[insertAt]);
         else tr.appendChild(cell);
+        // Capture the new cell that sits in the same row the user clicked from,
+        // so we can focus + scroll it into view after the insert.
+        if (tr === tableActionsCell.closest('tr')) newCellForFocus = cell;
       });
-      // Keep colgroup in sync if the table was prepared for resize
+      // Keep colgroup in sync if the table was prepared for resize. Without an
+      // explicit width on the new <col>, table-layout:fixed will collapse it to
+      // ~0px and the new column looks like it "ate" the neighboring cells.
+      // Inherit width from the reference column so the table widens predictably.
       const cg = tableActionsTable.querySelector(':scope > colgroup');
       if (cg) {
         const col = document.createElement('col');
+        const refIdx = direction === 'left' ? colIdx : Math.max(0, colIdx);
+        const refCol = cg.children[refIdx] || cg.children[cg.children.length - 1];
+        if (refCol && refCol.style && refCol.style.width) col.style.width = refCol.style.width;
         if (cg.children[insertAt]) cg.insertBefore(col, cg.children[insertAt]);
         else cg.appendChild(col);
       }
       markTableEdited(tableActionsCell);
+      // Move focus + scroll the new cell into view so it's never hidden behind
+      // an overflowed table viewport.
+      if (newCellForFocus) {
+        setTimeout(() => {
+          newCellForFocus.focus();
+          if (typeof newCellForFocus.scrollIntoView === 'function') {
+            newCellForFocus.scrollIntoView({ block: 'nearest', inline: 'nearest' });
+          }
+          showTableActions(newCellForFocus);
+        }, 0);
+      }
     }
 
     function deleteTableRow() {
