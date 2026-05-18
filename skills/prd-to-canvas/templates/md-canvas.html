@@ -288,7 +288,12 @@
     }
     .md-table table {
       width: 100%;
-      border-collapse: collapse;
+      /* `separate` + `border-spacing: 0` is visually identical to `collapse`
+         but doesn't trigger Chrome's phantom column-divider when the table
+         also has border-radius + overflow:hidden + table-layout:fixed (the
+         combination we get after user resizes a column). */
+      border-collapse: separate;
+      border-spacing: 0;
       background: var(--canvas);
       border: 1px solid var(--hairline);
       border-radius: var(--r-lg);
