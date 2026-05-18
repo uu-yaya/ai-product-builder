@@ -3513,6 +3513,52 @@
     .ta-btn.ta-danger:hover { background: rgba(198, 69, 69, 0.20); }
     .ta-sep { width: 1px; height: 18px; background: var(--surface-dark-elevated); margin: 0 4px; align-self: center; }
 
+    /* ============================================ Table hover gutters (Notion-style + buttons) ============================================ */
+    /* Appended to <body>, document-coordinate positioned. Each + sits on a
+       column or row boundary; click inserts row/col at that position. Only
+       shown when cursor is over the table or one of the gutter buttons. */
+    .table-gutter-plus {
+      position: absolute;
+      z-index: 140;
+      width: 20px;
+      height: 20px;
+      border-radius: 4px;
+      border: 1px solid var(--hairline);
+      background: var(--canvas);
+      color: var(--muted);
+      font-family: var(--font-sans);
+      font-size: 14px;
+      font-weight: 500;
+      line-height: 1;
+      cursor: pointer;
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.12s, background 0.12s, color 0.12s, transform 0.12s;
+      pointer-events: none;
+    }
+    .table-gutter-plus.is-show {
+      opacity: 0.55;
+      pointer-events: auto;
+    }
+    .table-gutter-plus.is-show:hover {
+      opacity: 1;
+      background: var(--primary);
+      color: var(--on-primary);
+      border-color: var(--primary);
+      transform: scale(1.12);
+    }
+
+    /* ============================================ Per-cell alignment ============================================ */
+    /* Stored in layout.json (sidecar) — does not survive GFM round-trip.
+       td gets a data-cell-align attribute; CSS keys off that. */
+    .md-table th[data-cell-align="center"],
+    .md-table td[data-cell-align="center"] { text-align: center; }
+    .md-table th[data-cell-align="right"],
+    .md-table td[data-cell-align="right"] { text-align: right; }
+
     /* ============================================ HR clickable hit area ============================================ */
     .md-hr {
       min-height: 36px;
@@ -3901,6 +3947,10 @@
     <button type="button" class="ta-btn" data-act="row-below" title="下方加行">＋行</button>
     <button type="button" class="ta-btn" data-act="col-left" title="左侧加列">＋列</button>
     <button type="button" class="ta-btn" data-act="col-right" title="右侧加列">＋列</button>
+    <span class="ta-sep"></span>
+    <button type="button" class="ta-btn" data-act="align-left" title="居左 (默认)">⇤</button>
+    <button type="button" class="ta-btn" data-act="align-center" title="居中">⇔</button>
+    <button type="button" class="ta-btn" data-act="align-right" title="居右">⇥</button>
     <span class="ta-sep"></span>
     <button type="button" class="ta-btn ta-danger" data-act="row-delete" title="删除当前行">－行</button>
     <button type="button" class="ta-btn ta-danger" data-act="col-delete" title="删除当前列">－列</button>
@@ -12471,6 +12521,15 @@
       if (block) { block.dataset.edited = 'true'; updateEditCount(); }
     }
 
+    function setCellAlign(cell, align) {
+      if (!cell) return;
+      if (align === 'left' || !align) delete cell.dataset.cellAlign;
+      else cell.dataset.cellAlign = align;
+      markTableEdited(cell);
+      const block = cell.closest('.md-block');
+      if (block) block.dataset.layoutEdited = 'true';
+    }
+
     tableActions.addEventListener('mousedown', e => {
       const btn = e.target.closest('.ta-btn');
       if (!btn) return;
@@ -12482,6 +12541,9 @@
       else if (act === 'col-right') insertTableCol('right');
       else if (act === 'row-delete') deleteTableRow();
       else if (act === 'col-delete') deleteTableCol();
+      else if (act === 'align-left') setCellAlign(tableActionsCell, 'left');
+      else if (act === 'align-center') setCellAlign(tableActionsCell, 'center');
+      else if (act === 'align-right') setCellAlign(tableActionsCell, 'right');
     });
 
     document.getElementById('content').addEventListener('focusin', e => {
@@ -12633,6 +12695,239 @@
         }
         return;
       }
+
+      if (e.key === 'Tab') {
+        // Excel-style: Tab = next cell; at the bottom-right, auto-insert a
+        // new row and jump into its first cell. Shift+Tab = previous cell.
+        e.preventDefault();
+        if (e.shiftKey) {
+          const prev = getCellNeighbor(cell, 'left');
+          if (prev) { prev.focus(); placeCaretAt(prev, false); }
+          return;
+        }
+        if (isLastCellOfTable(cell)) {
+          // Reuse existing toolbar wiring: target this cell so insertTableRow
+          // picks the right reference row, then restore previous focus
+          // semantics inside insertTableRow (it auto-focuses the new row's
+          // first cell).
+          tableActionsCell = cell;
+          tableActionsTable = cell.closest('table');
+          insertTableRow('below');
+          return;
+        }
+        const next = getCellNeighbor(cell, 'right');
+        if (next) { next.focus(); placeCaretAt(next, true); }
+        return;
+      }
+    });
+
+    // ------------------------------------------------------------
+    // Paste from Excel / Google Sheets — split TSV into multiple cells.
+    // If clipboard text has tabs or newlines, treat as table data; fill
+    // starting at the current cell going right + down. Auto-add rows if
+    // the paste extends past the current table's last row. Columns are
+    // never auto-added (would silently mutate schema).
+    // ------------------------------------------------------------
+    document.getElementById('content').addEventListener('paste', e => {
+      if (!editMode) return;
+      const cell = e.target.closest && e.target.closest('th, td');
+      if (!cell || !cell.isContentEditable) return;
+      if (!cell.closest('.md-table')) return;
+      const cd = e.clipboardData || window.clipboardData;
+      if (!cd) return;
+      const text = cd.getData('text/plain');
+      if (!text || (!text.includes('\t') && !text.includes('\n'))) return;
+      // Only fire TSV path when text really looks like a grid (≥2 cells)
+      const rows = text.replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n').map(r => r.split('\t'));
+      if (rows.length === 1 && rows[0].length === 1) return;
+      e.preventDefault();
+      const table = cell.closest('table');
+      const allTrs = Array.from(table.querySelectorAll('tr'));
+      const startTr = cell.closest('tr');
+      const startRowIdx = allTrs.indexOf(startTr);
+      const startColIdx = Array.from(startTr.children).indexOf(cell);
+      const colCount = startTr.children.length;
+      for (let r = 0; r < rows.length; r++) {
+        let tr = allTrs[startRowIdx + r];
+        if (!tr) {
+          // Append rows via existing insertTableRow plumbing — keeps colgroup
+          // / focus semantics consistent. Use last body row as reference.
+          tableActionsCell = allTrs[allTrs.length - 1].firstElementChild;
+          tableActionsTable = table;
+          insertTableRow('below');
+          // Re-collect rows; the new one is now the last
+          const refreshed = Array.from(table.querySelectorAll('tr'));
+          tr = refreshed[startRowIdx + r];
+          if (!tr) break;
+          allTrs.push(tr);
+        }
+        for (let c = 0; c < rows[r].length; c++) {
+          const targetCol = startColIdx + c;
+          if (targetCol >= colCount) break; // don't auto-add columns
+          const targetCell = tr.children[targetCol];
+          if (targetCell) targetCell.textContent = rows[r][c];
+        }
+      }
+      markTableEdited(cell);
+    });
+
+    // ============================================================
+    // Hover gutter — Notion-style + buttons at column / row boundaries
+    // Appended to document.body, positioned absolutely. Visible when
+    // cursor is over either the table or one of the gutter buttons.
+    // ============================================================
+    const GUTTER_BTN_SIZE = 20;
+    const GUTTER_OFFSET = 6; // px gap between gutter and table edge
+    let gutterTable = null;
+    let gutterButtons = [];
+    let gutterHideTimer = null;
+
+    function clearGutter() {
+      gutterButtons.forEach(b => b.remove());
+      gutterButtons = [];
+      gutterTable = null;
+    }
+
+    function scheduleHideGutter() {
+      clearTimeout(gutterHideTimer);
+      gutterHideTimer = setTimeout(() => {
+        // Defer hide so cursor moving from cell → button doesn't flicker
+        clearGutter();
+      }, 180);
+    }
+
+    function showGutter(table) {
+      if (!editMode) return;
+      if (gutterTable === table) {
+        clearTimeout(gutterHideTimer);
+        return;
+      }
+      clearGutter();
+      gutterTable = table;
+      const scrollX = window.scrollX || window.pageXOffset || 0;
+      const scrollY = window.scrollY || window.pageYOffset || 0;
+      const tableRect = table.getBoundingClientRect();
+      // Column +'s — N+1 of them across the top, at boundaries between cols
+      const firstRow = table.querySelector('tr');
+      if (firstRow) {
+        const cells = Array.from(firstRow.children);
+        for (let i = 0; i <= cells.length; i++) {
+          const btn = document.createElement('button');
+          btn.type = 'button';
+          btn.className = 'table-gutter-plus is-show';
+          btn.textContent = '+';
+          btn.dataset.kind = 'col';
+          btn.dataset.index = String(i);
+          btn.title = i === 0 ? '在最左侧插入列' : (i === cells.length ? '在最右侧追加列' : '在此处插入列');
+          let xViewport;
+          if (i === 0) xViewport = cells[0].getBoundingClientRect().left;
+          else if (i === cells.length) xViewport = cells[cells.length - 1].getBoundingClientRect().right;
+          else xViewport = cells[i].getBoundingClientRect().left;
+          btn.style.left = (xViewport + scrollX - GUTTER_BTN_SIZE / 2) + 'px';
+          btn.style.top = (tableRect.top + scrollY - GUTTER_BTN_SIZE - GUTTER_OFFSET) + 'px';
+          btn.addEventListener('mouseenter', () => clearTimeout(gutterHideTimer));
+          btn.addEventListener('mouseleave', scheduleHideGutter);
+          btn.addEventListener('click', onGutterClick);
+          document.body.appendChild(btn);
+          gutterButtons.push(btn);
+        }
+      }
+      // Row +'s — M+1 of them down the left, at boundaries between rows
+      const allRows = Array.from(table.querySelectorAll('tr'));
+      for (let i = 0; i <= allRows.length; i++) {
+        const btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'table-gutter-plus is-show';
+        btn.textContent = '+';
+        btn.dataset.kind = 'row';
+        btn.dataset.index = String(i);
+        btn.title = i === 0 ? '在表头之前插入行' : (i === allRows.length ? '在最末追加行' : '在此处插入行');
+        let yViewport;
+        if (allRows.length === 0) yViewport = tableRect.top;
+        else if (i === 0) yViewport = allRows[0].getBoundingClientRect().top;
+        else if (i === allRows.length) yViewport = allRows[allRows.length - 1].getBoundingClientRect().bottom;
+        else yViewport = allRows[i].getBoundingClientRect().top;
+        btn.style.left = (tableRect.left + scrollX - GUTTER_BTN_SIZE - GUTTER_OFFSET) + 'px';
+        btn.style.top = (yViewport + scrollY - GUTTER_BTN_SIZE / 2) + 'px';
+        btn.addEventListener('mouseenter', () => clearTimeout(gutterHideTimer));
+        btn.addEventListener('mouseleave', scheduleHideGutter);
+        btn.addEventListener('click', onGutterClick);
+        document.body.appendChild(btn);
+        gutterButtons.push(btn);
+      }
+    }
+
+    function onGutterClick(e) {
+      const btn = e.currentTarget;
+      const table = gutterTable;
+      if (!table) return;
+      const kind = btn.dataset.kind;
+      const idx = parseInt(btn.dataset.index, 10);
+      tableActionsTable = table;
+      if (kind === 'col') {
+        // Use the first cell of the reference column (the one we insert at /
+        // adjacent to). col index 0 → insert left of col 0; col index N →
+        // insert right of last col; otherwise insert left of col[idx].
+        const firstRow = table.querySelector('tr');
+        if (!firstRow) return;
+        const cells = Array.from(firstRow.children);
+        if (idx === 0) {
+          tableActionsCell = cells[0];
+          insertTableCol('left');
+        } else if (idx >= cells.length) {
+          tableActionsCell = cells[cells.length - 1];
+          insertTableCol('right');
+        } else {
+          tableActionsCell = cells[idx];
+          insertTableCol('left');
+        }
+      } else {
+        const allRows = Array.from(table.querySelectorAll('tr'));
+        if (allRows.length === 0) return;
+        if (idx === 0) {
+          tableActionsCell = allRows[0].firstElementChild;
+          insertTableRow('above');
+        } else if (idx >= allRows.length) {
+          tableActionsCell = allRows[allRows.length - 1].firstElementChild;
+          insertTableRow('below');
+        } else {
+          tableActionsCell = allRows[idx].firstElementChild;
+          insertTableRow('above');
+        }
+      }
+      // Re-render the gutter so it picks up new boundaries
+      const table2 = table;
+      clearGutter();
+      requestAnimationFrame(() => showGutter(table2));
+    }
+
+    document.getElementById('content').addEventListener('mouseover', e => {
+      if (!editMode) return;
+      const table = e.target.closest && e.target.closest('.md-table table');
+      if (table) {
+        clearTimeout(gutterHideTimer);
+        showGutter(table);
+      }
+    });
+    document.getElementById('content').addEventListener('mouseout', e => {
+      const wentToGutter = e.relatedTarget && e.relatedTarget.classList && e.relatedTarget.classList.contains('table-gutter-plus');
+      if (wentToGutter) return;
+      scheduleHideGutter();
+    });
+    // Re-layout gutters on scroll/resize so they stay glued to table edges
+    window.addEventListener('scroll', () => {
+      if (gutterTable) {
+        const t = gutterTable;
+        clearGutter();
+        showGutter(t);
+      }
+    }, { passive: true });
+    window.addEventListener('resize', () => {
+      if (gutterTable) {
+        const t = gutterTable;
+        clearGutter();
+        showGutter(t);
+      }
     });
 
     // ============================================================
@@ -12763,21 +13058,30 @@
           const n = parseInt(w, 10);
           return Number.isFinite(n) ? n : null;
         }) : [];
-        // Row heights are sparse — only rows the user actually dragged get
-        // a tr.style.height. Skip the rest to keep the JSON small.
+        // Row heights + cell alignments are both sparse — only entries the
+        // user actually changed are recorded, keeping the JSON compact.
         const rows = [];
+        const aligns = [];
         Array.from(table.querySelectorAll('tr')).forEach((tr, rowIdx) => {
           const h = tr.style.height;
-          if (!h) return;
-          const n = parseInt(h, 10);
-          if (Number.isFinite(n) && n > 0) rows.push({ index: rowIdx, height: n });
+          if (h) {
+            const n = parseInt(h, 10);
+            if (Number.isFinite(n) && n > 0) rows.push({ index: rowIdx, height: n });
+          }
+          Array.from(tr.children).forEach((c, colIdx) => {
+            if (c.dataset && c.dataset.cellAlign) {
+              aligns.push({ row: rowIdx, col: colIdx, align: c.dataset.cellAlign });
+            }
+          });
         });
         const hasCols = cols.some(c => c != null);
         const hasRows = rows.length > 0;
-        if (hasCols || hasRows) {
+        const hasAligns = aligns.length > 0;
+        if (hasCols || hasRows || hasAligns) {
           const entry = { index };
           if (hasCols) entry.cols = cols;
           if (hasRows) entry.rows = rows;
+          if (hasAligns) entry.aligns = aligns;
           tables.push(entry);
         }
       });
@@ -12807,6 +13111,16 @@
             if (tr && r && Number.isFinite(r.height) && r.height > 0) {
               tr.style.height = r.height + 'px';
             }
+          });
+        }
+        if (Array.isArray(entry.aligns) && entry.aligns.length) {
+          const allRows = table.querySelectorAll('tr');
+          entry.aligns.forEach(a => {
+            if (!a) return;
+            const tr = allRows[a.row];
+            if (!tr) return;
+            const c = tr.children[a.col];
+            if (c && a.align) c.dataset.cellAlign = a.align;
           });
         }
       });
