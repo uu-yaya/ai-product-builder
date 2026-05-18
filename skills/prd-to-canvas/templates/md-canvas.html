@@ -3557,6 +3557,7 @@
     .md-block img, .md-block .md-img {
       max-width: 100%;
       height: auto;
+      cursor: zoom-in;
     }
     .md-table td img, .md-table th img {
       max-width: 100%;
@@ -3564,6 +3565,69 @@
       height: auto;
       display: inline-block;
       vertical-align: middle;
+      cursor: zoom-in;
+    }
+
+    /* ============================================ Image lightbox (click to preview) ============================================ */
+    .image-lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(20, 20, 19, 0.92);
+      z-index: 9999;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      user-select: none;
+    }
+    .image-lightbox.is-show { display: flex; }
+    .image-lightbox img {
+      max-width: 95vw;
+      max-height: 92vh;
+      cursor: grab;
+      transform-origin: center;
+      -webkit-user-drag: none;
+      transition: transform 0.08s linear;
+      box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+    }
+    .image-lightbox.is-panning img { cursor: grabbing; transition: none; }
+    .image-lightbox .lb-bar {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      display: flex;
+      gap: 6px;
+    }
+    .image-lightbox .lb-btn {
+      background: rgba(255,255,255,0.12);
+      color: #fff;
+      border: 1px solid rgba(255,255,255,0.18);
+      border-radius: 6px;
+      padding: 6px 12px;
+      font-family: var(--font-sans);
+      font-size: 13px;
+      line-height: 1;
+      cursor: pointer;
+    }
+    .image-lightbox .lb-btn:hover { background: rgba(255,255,255,0.22); }
+    .image-lightbox .lb-hint {
+      position: absolute;
+      bottom: 14px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: rgba(255,255,255,0.68);
+      font-family: var(--font-sans);
+      font-size: 12px;
+      letter-spacing: 0.02em;
+      pointer-events: none;
+    }
+    .image-lightbox .lb-scale {
+      position: absolute;
+      top: 14px;
+      left: 14px;
+      color: rgba(255,255,255,0.7);
+      font-family: var(--font-mono);
+      font-size: 12px;
     }
 
     /* ============================================ Cell-level lists (ul / ol) ============================================ */
@@ -4020,6 +4084,19 @@
 
   <!-- Hidden file input shared by the image-insert button(s) -->
   <input type="file" id="ta-img-input" accept="image/*" hidden>
+
+  <!-- Image preview lightbox -->
+  <div class="image-lightbox" id="image-lightbox" role="dialog" aria-modal="true" aria-hidden="true">
+    <span class="lb-scale" id="lb-scale" aria-hidden="true">100%</span>
+    <div class="lb-bar">
+      <button type="button" class="lb-btn" data-act="zoom-out" title="缩小 (-)">−</button>
+      <button type="button" class="lb-btn" data-act="zoom-reset" title="还原 (0)">1:1</button>
+      <button type="button" class="lb-btn" data-act="zoom-in" title="放大 (+)">＋</button>
+      <button type="button" class="lb-btn" data-act="close" title="关闭 (Esc)" aria-label="关闭">✕</button>
+    </div>
+    <img src="" alt="">
+    <span class="lb-hint">滚轮 / + −  缩放 · 拖拽 平移 · 点图片切换 1:1 / 适配 · Esc 关闭</span>
+  </div>
 
   <!-- Comment composer popover -->
   <div class="comment-composer" id="comment-composer" aria-hidden="true">
@@ -14094,6 +14171,125 @@
       if (panel.contains(e.target) || e.target.id === 'help-btn') return;
       panel.classList.remove('is-show');
     });
+
+    // ============================================================
+    // Image lightbox — click any embedded <img> in a content block to
+    // preview it fullscreen with wheel / button zoom + drag-pan.
+    // ============================================================
+    const lightbox = document.getElementById('image-lightbox');
+    const lightboxImg = lightbox.querySelector('img');
+    const lightboxScale = document.getElementById('lb-scale');
+    let lbScale = 1, lbTx = 0, lbTy = 0;
+    let lbDrag = null;
+
+    function lbUpdateTransform() {
+      lightboxImg.style.transform =
+        'translate(' + lbTx + 'px, ' + lbTy + 'px) scale(' + lbScale + ')';
+      lightboxScale.textContent = Math.round(lbScale * 100) + '%';
+    }
+
+    function openLightbox(src) {
+      if (!src) return;
+      lightboxImg.src = src;
+      lbScale = 1; lbTx = 0; lbTy = 0;
+      lbUpdateTransform();
+      lightbox.classList.add('is-show');
+      lightbox.setAttribute('aria-hidden', 'false');
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('is-show');
+      lightbox.setAttribute('aria-hidden', 'true');
+    }
+
+    function lbZoom(factor) {
+      const next = Math.max(0.1, Math.min(10, lbScale * factor));
+      // Recenter so zoom feels like it pivots on the image center
+      lbTx *= next / lbScale;
+      lbTy *= next / lbScale;
+      lbScale = next;
+      lbUpdateTransform();
+    }
+
+    function lbReset() {
+      lbScale = 1; lbTx = 0; lbTy = 0;
+      lbUpdateTransform();
+    }
+
+    // Click images in any content block → open
+    document.getElementById('content').addEventListener('click', e => {
+      const img = e.target.closest && e.target.closest('img');
+      if (!img || !img.src) return;
+      if (!img.closest('.md-block')) return;
+      if (img.closest('button, [data-no-preview], .table-gutter-plus')) return;
+      // Alt+click bypass so users can still place caret next to an image
+      if (e.altKey) return;
+      e.preventDefault();
+      openLightbox(img.src);
+    });
+
+    // Click image inside lightbox → toggle between fit and 200%
+    lightboxImg.addEventListener('click', e => {
+      e.stopPropagation();
+      if (Math.abs(lbScale - 1) < 0.01) { lbScale = 2; }
+      else { lbReset(); return; }
+      lbUpdateTransform();
+    });
+
+    // Click backdrop → close
+    lightbox.addEventListener('click', e => {
+      if (e.target === lightbox) closeLightbox();
+    });
+
+    // Toolbar buttons in lightbox
+    lightbox.querySelector('.lb-bar').addEventListener('click', e => {
+      const btn = e.target.closest('.lb-btn');
+      if (!btn) return;
+      const act = btn.dataset.act;
+      if (act === 'zoom-in') lbZoom(1.25);
+      else if (act === 'zoom-out') lbZoom(1 / 1.25);
+      else if (act === 'zoom-reset') lbReset();
+      else if (act === 'close') closeLightbox();
+    });
+
+    // Wheel = zoom (inside lightbox only). passive:false so we can preventDefault
+    lightbox.addEventListener('wheel', e => {
+      if (!lightbox.classList.contains('is-show')) return;
+      e.preventDefault();
+      lbZoom(e.deltaY > 0 ? 1 / 1.1 : 1.1);
+    }, { passive: false });
+
+    // Drag to pan
+    lightboxImg.addEventListener('mousedown', e => {
+      e.preventDefault();
+      lbDrag = { x: e.clientX, y: e.clientY, tx: lbTx, ty: lbTy };
+      lightbox.classList.add('is-panning');
+    });
+    document.addEventListener('mousemove', e => {
+      if (!lbDrag) return;
+      lbTx = lbDrag.tx + (e.clientX - lbDrag.x);
+      lbTy = lbDrag.ty + (e.clientY - lbDrag.y);
+      lbUpdateTransform();
+    });
+    document.addEventListener('mouseup', () => {
+      if (lbDrag) { lbDrag = null; lightbox.classList.remove('is-panning'); }
+    });
+
+    // Keyboard: Esc closes; + / - / 0 zoom. Use capture phase + stop
+    // immediate propagation so Esc closes the lightbox without also
+    // firing the global "Esc exits edit mode" handler.
+    document.addEventListener('keydown', e => {
+      if (!lightbox.classList.contains('is-show')) return;
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        e.stopImmediatePropagation();
+        closeLightbox();
+        return;
+      }
+      if (e.key === '+' || e.key === '=') { e.preventDefault(); e.stopImmediatePropagation(); lbZoom(1.25); return; }
+      if (e.key === '-' || e.key === '_') { e.preventDefault(); e.stopImmediatePropagation(); lbZoom(1 / 1.25); return; }
+      if (e.key === '0') { e.preventDefault(); e.stopImmediatePropagation(); lbReset(); return; }
+    }, true /* capture so we fire before global handlers */);
 
     // ============================================================
     // Boot
