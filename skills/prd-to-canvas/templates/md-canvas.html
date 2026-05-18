@@ -4592,6 +4592,16 @@
       const payloadStr = JSON.stringify(payload);
       try {
         localStorage.setItem(STORAGE_KEY, payloadStr);
+        // Layout lives in a separate key so it survives even when the
+        // main payload is cleared (e.g., user clicks "丢弃" on restore).
+        try {
+          const layout = collectTableLayout();
+          if (layout.tables.length) {
+            localStorage.setItem(STORAGE_KEY + ':layout', JSON.stringify(layout));
+          } else {
+            localStorage.removeItem(STORAGE_KEY + ':layout');
+          }
+        } catch (e) { /* layout is nice-to-have; never fail save on it */ }
         const t = new Date();
         setSaveStatus('已保存 ' + t.toLocaleTimeString('zh-CN', { hour12: false }), 'ok');
         toast('已保存到本地（仅本浏览器）');
@@ -4892,6 +4902,7 @@
             token: window.MD_CANVAS_TOKEN || '',
             content: newSource,
             editedIndices,
+            layout: collectTableLayout(),
           }),
         });
         data = await resp.json();
@@ -12713,11 +12724,79 @@
     document.addEventListener('mouseup', () => {
       if (!cellResize) return;
       const block = cellResize.table && cellResize.table.closest('.md-block');
-      if (block) { block.dataset.edited = 'true'; updateEditCount(); }
+      if (block) {
+        block.dataset.edited = 'true';
+        block.dataset.layoutEdited = 'true';
+        updateEditCount();
+      }
       cellResize = null;
       document.body.style.cursor = '';
       document.body.classList.remove('is-resizing');
     });
+
+    // ------------------------------------------------------------
+    // Table layout persistence — sidecar JSON.
+    // GFM markdown has no column-width syntax, so we store widths
+    // out-of-band in <md_path>.layout.json (server mode) or in
+    // localStorage (file:// mode). Layout is keyed by table appearance
+    // order; if user reorders or removes tables the first stale entry
+    // either lands on the wrong table (rare) or is ignored.
+    // ------------------------------------------------------------
+    function collectTableLayout() {
+      const tables = [];
+      document.querySelectorAll('#content .md-block.md-table table').forEach((table, index) => {
+        const cg = table.querySelector(':scope > colgroup');
+        if (!cg) return; // never prepared for resize → nothing to persist
+        const cols = Array.from(cg.children).map(col => {
+          const w = col.style.width;
+          if (!w) return null;
+          const n = parseInt(w, 10);
+          return Number.isFinite(n) ? n : null;
+        });
+        if (cols.some(c => c != null)) {
+          tables.push({ index, cols });
+        }
+      });
+      return { version: 1, tables };
+    }
+
+    function applyTableLayout(layout) {
+      if (!layout || !Array.isArray(layout.tables)) return;
+      const allTables = document.querySelectorAll('#content .md-block.md-table table');
+      layout.tables.forEach(entry => {
+        const table = allTables[entry.index];
+        if (!table || !Array.isArray(entry.cols)) return;
+        prepareTableForResize(table);
+        const cg = table.querySelector(':scope > colgroup');
+        if (!cg) return;
+        entry.cols.forEach((w, i) => {
+          const col = cg.children[i];
+          if (col && Number.isFinite(w) && w > 0) col.style.width = w + 'px';
+        });
+      });
+    }
+
+    async function loadTableLayout() {
+      // Priority 1: inlined by server at render time.
+      if (window.MD_CANVAS_LAYOUT && typeof window.MD_CANVAS_LAYOUT === 'object') {
+        applyTableLayout(window.MD_CANVAS_LAYOUT);
+        return;
+      }
+      // Priority 2: server mode → fetch sidecar JSON.
+      if (isServerMode()) {
+        try {
+          const url = '/' + window.MD_CANVAS_PATH + '.layout.json';
+          const r = await fetch(url, { cache: 'no-cache' });
+          if (r.ok) applyTableLayout(await r.json());
+        } catch (e) { /* sidecar missing or invalid; ignore */ }
+        return;
+      }
+      // Priority 3: file:// mode → localStorage.
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY + ':layout');
+        if (raw) applyTableLayout(JSON.parse(raw));
+      } catch (e) { /* ignore */ }
+    }
 
     // ============================================================
     // Find & Replace
@@ -13126,6 +13205,7 @@
     // ============================================================
     renderAll();
     checkRestore();
+    loadTableLayout();
   </script>
 </body>
 </html>

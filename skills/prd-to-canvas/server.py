@@ -93,12 +93,24 @@ def render_canvas_html(md_path: pathlib.Path, rel_path: str) -> str:
             .replace("__PRD_FILENAME__", md_path.name)
             .replace("__PRD_TITLE__", md_path.stem)
             .replace("__MARKDOWN_SOURCE_INLINE__", safe_md))
+    # If a sidecar layout JSON exists, inline it so the canvas can apply
+    # table column widths on load without an extra round-trip.
+    layout_inject = ""
+    layout_path = md_path.parent / (md_path.name + ".layout.json")
+    if layout_path.exists():
+        try:
+            layout_raw = layout_path.read_text(encoding="utf-8")
+            json.loads(layout_raw)  # validate; toss if corrupt
+            layout_inject = f"window.MD_CANVAS_LAYOUT = {layout_raw};"
+        except Exception:
+            pass
     # Inject the relative path + per-session CSRF token so canvas save() knows
     # what file to POST back and proves it was served by us.
     injection = (
         f"<script>"
         f"window.MD_CANVAS_PATH = {json.dumps(rel_path)};"
         f"window.MD_CANVAS_TOKEN = {json.dumps(SESSION_TOKEN)};"
+        f"{layout_inject}"
         f"</script>"
     )
     html = html.replace("</head>", injection + "\n</head>", 1)
@@ -500,11 +512,30 @@ def api_save():
     except Exception as e:
         return jsonify(ok=False, stage="write", error=str(e)), 500
 
+    # Stage 1b: write sidecar layout JSON (column widths etc.) if non-empty.
+    # GFM markdown has no width syntax, so we persist out-of-band. This is
+    # nice-to-have — any failure here must not block the .md save.
+    layout = data.get("layout")
+    layout_path = abs_path.parent / (abs_path.name + ".layout.json")
+    layout_changed = False
+    if isinstance(layout, dict) and isinstance(layout.get("tables"), list) \
+            and layout["tables"]:
+        try:
+            layout_text = json.dumps(layout, indent=2, ensure_ascii=False) + "\n"
+            prev = layout_path.read_text(encoding="utf-8") if layout_path.exists() else None
+            if prev != layout_text:
+                layout_path.write_text(layout_text, encoding="utf-8")
+                layout_changed = True
+        except Exception:
+            pass  # never fail save on layout
+
     # Stage 2: git add + commit
     r = git("add", str(abs_path))
     if r.returncode != 0:
         return jsonify(ok=False, stage="add",
                        error=friendly_git_error(r.stderr)), 200
+    if layout_changed:
+        git("add", str(layout_path))  # best-effort; ignore failure
 
     msg = f"edit {relpath} via md-canvas"
     r = git("commit", "-m", msg)
