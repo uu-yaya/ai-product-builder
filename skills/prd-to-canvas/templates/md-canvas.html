@@ -3702,17 +3702,32 @@
       <dt>⌘/Ctrl D</dt><dd>下载 .md + diff</dd>
       <dt>Esc</dt><dd>退出编辑</dd>
     </dl>
-    <h5 style="margin-top:12px">编辑中</h5>
+    <h5 style="margin-top:12px">编辑中（Mac 用 ⌘，Windows 用 Ctrl）</h5>
     <dl>
       <dt>⌘/Ctrl B</dt><dd>加粗 **…**</dd>
       <dt>⌘/Ctrl I</dt><dd>斜体 *…*</dd>
       <dt>⌘/Ctrl E</dt><dd>行内代码 `…`</dd>
       <dt>⌘/Ctrl K</dt><dd>链接 […](url)</dd>
+      <dt>⌘/Ctrl Z</dt><dd>撤销（块级，含表格结构 / 对齐 / 列表 / 图片）</dd>
+      <dt>⌘/Ctrl ⇧Z</dt><dd>重做</dd>
+      <dt>Ctrl Y</dt><dd>重做（Windows 风格）</dd>
       <dt>选中文字</dt><dd>浮动工具栏</dd>
       <dt>/</dt><dd>空段触发斜杠菜单</dd>
       <dt>⌘/Ctrl F</dt><dd>查找</dd>
       <dt>⌘/Ctrl ⇧F</dt><dd>查找替换</dd>
       <dt>⌘/Ctrl ⇧C</dt><dd>评论面板</dd>
+    </dl>
+
+    <h5 style="margin-top:12px">表格里</h5>
+    <dl>
+      <dt>Tab / ⇧Tab</dt><dd>cell 间导航（最后一格 Tab 自动加行）</dd>
+      <dt>Enter</dt><dd>下一格</dd>
+      <dt>⌘/Ctrl Enter / ⇧Enter</dt><dd>cell 内换行</dd>
+      <dt>↑ ↓ ← →</dt><dd>cell 间导航（单行 cell）</dd>
+      <dt>拖鼠标</dt><dd>多选 cell 矩形</dd>
+      <dt>Esc</dt><dd>取消多选</dd>
+      <dt>鼠标移到列顶 / 行左</dt><dd>gutter「+」按钮加列 / 加行</dd>
+      <dt>cell 边缘 6px 内拖</dt><dd>列宽 / 行高</dd>
     </dl>
   </aside>
 
@@ -5362,6 +5377,13 @@
       if (mod && key === 'd') { e.preventDefault(); download(); return; }
       if (mod && key === 'f' && !e.shiftKey) { e.preventDefault(); openFind(false); return; }
       if (mod && e.shiftKey && key === 'f') { e.preventDefault(); openFind(true); return; }
+      // Block-level undo / redo (full-source snapshot stack). Captures all
+      // structural changes (insert row/col, align, bold-cell, list toggle,
+      // image insert, TSV paste, …) plus debounced text typing.
+      // Mac: ⌘Z / ⌘⇧Z   Windows: Ctrl+Z / Ctrl+Y or Ctrl+Shift+Z
+      if (mod && !e.shiftKey && key === 'z') { e.preventDefault(); doUndo(); return; }
+      if (mod && e.shiftKey && key === 'z') { e.preventDefault(); doRedo(); return; }
+      if (mod && !e.shiftKey && key === 'y') { e.preventDefault(); doRedo(); return; }
       if (e.key === 'Escape' && editMode) { e.preventDefault(); toggleEdit(false); return; }
 
       // Inline formatting shortcuts — only meaningful while editing
@@ -5382,6 +5404,90 @@
 
     function toggleHelp() {
       document.getElementById('help-panel').classList.toggle('is-show');
+    }
+
+    // ============================================================
+    // Undo / Redo — block-level (full source snapshots).
+    // ============================================================
+    // Browser native ⌘Z handles individual keystrokes inside a single
+    // contenteditable. But all our structural ops (insert row, set align,
+    // bold cell, list toggle, image insert, TSV paste …) are direct DOM
+    // mutations that the browser doesn't record. We snapshot the full
+    // serialized .md source instead, so any block-level change can be
+    // undone wholesale.
+    //
+    // Capacity is kept modest because data:URL images can make each
+    // snapshot multi-MB. Canvas-only state (Mock / Prompt / Agent block
+    // contents) lives outside the .md and is NOT in this history.
+    const UNDO_MAX = 30;
+    const undoStack = [];
+    let undoCursor = -1;
+    let snapTimer = null;
+    let lastSnapSource = null;
+
+    function snapNow(reason) {
+      try {
+        commitBlockEdits();
+      } catch (_) { /* mid-render guard */ }
+      const source = serializeAllToMarkdown();
+      if (source === lastSnapSource) return;
+      // New edit after an undo → drop the redo branch
+      undoStack.length = undoCursor + 1;
+      undoStack.push(source);
+      if (undoStack.length > UNDO_MAX) undoStack.shift();
+      undoCursor = undoStack.length - 1;
+      lastSnapSource = source;
+    }
+
+    function snapDebounced(ms) {
+      clearTimeout(snapTimer);
+      snapTimer = setTimeout(() => snapNow('text'), ms || 350);
+    }
+
+    function applySnap() {
+      const src = undoStack[undoCursor];
+      if (src == null) return;
+      const newTokens = marked.lexer(src);
+      TOKENS.length = 0;
+      newTokens.forEach(t => TOKENS.push(t));
+      renderAll();
+      if (typeof updateEditCount === 'function') updateEditCount();
+      // Re-apply layout (col widths / row heights / aligns) — these aren't
+      // in the .md source, so a re-render alone would drop them.
+      try { loadTableLayout(); } catch (_) {}
+      lastSnapSource = src;
+    }
+
+    function doUndo() {
+      clearTimeout(snapTimer);
+      // Flush any pending text-typing snapshot so it's part of the redo branch
+      try { commitBlockEdits(); } catch (_) {}
+      const cur = serializeAllToMarkdown();
+      if (cur !== lastSnapSource) {
+        undoStack.length = undoCursor + 1;
+        undoStack.push(cur);
+        if (undoStack.length > UNDO_MAX) undoStack.shift();
+        undoCursor = undoStack.length - 1;
+        lastSnapSource = cur;
+      }
+      if (undoCursor <= 0) {
+        toast('已经是最早状态');
+        return;
+      }
+      undoCursor--;
+      applySnap();
+      toast('↶ 撤销');
+    }
+
+    function doRedo() {
+      clearTimeout(snapTimer);
+      if (undoCursor >= undoStack.length - 1) {
+        toast('没有可重做的步骤');
+        return;
+      }
+      undoCursor++;
+      applySnap();
+      toast('↷ 重做');
     }
 
     // ============================================================
@@ -12736,6 +12842,8 @@
       if (!btn) return;
       e.preventDefault();
       const act = btn.dataset.act;
+      // Snapshot pre-op state so undo can roll the whole table change back
+      snapNow('toolbar:' + act);
       if (act === 'row-above') insertTableRow('above');
       else if (act === 'row-below') insertTableRow('below');
       else if (act === 'col-left') insertTableCol('left');
@@ -12947,6 +13055,7 @@
           // picks the right reference row, then restore previous focus
           // semantics inside insertTableRow (it auto-focuses the new row's
           // first cell).
+          snapNow('tab:add-row');
           tableActionsCell = cell;
           tableActionsTable = cell.closest('table');
           insertTableRow('below');
@@ -12978,6 +13087,7 @@
       const rows = text.replace(/\r\n?/g, '\n').replace(/\n+$/, '').split('\n').map(r => r.split('\t'));
       if (rows.length === 1 && rows[0].length === 1) return;
       e.preventDefault();
+      snapNow('paste-tsv');
       const table = cell.closest('table');
       const allTrs = Array.from(table.querySelectorAll('tr'));
       const startTr = cell.closest('tr');
@@ -13029,6 +13139,7 @@
       const dataUrl = await readBlobAsDataURL(blob);
       const target = currentEditableTarget() || fallbackTarget;
       if (!target) return;
+      snapNow('image-insert');
       target.focus();
       const img = document.createElement('img');
       img.src = dataUrl;
@@ -13294,6 +13405,7 @@
       const btn = e.currentTarget;
       const table = gutterTable;
       if (!table) return;
+      snapNow('gutter:' + btn.dataset.kind);
       const kind = btn.dataset.kind;
       const idx = parseInt(btn.dataset.index, 10);
       tableActionsTable = table;
@@ -13989,6 +14101,16 @@
     renderAll();
     checkRestore();
     loadTableLayout();
+    // Seed the undo stack with the initial state so the very first edit is
+    // undoable. Wait a tick so renderAll's async paths settle first.
+    setTimeout(() => snapNow('initial'), 50);
+    // Debounced snapshot on text input so plain typing is also undoable
+    document.getElementById('content').addEventListener('input', e => {
+      if (!editMode) return;
+      const t = e.target && e.target.closest && e.target.closest('[contenteditable="true"]');
+      if (!t) return;
+      snapDebounced();
+    });
   </script>
 </body>
 </html>
