@@ -12746,15 +12746,28 @@
       const tables = [];
       document.querySelectorAll('#content .md-block.md-table table').forEach((table, index) => {
         const cg = table.querySelector(':scope > colgroup');
-        if (!cg) return; // never prepared for resize → nothing to persist
-        const cols = Array.from(cg.children).map(col => {
+        const cols = cg ? Array.from(cg.children).map(col => {
           const w = col.style.width;
           if (!w) return null;
           const n = parseInt(w, 10);
           return Number.isFinite(n) ? n : null;
+        }) : [];
+        // Row heights are sparse — only rows the user actually dragged get
+        // a tr.style.height. Skip the rest to keep the JSON small.
+        const rows = [];
+        Array.from(table.querySelectorAll('tr')).forEach((tr, rowIdx) => {
+          const h = tr.style.height;
+          if (!h) return;
+          const n = parseInt(h, 10);
+          if (Number.isFinite(n) && n > 0) rows.push({ index: rowIdx, height: n });
         });
-        if (cols.some(c => c != null)) {
-          tables.push({ index, cols });
+        const hasCols = cols.some(c => c != null);
+        const hasRows = rows.length > 0;
+        if (hasCols || hasRows) {
+          const entry = { index };
+          if (hasCols) entry.cols = cols;
+          if (hasRows) entry.rows = rows;
+          tables.push(entry);
         }
       });
       return { version: 1, tables };
@@ -12765,14 +12778,26 @@
       const allTables = document.querySelectorAll('#content .md-block.md-table table');
       layout.tables.forEach(entry => {
         const table = allTables[entry.index];
-        if (!table || !Array.isArray(entry.cols)) return;
-        prepareTableForResize(table);
-        const cg = table.querySelector(':scope > colgroup');
-        if (!cg) return;
-        entry.cols.forEach((w, i) => {
-          const col = cg.children[i];
-          if (col && Number.isFinite(w) && w > 0) col.style.width = w + 'px';
-        });
+        if (!table) return;
+        if (Array.isArray(entry.cols) && entry.cols.length) {
+          prepareTableForResize(table);
+          const cg = table.querySelector(':scope > colgroup');
+          if (cg) {
+            entry.cols.forEach((w, i) => {
+              const col = cg.children[i];
+              if (col && Number.isFinite(w) && w > 0) col.style.width = w + 'px';
+            });
+          }
+        }
+        if (Array.isArray(entry.rows) && entry.rows.length) {
+          const allRows = table.querySelectorAll('tr');
+          entry.rows.forEach(r => {
+            const tr = allRows[r && r.index];
+            if (tr && r && Number.isFinite(r.height) && r.height > 0) {
+              tr.style.height = r.height + 'px';
+            }
+          });
+        }
       });
     }
 
