@@ -577,6 +577,162 @@ def api_status():
                    pid=os.getpid())
 
 
+@app.route("/api/precheck", methods=["POST"])
+def api_precheck():
+    """Pre-save dry-run check. Tells canvas what WILL happen before
+    committing/pushing for real, so the modal can show user a clear
+    "ready" / "needs fix" verdict."""
+    ok, err = _csrf_check()
+    if not ok:
+        return jsonify(ok=False, stage="csrf", error=err), 403
+
+    data = request.get_json(silent=True) or {}
+    relpath = data.get("path", "")
+    checks: list[dict] = []
+
+    def add(cid: str, label: str, status: str, detail: str = "",
+            fix_manual: str = "", fix_agent: str = ""):
+        c = {"id": cid, "label": label, "status": status}
+        if detail: c["detail"] = detail
+        if fix_manual: c["fix_manual"] = fix_manual
+        if fix_agent: c["fix_agent"] = fix_agent
+        checks.append(c)
+
+    # 1. file path valid + writable
+    if relpath:
+        try:
+            abs_path = safe_resolve(relpath)
+            if abs_path.exists() and not os.access(abs_path, os.W_OK):
+                add("file_writable", "PRD 文件可写", "err",
+                    detail=f"{relpath} 没写权限",
+                    fix_manual=f"chmod u+w {relpath}")
+            else:
+                add("file_writable", "PRD 文件可写", "ok")
+        except Exception as e:
+            add("file_writable", "PRD 文件可写", "err",
+                detail=str(e))
+    else:
+        add("file_writable", "PRD 路径", "err",
+            detail="canvas 没传 path")
+
+    # 2. git repo
+    r = git("rev-parse", "--git-dir")
+    if r.returncode != 0:
+        add("git_repo", "git 仓库", "warn",
+            detail="不在 git 仓库 → 能写文件但不能 push",
+            fix_manual="cd 到 git 项目根，重启 server")
+        return jsonify(checks=checks, verdict="warn",
+                       estimated_action="只写文件，不 commit/push"), 200
+    add("git_repo", "git 仓库", "ok")
+
+    # 3. has remote
+    r = git("remote")
+    if not r.stdout.strip():
+        add("git_remote", "git remote 配齐", "err",
+            detail="没配远端仓库",
+            fix_manual="git remote add origin <your-git-url>",
+            fix_agent="让 agent 帮你配 remote (要给 URL)")
+    else:
+        add("git_remote", f"git remote = {r.stdout.strip()}", "ok")
+
+    # 4. upstream
+    branch_r = git("rev-parse", "--abbrev-ref", "HEAD")
+    branch = branch_r.stdout.strip() if branch_r.returncode == 0 else ""
+    up_r = git("rev-parse", "--abbrev-ref", "@{u}")
+    if up_r.returncode != 0:
+        add("git_upstream", f"分支 '{branch}' 有 upstream", "err",
+            detail="git 不知道 push 推哪",
+            fix_manual=f"git push -u origin {branch}",
+            fix_agent="terminal 跑一次设 upstream")
+    else:
+        add("git_upstream", f"upstream = {up_r.stdout.strip()}", "ok")
+
+    # 5. identity
+    email = git("config", "user.email").stdout.strip()
+    name = git("config", "user.name").stdout.strip()
+    if not email or not name:
+        add("git_identity", "git 身份", "err",
+            detail="commit 时会失败",
+            fix_manual="git config user.email <your-email> && "
+                       "git config user.name <your-name>")
+    else:
+        add("git_identity", f"身份 = {name} <{email}>", "ok")
+
+    # 6. credentials cached (dry-run push)
+    try:
+        probe = subprocess.run(
+            ["git", "push", "--dry-run"],
+            cwd=ROOT, capture_output=True, text=True, timeout=5,
+            env={**os.environ, "GIT_TERMINAL_PROMPT": "0"},
+        )
+        if probe.returncode != 0:
+            out = (probe.stderr + probe.stdout).lower()
+            if any(p in out for p in [
+                "could not read username", "authentication failed",
+                "terminal prompts disabled", "publickey",
+                "could not read password",
+            ]):
+                add("git_credentials", "push 凭证缓存", "err",
+                    detail="git 凭证没缓存，首次必踩",
+                    fix_manual="terminal 跑一次 git push 输完凭证后会缓存")
+            else:
+                # Some other dry-run error, still flag
+                add("git_credentials", "push 凭证状态", "warn",
+                    detail=probe.stderr.strip()[:200])
+        else:
+            add("git_credentials", "push 凭证缓存", "ok")
+    except subprocess.TimeoutExpired:
+        add("git_credentials", "push 凭证检测", "warn",
+            detail="dry-run 超时（网络慢），可能影响真 push")
+    except Exception as e:
+        add("git_credentials", "push 凭证检测", "warn", detail=str(e))
+
+    # 7. fetch origin (most reliable network/auth check)
+    r = git("fetch", "origin")
+    if r.returncode != 0:
+        add("git_fetch", "fetch origin", "err",
+            detail=friendly_git_error(r.stderr or r.stdout))
+    else:
+        add("git_fetch", "fetch origin 成功", "ok")
+
+    # 8. ahead/behind status
+    if branch and up_r.returncode == 0:
+        ab = git("rev-list", "--left-right", "--count", "HEAD...@{u}")
+        if ab.returncode == 0 and ab.stdout.strip():
+            try:
+                ahead, behind = map(int, ab.stdout.strip().split())
+                if behind == 0 and ahead == 0:
+                    add("ahead_behind", "本地 = origin (无新 commit)", "ok",
+                        detail="保存后会产生 1 个新 commit + 1 个 push")
+                elif behind == 0 and ahead > 0:
+                    add("ahead_behind", f"本地领先 {ahead} 个 commit",
+                        "ok",
+                        detail=f"保存后会一次性 push {ahead+1} 个 commit")
+                else:
+                    add("ahead_behind",
+                        f"本地领先 {ahead}, 落后 {behind}",
+                        "warn",
+                        detail="远端有新 commit, 会先 pull --rebase --autostash 再 push, "
+                               "rebase 可能冲突")
+            except ValueError:
+                add("ahead_behind", "ahead/behind 解析失败", "warn")
+
+    # Final verdict
+    has_err = any(c["status"] == "err" for c in checks)
+    has_warn = any(c["status"] == "warn" for c in checks)
+    if has_err:
+        verdict = "block"
+        action_desc = "有阻塞问题, 保存不会 push 出去"
+    elif has_warn:
+        verdict = "warn"
+        action_desc = "可能有非阻塞问题, push 可能成功也可能撞"
+    else:
+        verdict = "ready"
+        action_desc = "可以顺利 push"
+    return jsonify(checks=checks, verdict=verdict,
+                   estimated_action=action_desc), 200
+
+
 def _probe_port(port: int) -> dict | None:
     """Return JSON dict if port responds as another md-canvas-server, None
     if free/unknown. Used to detect duplicate-start vs port-collision."""

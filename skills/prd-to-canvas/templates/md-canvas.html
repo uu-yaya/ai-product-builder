@@ -4618,7 +4618,258 @@
       return window.MD_CANVAS_SAVE_LOG;
     };
 
+    // ============================================================
+    // Save precheck modal — runs server-side dry-run before actual save,
+    // shows checklist in modal, user can review/fix before committing
+    // ============================================================
+    function ensureSaveModal() {
+      let m = document.getElementById('save-modal');
+      if (m) return m;
+      m = document.createElement('div');
+      m.id = 'save-modal';
+      m.innerHTML = `
+        <div class="sm-backdrop"></div>
+        <div class="sm-dialog">
+          <div class="sm-head">
+            <span class="sm-title">保存检查</span>
+            <button class="sm-close" type="button">×</button>
+          </div>
+          <div class="sm-body">
+            <div class="sm-spinner">检测中…</div>
+            <ul class="sm-checks" hidden></ul>
+            <div class="sm-verdict" hidden></div>
+            <div class="sm-fixes" hidden></div>
+            <div class="sm-progress" hidden></div>
+          </div>
+          <div class="sm-foot">
+            <button class="sm-btn-cancel" type="button">取消</button>
+            <button class="sm-btn-recheck" type="button" hidden>重检测</button>
+            <button class="sm-btn-push" type="button" hidden>确认推送</button>
+          </div>
+        </div>`;
+      document.body.appendChild(m);
+      // Style only injected once (could go to <style> but inline is fine for skill demo)
+      const style = document.createElement('style');
+      style.textContent = `
+        #save-modal { position: fixed; inset: 0; z-index: 9999; display: none; }
+        #save-modal.is-show { display: block; }
+        #save-modal .sm-backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.4); }
+        #save-modal .sm-dialog {
+          position: relative; max-width: 600px; margin: 60px auto;
+          background: var(--canvas, #fffaf0); border-radius: 12px;
+          box-shadow: 0 12px 40px rgba(0,0,0,0.2);
+          display: flex; flex-direction: column;
+          max-height: calc(100vh - 120px);
+        }
+        #save-modal .sm-head {
+          padding: 14px 20px; border-bottom: 1px solid var(--hairline, #e5dcc4);
+          display: flex; justify-content: space-between; align-items: center;
+        }
+        #save-modal .sm-title { font-family: var(--font-serif, serif); font-size: 18px; }
+        #save-modal .sm-close {
+          background: none; border: none; font-size: 22px; cursor: pointer;
+          color: var(--muted, #6a6a6a);
+        }
+        #save-modal .sm-body { padding: 16px 20px; overflow-y: auto; flex: 1; }
+        #save-modal .sm-spinner {
+          font-family: monospace; color: var(--muted-soft, #9a9a9a);
+          padding: 24px 0; text-align: center;
+        }
+        #save-modal .sm-checks { list-style: none; padding: 0; margin: 0; }
+        #save-modal .sm-checks li {
+          font-family: monospace; font-size: 12.5px;
+          padding: 5px 8px; border-radius: 4px;
+        }
+        #save-modal .sm-checks li.ok   { color: #2e7d3a; }
+        #save-modal .sm-checks li.warn { color: #8a6a10; background: rgba(212,160,23,0.08); }
+        #save-modal .sm-checks li.err  { color: #c64545; background: rgba(198,69,69,0.06); }
+        #save-modal .sm-checks .icon { display: inline-block; width: 18px; }
+        #save-modal .sm-checks .detail {
+          display: block; margin-left: 18px; color: var(--muted, #6a6a6a);
+          font-size: 11.5px; padding: 2px 0;
+        }
+        #save-modal .sm-verdict {
+          margin: 12px 0 0; padding: 10px 12px; border-radius: 6px;
+          font-family: monospace; font-size: 13px;
+        }
+        #save-modal .sm-verdict.ready { background: rgba(93,155,79,0.12); color: #2e6f3b; }
+        #save-modal .sm-verdict.warn  { background: rgba(212,160,23,0.12); color: #8a6a10; }
+        #save-modal .sm-verdict.block { background: rgba(198,69,69,0.10); color: #a23434; }
+        #save-modal .sm-fixes { margin-top: 10px; }
+        #save-modal .sm-fix-item {
+          margin: 8px 0; padding: 8px 10px;
+          background: var(--surface-soft, #faf3e0);
+          border-radius: 6px; font-family: monospace; font-size: 12px;
+        }
+        #save-modal .sm-fix-item .fl { font-weight: 600; color: var(--ink, #1a1a1a); }
+        #save-modal .sm-fix-item .cmd {
+          display: block; margin-top: 4px; padding: 4px 8px;
+          background: var(--surface-card, #fff); border: 1px solid var(--hairline, #e5dcc4);
+          border-radius: 4px; cursor: pointer; position: relative;
+        }
+        #save-modal .sm-fix-item .cmd:hover { background: #f0e8d0; }
+        #save-modal .sm-fix-item .cmd::after {
+          content: '复制'; position: absolute; right: 6px; top: 50%;
+          transform: translateY(-50%); font-size: 10.5px; color: var(--muted-soft, #9a9a9a);
+        }
+        #save-modal .sm-progress {
+          padding: 12px; text-align: center; font-family: monospace;
+          color: var(--primary, #5d9b4f);
+        }
+        #save-modal .sm-foot {
+          padding: 12px 20px; border-top: 1px solid var(--hairline, #e5dcc4);
+          display: flex; gap: 8px; justify-content: flex-end;
+        }
+        #save-modal .sm-foot button {
+          font-family: var(--font-sans, sans-serif); font-size: 13px;
+          padding: 6px 14px; border-radius: 6px; cursor: pointer;
+          border: 1px solid var(--hairline, #e5dcc4); background: white;
+        }
+        #save-modal .sm-foot button:hover { border-color: var(--muted, #6a6a6a); }
+        #save-modal .sm-btn-push {
+          background: var(--primary, #5d9b4f); color: white; border-color: var(--primary, #5d9b4f);
+        }
+        #save-modal .sm-btn-push:hover { background: var(--primary-active, #4a7e3f); }
+        #save-modal .sm-btn-push[disabled] { background: var(--muted-soft, #9a9a9a); cursor: not-allowed; }
+      `;
+      document.head.appendChild(style);
+      m.querySelector('.sm-close').addEventListener('click', () => hideSaveModal());
+      m.querySelector('.sm-btn-cancel').addEventListener('click', () => hideSaveModal());
+      m.querySelector('.sm-backdrop').addEventListener('click', () => hideSaveModal());
+      return m;
+    }
+    function showSaveModal() {
+      const m = ensureSaveModal();
+      m.classList.add('is-show');
+      // reset
+      m.querySelector('.sm-spinner').hidden = false;
+      m.querySelector('.sm-checks').hidden = true;
+      m.querySelector('.sm-checks').innerHTML = '';
+      m.querySelector('.sm-verdict').hidden = true;
+      m.querySelector('.sm-fixes').hidden = true;
+      m.querySelector('.sm-fixes').innerHTML = '';
+      m.querySelector('.sm-progress').hidden = true;
+      m.querySelector('.sm-btn-recheck').hidden = true;
+      m.querySelector('.sm-btn-push').hidden = true;
+      m.querySelector('.sm-btn-push').disabled = false;
+      m.querySelector('.sm-btn-push').textContent = '确认推送';
+      m.querySelector('.sm-btn-cancel').textContent = '取消';
+      return m;
+    }
+    function hideSaveModal() {
+      const m = document.getElementById('save-modal');
+      if (m) m.classList.remove('is-show');
+    }
+
+    async function runPrecheck(newSource, editedIndices) {
+      const m = showSaveModal();
+      let data;
+      try {
+        const resp = await fetch('/api/precheck', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-MD-Canvas-Token': window.MD_CANVAS_TOKEN || '',
+          },
+          body: JSON.stringify({
+            path: window.MD_CANVAS_PATH,
+            token: window.MD_CANVAS_TOKEN || '',
+          }),
+        });
+        data = await resp.json();
+      } catch (e) {
+        m.querySelector('.sm-spinner').textContent = '✗ 检测失败：' + (e.message || e);
+        return null;
+      }
+      // Render checks
+      m.querySelector('.sm-spinner').hidden = true;
+      const ul = m.querySelector('.sm-checks');
+      ul.hidden = false;
+      data.checks.forEach(c => {
+        const icon = c.status === 'ok' ? '✓' : c.status === 'warn' ? '⚠' : '✗';
+        const li = document.createElement('li');
+        li.className = c.status;
+        li.innerHTML = `<span class="icon">${icon}</span> ${escapeHtml(c.label)}`
+                     + (c.detail ? `<span class="detail">${escapeHtml(c.detail)}</span>` : '');
+        ul.appendChild(li);
+      });
+      // Verdict
+      const v = m.querySelector('.sm-verdict');
+      v.hidden = false;
+      v.className = 'sm-verdict ' + data.verdict;
+      const verdictText = {
+        ready: '✓ 可以顺利 push',
+        warn:  '⚠ 可以 push, 但有不确定因素',
+        block: '✗ 有阻塞问题, push 不会成功',
+      }[data.verdict] || data.verdict;
+      v.textContent = verdictText + ' — ' + data.estimated_action;
+      // Fixes for non-ok checks
+      const issues = data.checks.filter(c => c.status !== 'ok' && (c.fix_manual || c.fix_agent));
+      if (issues.length) {
+        const fixes = m.querySelector('.sm-fixes');
+        fixes.hidden = false;
+        fixes.innerHTML = '<div style="font-family: monospace; font-size: 12px; color: var(--muted,#6a6a6a); margin: 12px 0 4px;">如何修：</div>';
+        issues.forEach(c => {
+          const item = document.createElement('div');
+          item.className = 'sm-fix-item';
+          let html = `<div class="fl">${escapeHtml(c.label)}</div>`;
+          if (c.fix_manual) {
+            html += `<div style="margin-top:4px; color:var(--muted,#6a6a6a)">你自己修 (terminal):</div>`;
+            html += `<code class="cmd" data-cmd="${escapeHtml(c.fix_manual)}">${escapeHtml(c.fix_manual)}</code>`;
+          }
+          if (c.fix_agent) {
+            html += `<div style="margin-top:6px; color:var(--muted,#6a6a6a)">或让 agent 帮: ${escapeHtml(c.fix_agent)}</div>`;
+          }
+          item.innerHTML = html;
+          item.querySelectorAll('.cmd').forEach(el => {
+            el.addEventListener('click', () => {
+              navigator.clipboard.writeText(el.dataset.cmd);
+              const original = el.textContent;
+              el.textContent = '✓ 已复制';
+              setTimeout(() => { el.textContent = original; }, 1200);
+            });
+          });
+          fixes.appendChild(item);
+        });
+      }
+      // Footer buttons
+      const recheckBtn = m.querySelector('.sm-btn-recheck');
+      const pushBtn = m.querySelector('.sm-btn-push');
+      if (issues.length) {
+        recheckBtn.hidden = false;
+        recheckBtn.onclick = () => runPrecheck(newSource, editedIndices);
+      }
+      if (data.verdict === 'ready' || data.verdict === 'warn') {
+        pushBtn.hidden = false;
+        pushBtn.textContent = data.verdict === 'warn' ? '仍然推送' : '确认推送';
+        pushBtn.onclick = async () => {
+          pushBtn.disabled = true;
+          await doActualSave(newSource, editedIndices, m);
+        };
+      }
+      return data;
+    }
+
+    async function doActualSave(newSource, editedIndices, modal) {
+      const m = modal || ensureSaveModal();
+      m.querySelector('.sm-progress').hidden = false;
+      m.querySelector('.sm-progress').textContent = '推送中…';
+      // call the actual save endpoint
+      await saveViaServerInternal(newSource, editedIndices, m);
+    }
+
+    function escapeHtml(s) {
+      return String(s == null ? '' : s)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+    }
+
     async function saveViaServer(newSource, editedIndices) {
+      // New flow: precheck → modal → confirm → actual save
+      await runPrecheck(newSource, editedIndices);
+    }
+
+    async function saveViaServerInternal(newSource, editedIndices, modal) {
       setSaveStatus('保存中…', 'progress');
       const startedAt = new Date().toISOString();
       let resp, data;
@@ -4648,10 +4899,13 @@
       const entry = { at: startedAt, http: resp.status, ...data };
       window.MD_CANVAS_SAVE_LOG.push(entry);
 
+      const progressEl = modal ? modal.querySelector('.sm-progress') : null;
       // Server completed write+commit+push (or failed at one of the stages)
       if (data && data.ok && data.stage === 'noop') {
         console.log('[md-canvas save] noop (no changes to commit)', entry);
         setSaveStatus('（无改动）', 'ok');
+        if (progressEl) { progressEl.textContent = '（无改动，文件已是最新）'; }
+        setTimeout(() => hideSaveModal(), 1200);
         return;
       }
       if (data && data.ok && data.pushed) {
@@ -4659,10 +4913,9 @@
         console.log('[md-canvas save] ✓ pushed', entry);
         setSaveStatus('✓ 已推送' + sha, 'ok');
         toast('已写入 .md 并推送' + sha);
-        // Clear any stale localStorage snapshot from prior file-mode use, so
-        // refresh doesn't trigger checkRestore (server will re-render with the
-        // updated .md content as the new ORIGINAL_SOURCE anyway).
+        if (progressEl) { progressEl.textContent = '✓ 已推送 ' + sha; }
         try { localStorage.removeItem(STORAGE_KEY); } catch {}
+        setTimeout(() => hideSaveModal(), 1500);
         return;
       }
       // Failure path — pick wording by stage. Print FULL server response to
@@ -4671,26 +4924,35 @@
       const stage = (data && data.stage) || 'unknown';
       const err = (data && data.error) || '未知错误';
       const sha = data && data.commit_sha;
+      let statusMsg, toastMsg;
       if (stage === 'pull-rebase' && data && data.conflict) {
-        setSaveStatus('⚠ 冲突 — 去 terminal 解决', 'err');
-        toast(
-          '队友刚也改了，git rebase 失败。本地 commit ' + (sha || '已建') + '。\n' +
-          'terminal:  git pull --rebase  → 解 conflict → git push\n' +
-          '(F12 → Console 看完整 error)'
-        );
+        statusMsg = '⚠ 冲突 — 去 terminal 解决';
+        toastMsg = '队友刚也改了，git rebase 失败。本地 commit ' + (sha || '已建') + '。\n' +
+                   'terminal:  git pull --rebase  → 解 conflict → git push';
       } else if (stage === 'push') {
-        setSaveStatus('⚠ 推送失败（本地 commit 已建 ' + (sha || '') + '） — F12 看详情', 'err');
-        // Provide actionable hint based on what we can sniff out of err
+        statusMsg = '⚠ 推送失败（本地 commit 已建 ' + (sha || '') + '） — F12 看详情';
         let hint = '';
         if (/auth|denied|credential|token|publickey/i.test(err)) {
-          hint = '\n→ 看起来是认证问题。terminal 跑一次 git push（成功后凭证会缓存），下次 server 应能用。';
+          hint = '\n→ 认证问题。terminal 跑一次 git push（凭证会缓存），下次 server 就行。';
         } else if (/non-fast-forward|rejected/i.test(err)) {
           hint = '\n→ 远端有新提交。terminal: git pull --rebase 后再保存。';
         }
-        toast('已本地 commit ' + (sha || '') + ' 但 push 失败：\n' + err + hint);
+        toastMsg = '已本地 commit ' + (sha || '') + ' 但 push 失败：\n' + err + hint;
       } else {
-        setSaveStatus('✗ ' + stage + ' 失败 — F12 看详情', 'err');
-        toast('保存失败 [' + stage + ']：' + err);
+        statusMsg = '✗ ' + stage + ' 失败 — F12 看详情';
+        toastMsg = '保存失败 [' + stage + ']：' + err;
+      }
+      setSaveStatus(statusMsg, 'err');
+      toast(toastMsg);
+      // Keep modal open showing error so user can read + fix
+      if (progressEl) {
+        progressEl.style.color = 'var(--error, #c64545)';
+        progressEl.textContent = statusMsg;
+        // Append toastMsg as detail
+        const detail = document.createElement('div');
+        detail.style.cssText = 'margin-top:8px; font-size:11.5px; color:var(--muted,#6a6a6a); white-space:pre-wrap; text-align:left;';
+        detail.textContent = toastMsg;
+        progressEl.appendChild(detail);
       }
     }
 
