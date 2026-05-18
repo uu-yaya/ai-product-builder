@@ -36,9 +36,15 @@ export type MockScenario =
   | "no_unread"
   | "first_empty"
   | "no_new_today"
+  | "low_evidence"
   | "generation_failed"
   | "quality_blocked"
+  | "privacy_blocked"
+  | "clock_rollback"
+  | "future_time_jump"
   | "reply_fails"
+  | "feedback_fails"
+  | "state_update_fails"
   | "delete_fails";
 
 function deepClone<T>(value: T): T {
@@ -106,6 +112,11 @@ export class MockDiaryService implements DiaryService {
   }
 
   async updateDiaryState(diaryId: string, _userId: string, updates: DiaryStateUpdate): Promise<DiaryStateUpdateResponse> {
+    if (this.scenario === "state_update_fails") {
+      this.scenario = "normal";
+      throw new DiaryServiceError("这枚小贴纸暂时没贴稳，等一下再试。", "network_failed");
+    }
+
     const diary = this.findActiveDiary(diaryId);
     diary.mailbox_status = updates.mailbox_status ?? diary.mailbox_status;
     diary.bubble_status = updates.bubble_status ?? diary.bubble_status;
@@ -176,6 +187,11 @@ export class MockDiaryService implements DiaryService {
     reason: FeedbackReason | null,
     source: "button" | "reply" | "conversation"
   ): Promise<SubmitFeedbackResponse> {
+    if (this.scenario === "feedback_fails") {
+      this.scenario = "normal";
+      throw new DiaryServiceError("这次反馈暂时没记好，等一下再试。", "network_failed");
+    }
+
     const diary = this.findActiveDiary(targetId);
     const at = nowIso();
     diary.feedback_state = { current_value: value, latest_feedback_at: at, reason };
@@ -389,8 +405,13 @@ export class MockDiaryService implements DiaryService {
   private emptyStateFor(total: number): EmptyStateType | null {
     if (this.scenario === "first_empty") return "first_empty";
     if (this.scenario === "generation_failed") return "generation_failed";
-    if (this.scenario === "quality_blocked") return "quality_blocked";
-    if (this.scenario === "no_new_today") return "no_new_today";
+    if (this.scenario === "quality_blocked" || this.scenario === "privacy_blocked") return "quality_blocked";
+    if (
+      this.scenario === "no_new_today" ||
+      this.scenario === "low_evidence" ||
+      this.scenario === "clock_rollback" ||
+      this.scenario === "future_time_jump"
+    ) return "no_new_today";
     return total === 0 ? "first_empty" : null;
   }
 
@@ -476,7 +497,15 @@ export class MockDiaryService implements DiaryService {
       });
     }
 
-    if (this.scenario === "no_unread" || this.scenario === "no_new_today" || this.scenario === "quality_blocked") {
+    if (
+      this.scenario === "no_unread" ||
+      this.scenario === "no_new_today" ||
+      this.scenario === "low_evidence" ||
+      this.scenario === "quality_blocked" ||
+      this.scenario === "privacy_blocked" ||
+      this.scenario === "clock_rollback" ||
+      this.scenario === "future_time_jump"
+    ) {
       this.diaries.forEach((diary) => {
         diary.mailbox_status = "read";
         diary.bubble_status = "opened";

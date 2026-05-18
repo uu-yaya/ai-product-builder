@@ -62,6 +62,18 @@ For MiniMax, daily local use only needs one env var:
 MINIMAX_API_KEY=${MINIMAX_API_KEY}
 ```
 
+There is a non-secret template at `.env.local.example`. Use a private `.env.local` or shell export for the real value; `.env.local` is ignored by git.
+
+Recommended local setup on a new machine:
+
+```bash
+cp .env.local.example .env.local
+# edit .env.local and replace ${MINIMAX_API_KEY} with the real private key
+npm run dev
+```
+
+The local dev API reads `.env.local` at startup through `server/runtimeEnv.ts`. Restart `npm run dev` after changing `.env.local`. User Portrait uses the same server-side provider for portrait pet reactions and character-resonance reassessment; it never exposes the key to browser code.
+
 When `MINIMAX_API_KEY` is present, the provider uses these defaults:
 
 ```bash
@@ -81,7 +93,20 @@ For non `sk-cp-` keys, the preset defaults to `https://api.minimax.io/v1`. You c
 
 The Vite dev server exposes a local `/api/diary/tts` bridge for the demo, so the browser never receives `MINIMAX_API_KEY`. The MiniMax preset uses the official T2A WebSocket path for short real-time reactions (`wss://api.minimaxi.com/ws/v1/t2a_v2` for `sk-cp-` keys). If MiniMax TTS fails, the UI falls back to browser speech synthesis and does not show internal provider errors.
 
-You only need the longer vars when overriding model, base URL, auth mode, response format, TTS model, voice, or audio format. Keep real MiniMax keys in local shell env or private `.env.local` only.
+You only need the longer vars when overriding model, base URL, auth mode, response format, TTS model, voice, or audio format. Keep real MiniMax keys in local shell env or private `.env.local` only. The Vite config loads server-only env values from `.env.local` into the dev API bridge, but only `VITE_*` variables are exposed to browser code.
+
+To verify the local dev API can see server-side LLM config without exposing secrets:
+
+```bash
+curl http://127.0.0.1:5175/api/diary/llm-status
+curl http://127.0.0.1:5175/api/portrait/llm-status
+```
+
+Expected configured shape:
+
+```json
+{"llm_ready":true,"llm_auth_configured":true,"llm_base_url_configured":true,"llm_model_configured":true,"tts_ready":true,"tts_provider_enabled":true}
+```
 
 Optional voice/TTS can still point at a generic HTTP bridge when a different vendor is used:
 

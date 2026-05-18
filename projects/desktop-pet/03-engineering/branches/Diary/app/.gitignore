@@ -2,6 +2,7 @@ node_modules/
 dist/
 *.tsbuildinfo
 .playwright-cli/
+.vite/
 output/
 .env
 .env.local

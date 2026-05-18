@@ -4,6 +4,7 @@ import { buildDiaryDraftPrompt, buildPetReactionPrompt, buildQualityCheckPrompt 
 import type {
   CheckDiaryQualityInput,
   CheckDiaryQualityResponse,
+  CharacterConfig,
   ContentAngle,
   DiaryDraft,
   DiaryEmotion,
@@ -16,6 +17,12 @@ import type {
   VoiceMimeType,
   VoiceStyle
 } from "../../src/diary/types";
+import { portraitAssets } from "../../src/diary/userPortrait/portraitAssets";
+import type {
+  CharacterResonance,
+  PortraitNode,
+  PortraitPetReaction
+} from "../../src/diary/userPortrait/types";
 
 const DIARY_LLM_API_KEY_PLACEHOLDER = "${DIARY_LLM_API_KEY}";
 const DIARY_LLM_BASE_URL_PLACEHOLDER = "${DIARY_LLM_BASE_URL}";
@@ -34,11 +41,13 @@ const MINIMAX_DEFAULT_TTS_VOICE = "Chinese (Mandarin)_Cute_Spirit";
 
 const allowedEmotions = ["excited", "gentle", "comfort", "apology", "quiet", "playful", "thinking", "writing", "sleeping", "sorry"] as const;
 const allowedActions = ["idle", "happy_bounce", "nod", "wave", "shy_hide", "thinking_loop", "sorry_bow", "writing_loop"] as const;
+const allowedPortraitActions = ["idle", "happy_bounce", "nod", "wave", "thinking_loop", "sorry_bow", "writing_loop"] as const;
 const allowedAngles = ["game_companion", "daily_observation", "pet_interaction", "solo_theater", "worldbuilding"] as const;
 const allowedMemoryHints = ["none", "positive_feedback", "negative_feedback", "correction"] as const;
 const allowedQualityReasons = ["facts", "persona", "privacy", "repetition", "format"] as const;
 const allowedVoiceStyles = ["soft", "happy", "shy", "apologetic", "calm"] as const;
 const allowedTtsAudioFormats = ["mp3", "wav", "flac"] as const;
+const allowedPortraitRoleKeys = ["warm_mage", "brave_guardian", "tiny_inventor", "quiet_star"] as const;
 
 type LLMProviderKind = "mock" | "chat-completions-compatible";
 type AuthMode = "bearer" | "none";
@@ -75,6 +84,15 @@ export type ConfigurableDiaryProviderConfig = {
   ttsOutputFormat?: TtsOutputFormat;
 };
 
+export type ConfigurableDiaryProviderStatus = {
+  llm_ready: boolean;
+  llm_auth_configured: boolean;
+  llm_base_url_configured: boolean;
+  llm_model_configured: boolean;
+  tts_ready: boolean;
+  tts_provider_enabled: boolean;
+};
+
 type ReactionJson = {
   reaction_text: string;
   emotion: string;
@@ -82,6 +100,21 @@ type ReactionJson = {
   should_speak: boolean;
   voice_style: string;
   memory_write_hint: string;
+};
+
+type PortraitReactionJson = {
+  reaction_text: string;
+  emotion: string;
+  action: string;
+  should_speak: boolean;
+};
+
+type PortraitResonanceJson = {
+  character_name: string;
+  role_type: string;
+  role_key: string;
+  resonance_points: string[];
+  pet_explanation: string;
 };
 
 export class ConfigurableDiaryProvider implements LLMProvider {
@@ -159,6 +192,67 @@ export class ConfigurableDiaryProvider implements LLMProvider {
     return {
       provider: this.config.ttsProvider === "minimax" ? "minimax" : "http-json",
       ...voice
+    };
+  }
+
+  async generatePortraitPetReaction(input: {
+    character_config: CharacterConfig;
+    fallback: PortraitPetReaction;
+    context: Record<string, unknown>;
+  }): Promise<PortraitPetReaction> {
+    const model = this.config.reactionModel.includes("${") ? this.config.diaryModel : this.config.reactionModel;
+    if (!this.canUseModel(model)) return input.fallback;
+
+    try {
+      const raw = await this.createStructuredChatResponse<PortraitReactionJson>({
+        model,
+        schemaName: "portrait_pet_reaction",
+        schema: portraitPetReactionSchema,
+        system: "你生成安全、简短、中文的用户画像页桌宠反应。最终答案只输出 JSON，不要输出解释。",
+        prompt: buildPortraitReactionPrompt(input.character_config, input.context),
+        maxTokens: 500
+      });
+      return this.normalizePortraitReaction(raw, input.fallback);
+    } catch {
+      return input.fallback;
+    }
+  }
+
+  async generatePortraitCharacterResonance(input: {
+    character_config: CharacterConfig;
+    active_nodes: PortraitNode[];
+    fallback: CharacterResonance;
+  }): Promise<CharacterResonance> {
+    const model = this.config.reactionModel.includes("${") ? this.config.diaryModel : this.config.reactionModel;
+    if (!this.canUseModel(model)) return input.fallback;
+    if (input.fallback.status === "failed" || input.fallback.status === "authorization_unmet" || input.fallback.status === "insufficient_data") {
+      return input.fallback;
+    }
+
+    try {
+      const raw = await this.createStructuredChatResponse<PortraitResonanceJson>({
+        model,
+        schemaName: "portrait_character_resonance",
+        schema: portraitCharacterResonanceSchema,
+        system: "你生成安全、游戏语境内的角色共鸣结果。最终答案只输出 JSON，不要输出解释。",
+        prompt: buildPortraitResonancePrompt(input.character_config, input.active_nodes),
+        maxTokens: 800
+      });
+      return this.normalizePortraitResonance(raw, input.fallback, input.active_nodes);
+    } catch {
+      return input.fallback;
+    }
+  }
+
+  getRuntimeStatus(): ConfigurableDiaryProviderStatus {
+    const reactionModel = this.config.reactionModel.includes("${") ? this.config.diaryModel : this.config.reactionModel;
+    return {
+      llm_ready: this.canUseModel(reactionModel),
+      llm_auth_configured: this.hasRequiredAuth(this.config.authMode, this.config.apiKey),
+      llm_base_url_configured: Boolean(this.config.baseUrl && !this.config.baseUrl.includes("${")),
+      llm_model_configured: Boolean(reactionModel && !reactionModel.includes("${")),
+      tts_ready: this.canUseTts(),
+      tts_provider_enabled: this.config.ttsProvider !== "none"
     };
   }
 
@@ -265,6 +359,57 @@ export class ConfigurableDiaryProvider implements LLMProvider {
       should_speak: typeof raw.should_speak === "boolean" ? raw.should_speak : true,
       memory_write_hint: enumValue(raw.memory_write_hint, allowedMemoryHints, "none"),
       created_at: new Date().toISOString()
+    };
+  }
+
+  private normalizePortraitReaction(raw: PortraitReactionJson, fallback: PortraitPetReaction): PortraitPetReaction {
+    const reactionText = safeText(raw.reaction_text, fallback.reaction_text, 54);
+    if (containsBlockedText(reactionText)) throw new Error("blocked");
+
+    return {
+      reaction_id: `llm_portrait_reaction_${Date.now()}`,
+      scene: fallback.scene,
+      reaction_text: reactionText,
+      emotion: safeText(raw.emotion, fallback.emotion, 24),
+      action: enumValue(raw.action, allowedPortraitActions, fallback.action),
+      should_speak: typeof raw.should_speak === "boolean" ? raw.should_speak : fallback.should_speak,
+      created_at: new Date().toISOString()
+    };
+  }
+
+  private normalizePortraitResonance(
+    raw: PortraitResonanceJson,
+    fallback: CharacterResonance,
+    activeNodes: PortraitNode[]
+  ): CharacterResonance {
+    const characterName = safeText(raw.character_name, fallback.character_name || "星图同行者", 18);
+    const roleType = safeText(raw.role_type, fallback.role_type || "陪伴 / 观察 / 稳定推进", 32);
+    const petExplanation = safeText(raw.pet_explanation, fallback.pet_explanation, 90);
+    const resonancePoints = Array.isArray(raw.resonance_points)
+      ? raw.resonance_points.map((point) => safeText(point, "", 34)).filter(Boolean).slice(0, 3)
+      : [];
+    const allText = [characterName, roleType, petExplanation, ...resonancePoints].join("\n");
+    if (containsBlockedText(allText) || containsRealPersonalityJudgement(allText) || resonancePoints.length === 0) {
+      throw new Error("blocked");
+    }
+
+    return {
+      ...fallback,
+      resonance_id: `llm_resonance_${Date.now()}`,
+      status: "ready",
+      character_name: characterName,
+      role_type: roleType,
+      role_asset: roleAssetForKey(raw.role_key, fallback.role_asset),
+      resonance_points: resonancePoints,
+      pet_explanation: petExplanation,
+      source_summary: {
+        label: "来自当前游戏画像节点的重新测定",
+        source_ids: activeNodes.map((node) => node.node_id).slice(0, 8),
+        confidence: "medium",
+        privacy_boundary: "summary_only"
+      },
+      feedback_value: null,
+      updated_at: new Date().toISOString()
     };
   }
 
@@ -695,6 +840,77 @@ function containsBlockedText(text: string): boolean {
   return /api[_ -]?key|token|模型|接口|风控|隐私命中|窗口标题|文档名|聊天正文|内部错误|error code/i.test(text);
 }
 
+function containsRealPersonalityJudgement(text: string): boolean {
+  return /人格障碍|心理诊断|抑郁|焦虑症|政治倾向|宗教信仰|现实人格|真实人格/i.test(text);
+}
+
+function roleAssetForKey(value: unknown, fallback: string): string {
+  const roleKey = enumValue(value, allowedPortraitRoleKeys, "quiet_star");
+  if (roleKey === "warm_mage") return portraitAssets.resonanceSweetMage;
+  if (roleKey === "brave_guardian") return portraitAssets.resonanceBraveFighter;
+  if (roleKey === "tiny_inventor") return portraitAssets.resonanceTinyInventor;
+  return fallback || portraitAssets.resonanceSilhouette;
+}
+
+function buildPortraitReactionPrompt(characterConfig: CharacterConfig, context: Record<string, unknown>): string {
+  return JSON.stringify({
+    task: "为用户画像页生成桌宠短反应。只谈当前游戏内画像、节点反馈、编辑、收起、更多发现或角色共鸣；不要提模型、接口、置信度、来源原文或隐私命中。",
+    character_config: publicCharacterConfig(characterConfig),
+    context: sanitizePromptContext(context),
+    constraints: [
+      "中文，1 句话，最多 36 个汉字",
+      "像桌宠陪伴，不像后台系统提示",
+      "用户 unlike / 不准时要温和接受，不要争辩",
+      "不要复刻任何官方角色台词",
+      "不要输出现实人格、心理诊断、政治、宗教、健康推断"
+    ]
+  }, null, 2);
+}
+
+function buildPortraitResonancePrompt(characterConfig: CharacterConfig, activeNodes: PortraitNode[]): string {
+  return JSON.stringify({
+    task: "根据当前游戏画像节点生成一个游戏化角色共鸣结果。结果是趣味共鸣，不是现实人格判断。",
+    character_config: publicCharacterConfig(characterConfig),
+    portrait_nodes: activeNodes
+      .filter((node) => node.is_active && node.status !== "required_empty")
+      .map((node) => ({
+        category: node.category,
+        display_name: node.display_name,
+        value: node.value,
+        status: node.status
+      }))
+      .slice(0, 12),
+    role_key_options: allowedPortraitRoleKeys,
+    constraints: [
+      "character_name 必须是原创称号，不要使用真实游戏官方角色名",
+      "role_type 只描述游戏内陪伴/玩法风格",
+      "resonance_points 给 2-3 条，每条最多 24 个汉字",
+      "pet_explanation 用桌宠视角解释，最多 60 个汉字",
+      "不要输出百分比、置信度、后端字段、来源 ID、模型信息",
+      "不要输出现实人格、心理诊断、政治、宗教、健康推断"
+    ]
+  }, null, 2);
+}
+
+function publicCharacterConfig(characterConfig: CharacterConfig) {
+  return {
+    characterName: safeText(characterConfig.characterName, "桌宠", 24),
+    selfReference: safeText(characterConfig.selfReference, "小伙伴", 24),
+    userAddressing: safeText(characterConfig.userAddressing, "主人", 24),
+    tone: safeText(characterConfig.tone, "温柔、轻快", 80),
+    personaVersion: safeText(characterConfig.personaVersion, "demo", 40)
+  };
+}
+
+function sanitizePromptContext(context: Record<string, unknown>): Record<string, unknown> {
+  return Object.fromEntries(
+    Object.entries(context)
+      .filter(([, value]) => typeof value === "string" || typeof value === "number" || typeof value === "boolean" || value === null)
+      .map(([key, value]) => [safeText(key, "context", 40), typeof value === "string" ? safeText(value, "", 140) : value])
+      .slice(0, 16)
+  );
+}
+
 function defaultConfig(): ConfigurableDiaryProviderConfig {
   const useMiniMaxPreset = process.env.DIARY_LLM_PRESET === "minimax" || Boolean(process.env.MINIMAX_API_KEY);
   const miniMaxApiKey = process.env.DIARY_LLM_API_KEY ?? process.env.MINIMAX_API_KEY ?? "";
@@ -809,3 +1025,23 @@ const petReactionSchema = baseObjectSchema({
   voice_style: stringEnumSchema(allowedVoiceStyles),
   memory_write_hint: stringEnumSchema(allowedMemoryHints)
 }, ["reaction_text", "emotion", "action", "should_speak", "voice_style", "memory_write_hint"]);
+
+const portraitPetReactionSchema = baseObjectSchema({
+  reaction_text: { type: "string", minLength: 1, maxLength: 54 },
+  emotion: stringEnumSchema(allowedEmotions),
+  action: stringEnumSchema(allowedPortraitActions),
+  should_speak: { type: "boolean" }
+}, ["reaction_text", "emotion", "action", "should_speak"]);
+
+const portraitCharacterResonanceSchema = baseObjectSchema({
+  character_name: { type: "string", minLength: 1, maxLength: 18 },
+  role_type: { type: "string", minLength: 1, maxLength: 32 },
+  role_key: stringEnumSchema(allowedPortraitRoleKeys),
+  resonance_points: {
+    type: "array",
+    minItems: 2,
+    maxItems: 3,
+    items: { type: "string", minLength: 1, maxLength: 34 }
+  },
+  pet_explanation: { type: "string", minLength: 1, maxLength: 90 }
+}, ["character_name", "role_type", "role_key", "resonance_points", "pet_explanation"]);

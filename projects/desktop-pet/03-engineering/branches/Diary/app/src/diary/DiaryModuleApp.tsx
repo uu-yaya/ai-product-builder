@@ -5,6 +5,11 @@ import { createDiaryService } from "./api/serviceFactory";
 import { DiaryServiceError, type DiaryService } from "./api/DiaryService";
 import type { MockScenario } from "./api/mockDiaryService";
 import { getPetAssetForEmotion, iconAssets, petSceneEmotionMap } from "./petAssets";
+import { PortraitModule } from "./userPortrait/PortraitModule";
+import { portraitAssets } from "./userPortrait/portraitAssets";
+import { createPortraitService } from "./userPortrait/portraitServiceFactory";
+import type { PortraitService } from "./userPortrait/PortraitService";
+import type { UserPortraitResponse } from "./userPortrait/types";
 import type {
   ChatBubbleKind,
   CharacterConfig,
@@ -22,7 +27,7 @@ import type {
 const USER_ID = "user_demo";
 const GAME_CONTEXT_ID = "game_ctx_demo";
 
-type View = "desktop" | "mailbox" | "detail";
+type View = "desktop" | "mailbox" | "detail" | "portrait";
 type ChatBubbleFeedbackMap = Record<string, 0 | 1>;
 type VoiceInputState = "idle" | "listening";
 
@@ -79,6 +84,10 @@ function waitForNextFrame(): Promise<void> {
   });
 }
 
+function portraitEntryUpdateCount(response: UserPortraitResponse): number {
+  return response.updated_node_count ?? response.nodes.filter((node) => node.status === "new_discovery" || node.status === "recent_update").length;
+}
+
 function loadSpeechSynthesisVoices(): Promise<SpeechSynthesisVoice[]> {
   if (!("speechSynthesis" in window)) return Promise.resolve([]);
   const voices = window.speechSynthesis.getVoices();
@@ -108,9 +117,11 @@ function selectChineseSpeechVoice(voices: SpeechSynthesisVoice[]): SpeechSynthes
 
 export function DiaryModuleApp() {
   const service = useMemo(() => createDiaryService(), []);
+  const portraitService = useMemo(() => createPortraitService(), []);
   const [view, setView] = useState<View>("desktop");
   const [mailbox, setMailbox] = useState<MailboxResponse | null>(null);
   const [detail, setDetail] = useState<DiaryDetail | null>(null);
+  const [portraitUpdateCount, setPortraitUpdateCount] = useState(0);
   const [characterConfig, setCharacterConfig] = useState<CharacterConfig>(demoCharacterConfig);
   const [prototypeOpen, setPrototypeOpen] = useState(false);
   const [prototypeScenario, setPrototypeScenario] = useState<MockScenario>("normal");
@@ -180,6 +191,20 @@ export function DiaryModuleApp() {
   useEffect(() => {
     void loadMailbox(1, false);
   }, [loadMailbox]);
+
+  useEffect(() => {
+    let cancelled = false;
+    getPortraitCharacterConfigService(portraitService)?.setCharacterConfig(characterConfig);
+    void portraitService.getPortrait({ user_id: USER_ID, game_context_id: GAME_CONTEXT_ID }).then((response) => {
+      if (!cancelled) setPortraitUpdateCount(portraitEntryUpdateCount(response));
+    }).catch(() => {
+      if (!cancelled) setPortraitUpdateCount(0);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [characterConfig, portraitService]);
 
   useEffect(() => {
     if (!mailbox) return undefined;
@@ -298,24 +323,34 @@ export function DiaryModuleApp() {
 
   async function updateFavorite() {
     if (!detail) return;
-    const nextValue = !detail.is_favorited;
-    const result = await service.updateDiaryState(detail.diary_id, USER_ID, { is_favorited: nextValue });
-    setDetail({ ...detail, is_favorited: result.is_favorited });
-    await loadMailbox(page, false);
+    setInlineError(null);
+    try {
+      const nextValue = !detail.is_favorited;
+      const result = await service.updateDiaryState(detail.diary_id, USER_ID, { is_favorited: nextValue });
+      setDetail({ ...detail, is_favorited: result.is_favorited });
+      await loadMailbox(page, false);
+    } catch (error) {
+      setInlineError(error instanceof DiaryServiceError ? error.message : "这枚小贴纸暂时没贴稳，等一下再试。");
+    }
   }
 
   async function submitFeedback(value: 0 | 1) {
     if (!detail) return;
-    const response = await service.submitDiaryFeedback(detail.diary_id, value, value === 0 ? "not_accurate" : null, "button");
-    setDetail({
-      ...detail,
-      feedback_state: {
-        current_value: response.current_feedback.value,
-        latest_feedback_at: response.current_feedback.at,
-        reason: response.current_feedback.reason
-      }
-    });
-    showToast(response.pet_reaction);
+    setInlineError(null);
+    try {
+      const response = await service.submitDiaryFeedback(detail.diary_id, value, value === 0 ? "not_accurate" : null, "button");
+      setDetail({
+        ...detail,
+        feedback_state: {
+          current_value: response.current_feedback.value,
+          latest_feedback_at: response.current_feedback.at,
+          reason: response.current_feedback.reason
+        }
+      });
+      showToast(response.pet_reaction);
+    } catch (error) {
+      setInlineError(error instanceof DiaryServiceError ? error.message : "这次反馈暂时没记好，等一下再试。");
+    }
   }
 
   async function submitReply(event: FormEvent) {
@@ -521,7 +556,7 @@ export function DiaryModuleApp() {
   }
 
   const unreadCount = mailbox?.unread_count ?? 0;
-  const desktopEmotion = desktopReaction?.emotion ?? (unreadCount > 0 ? petSceneEmotionMap.new_diary_available : "gentle");
+  const desktopEmotion = desktopScenarioEmotion(prototypeScenario) ?? desktopReaction?.emotion ?? (unreadCount > 0 ? petSceneEmotionMap.new_diary_available : "gentle");
   const detailCards = mailbox?.items ?? [];
   const detailIndex = detail ? detailCards.findIndex((card) => card.diary_id === detail.diary_id) : -1;
   const previousDetailCard = detailIndex > 0 ? detailCards[detailIndex - 1] : null;
@@ -536,10 +571,23 @@ export function DiaryModuleApp() {
           characterConfig={characterConfig}
           emotion={desktopEmotion}
           reaction={desktopReaction}
+          scenario={prototypeScenario}
           bubbleDismissed={bubbleDismissed}
           onResolveVoice={(text) => synthesizeSpeech({ text, voice_style: "soft", scene: "desktop_entry" })}
           onDismissBubble={() => setBubbleDismissed(true)}
           onOpenMailbox={() => void loadMailbox(1, true)}
+          portraitUpdateCount={portraitUpdateCount}
+          onOpenPortrait={() => setView("portrait")}
+        />
+      )}
+
+      {view === "portrait" && (
+        <PortraitModule
+          service={portraitService}
+          userId={USER_ID}
+          gameContextId={GAME_CONTEXT_ID}
+          characterConfig={characterConfig}
+          onBack={() => setView("desktop")}
         />
       )}
 
@@ -555,6 +603,7 @@ export function DiaryModuleApp() {
             mailbox={mailbox}
             loading={loading}
             characterConfig={characterConfig}
+            noticeVariant={prototypeScenario}
             onBack={() => setView("desktop")}
             onOpenDetail={(card) => void openDetail(card)}
             onPage={(nextPage) => void loadMailbox(nextPage, false)}
@@ -592,14 +641,16 @@ export function DiaryModuleApp() {
 
       {inlineError && <div className="inline-status" role="status">{inlineError}</div>}
       {toast && <PetReactionToast reaction={toast} />}
-      <PrototypePanel
-        open={prototypeOpen}
-        scenario={prototypeScenario}
-        characterConfig={characterConfig}
-        onToggle={() => setPrototypeOpen((current) => !current)}
-        onScenario={applyPrototypeScenario}
-        onCharacterConfig={updatePrototypeCharacterConfig}
-      />
+      {view !== "portrait" && (
+        <PrototypePanel
+          open={prototypeOpen}
+          scenario={prototypeScenario}
+          characterConfig={characterConfig}
+          onToggle={() => setPrototypeOpen((current) => !current)}
+          onScenario={applyPrototypeScenario}
+          onCharacterConfig={updatePrototypeCharacterConfig}
+        />
+      )}
       {deleteTarget && (
         <DeleteConfirmDialog
           detail={deleteTarget}
@@ -618,28 +669,41 @@ function DesktopEntry({
   characterConfig,
   emotion,
   reaction,
+  scenario,
   bubbleDismissed,
   onResolveVoice,
   onDismissBubble,
-  onOpenMailbox
+  onOpenMailbox,
+  portraitUpdateCount,
+  onOpenPortrait
 }: {
   unreadCount: number;
   mailboxReady: boolean;
   characterConfig: CharacterConfig;
   emotion: string;
   reaction: PetReaction | null;
+  scenario: MockScenario;
   bubbleDismissed: boolean;
   onResolveVoice: (text: string) => Promise<SynthesizeSpeechResponse>;
   onDismissBubble: () => void;
   onOpenMailbox: () => void;
+  portraitUpdateCount: number;
+  onOpenPortrait: () => void;
 }) {
+  const scenarioCue = diaryScenarioCueFor(scenario, characterConfig);
+  const shouldInvitePortrait = !scenarioCue && unreadCount === 0 && portraitUpdateCount > 0;
   const bubble = unreadCount > 1
     ? "{{userAddressing}}，有几封小信在等你拆开呢。"
     : unreadCount === 1
       ? "{{userAddressing}}，{{selfReference}}把昨天的小信藏好啦，要拆开看看吗？"
+      : shouldInvitePortrait
+        ? `{{userAddressing}}，{{selfReference}}发现你的星图有 ${portraitUpdateCount} 颗小星星更新了。`
       : "{{userAddressing}}，{{selfReference}}今天不打扰你。";
-  const bubbleText = reaction?.reaction_text ?? renderCharacterTemplate(bubble, characterConfig);
+  const bubbleText = shouldInvitePortrait
+    ? renderCharacterTemplate(bubble, characterConfig)
+    : scenarioCue?.desktopText ?? reaction?.reaction_text ?? renderCharacterTemplate(bubble, characterConfig);
   const [desktopSpeaking, setDesktopSpeaking] = useState(false);
+  const onOpenDesktopIntent = shouldInvitePortrait ? onOpenPortrait : onOpenMailbox;
 
   useEffect(() => {
     if (!mailboxReady || bubbleDismissed) return undefined;
@@ -719,17 +783,41 @@ function DesktopEntry({
       <span className="particle" style={{ left: "14%", top: "52%", animationDelay: "2s" }} />
       <span className="particle gold" style={{ left: "56%", top: "40%", animationDelay: "2.6s" }} />
 
-      <div className="desktop-mailbox">
-        <button className="mailbox-button" onClick={onOpenMailbox} aria-label={unreadCount > 0 ? `打开收信箱，${unreadCount} 封未拆` : "打开收信箱"}>
-          <img src={iconAssets.mailbox} alt="" />
-          {unreadCount > 0 && <span className="unread-dot">{unreadCount > 12 ? "12+" : unreadCount}</span>}
-        </button>
+      <div className="desktop-entry-stack desktop-entries">
+        <div className="desktop-entry-card entry-card">
+          <button
+            className="portrait-entry portrait-entry-button"
+            onClick={onOpenPortrait}
+            aria-label={portraitUpdateCount > 0 ? `打开桌宠眼中的我，星图有 ${portraitUpdateCount} 个节点更新` : "打开桌宠眼中的我"}
+            data-tooltip="桌宠眼中的我"
+            title="桌宠眼中的我"
+          >
+            <span className="portrait-art" aria-hidden="true">
+              <img className="portrait-entry-icon" src={portraitAssets.starMap} alt="" />
+            </span>
+            {portraitUpdateCount > 0 && <span className="badge-new portrait-discovery-dot" title={`星图有 ${portraitUpdateCount} 个节点更新`}>{portraitUpdateCount > 9 ? "9+" : portraitUpdateCount}</span>}
+          </button>
+          <span className="hint">桌宠眼中的我</span>
+        </div>
+        <div className="desktop-entry-card entry-card">
+          <button
+            className="mailbox-button"
+            onClick={onOpenMailbox}
+            aria-label={unreadCount > 0 ? `打开收信箱，${unreadCount} 封未拆` : "打开收信箱"}
+            data-tooltip="收信箱"
+            title="收信箱"
+          >
+            <img src={iconAssets.mailbox} alt="" />
+            {unreadCount > 0 && <span className="unread-dot">{unreadCount > 12 ? "12+" : unreadCount}</span>}
+          </button>
+          <span className="hint">收信箱</span>
+        </div>
       </div>
 
       <div className="desk-cluster">
         <div className="bubble-line">
           {mailboxReady && !bubbleDismissed && (
-            <div className="pet-bubble-wrap">
+            <button className="pet-bubble-wrap desktop-bubble-trigger" onClick={onOpenDesktopIntent} aria-label={shouldInvitePortrait ? "打开桌宠眼中的我" : "打开收信箱"}>
               <div className={`diary-bubble ${desktopSpeaking ? "speaking" : ""}`}>
                 {desktopSpeaking && (
                   <span className="voice-mark" aria-hidden="true">
@@ -740,11 +828,11 @@ function DesktopEntry({
                 )}
                 <span>{bubbleText}</span>
               </div>
-            </div>
+            </button>
           )}
         </div>
         <div className="stage-row">
-          <button className={`pet-original ${desktopSpeaking ? "is-speaking" : ""}`} onClick={onOpenMailbox} aria-label={`点击${characterConfig.selfReference}进入收信箱`}>
+          <button className={`pet-original ${desktopSpeaking ? "is-speaking" : ""}`} onClick={onOpenDesktopIntent} aria-label={shouldInvitePortrait ? `点击${characterConfig.selfReference}进入桌宠眼中的我` : `点击${characterConfig.selfReference}进入收信箱`}>
             <img className="pet-img" src={getPetAssetForEmotion(emotion)} alt="" />
             {desktopSpeaking && (
               <span className="pet-voice-waves desktop-voice-waves" aria-hidden="true">
@@ -769,6 +857,7 @@ function MailboxView({
   mailbox,
   loading,
   characterConfig,
+  noticeVariant,
   onBack,
   onOpenDetail,
   onPage
@@ -776,6 +865,7 @@ function MailboxView({
   mailbox: MailboxResponse;
   loading: boolean;
   characterConfig: CharacterConfig;
+  noticeVariant: MockScenario;
   onBack: () => void;
   onOpenDetail: (card: DiaryCard) => void;
   onPage: (page: number) => void;
@@ -786,6 +876,9 @@ function MailboxView({
     : "「{{userAddressing}}今天没新的可拆，要不要翻翻旧的？」";
   const stripEmotion = mailbox.unread_count > 0 ? "excited" : "sleeping";
   const pageNumbers = Array.from({ length: pages }, (_, index) => index + 1);
+  const quietNotice = mailbox.empty_state_type
+    ? mailboxNoticeFor(mailbox.empty_state_type, characterConfig, noticeVariant)
+    : diaryScenarioCueFor(noticeVariant, characterConfig)?.mailboxText ?? null;
 
   return (
     <section className="app-window" data-screen-label="02 Mailbox" aria-label="收信箱">
@@ -802,14 +895,10 @@ function MailboxView({
           </div>
         </header>
 
-        {mailbox.empty_state_type === "no_new_today" || mailbox.empty_state_type === "quality_blocked" ? (
+        {quietNotice ? (
           <div className="quiet-banner">
             <img className="ico" src={iconAssets.privacy} alt="" />
-            <span>
-              {mailbox.empty_state_type === "quality_blocked"
-                ? renderCharacterTemplate("这一封{{selfReference}}没有写好，就不拿来打扰{{userAddressing}}啦。", characterConfig)
-                : renderCharacterTemplate("昨天的事，{{selfReference}}还不敢乱写。等攒到更确定的小事，再认真写给{{userAddressing}}。", characterConfig)}
-            </span>
+            <span>{quietNotice}</span>
           </div>
         ) : null}
 
@@ -861,6 +950,91 @@ function MailboxView({
       </div>
     </section>
   );
+}
+
+function mailboxNoticeFor(type: EmptyStateType, characterConfig: CharacterConfig, noticeVariant: MockScenario): string | null {
+  const scenarioCopy: Partial<Record<MockScenario, string>> = {
+    low_evidence: "这一天的线索还太轻，{{selfReference}}不把没发生的事写满。等攒到更确定的小片段，再认真写给{{userAddressing}}。",
+    privacy_blocked: "有些内容{{selfReference}}拿不准边界，这一封先不写出来。{{selfReference}}会记得只写能安心看的事。",
+    clock_rollback: "桌面时间好像往回吹了一下，{{selfReference}}先不按错乱时间线写新信。",
+    future_time_jump: "时间好像跳得太快啦，{{selfReference}}不会提前生成未来的信。"
+  };
+  const copy: Partial<Record<EmptyStateType, string>> = {
+    no_new_today: "今天没有新信，{{selfReference}}也不乱写。{{userAddressing}}可以翻翻以前的小信。",
+    quality_blocked: "这一封{{selfReference}}没有写好，就不拿来打扰{{userAddressing}}啦。"
+  };
+  const selected = scenarioCopy[noticeVariant] ?? copy[type];
+  return selected ? renderCharacterTemplate(selected, characterConfig) : null;
+}
+
+function desktopScenarioEmotion(scenario: MockScenario): string | null {
+  const emotion: Partial<Record<MockScenario, string>> = {
+    low_evidence: "sleeping",
+    generation_failed: "sorry",
+    quality_blocked: "sorry",
+    privacy_blocked: "sorry",
+    clock_rollback: "thinking",
+    future_time_jump: "thinking",
+    reply_fails: "sorry",
+    feedback_fails: "thinking",
+    state_update_fails: "thinking",
+    delete_fails: "sorry"
+  };
+  return emotion[scenario] ?? null;
+}
+
+function diaryScenarioCueFor(
+  scenario: MockScenario,
+  characterConfig: CharacterConfig
+): { desktopText: string; mailboxText: string } | null {
+  const copy: Partial<Record<MockScenario, { desktopText: string; mailboxText: string }>> = {
+    low_evidence: {
+      desktopText: "今天的线索还太轻，{{selfReference}}先不乱写一封信。",
+      mailboxText: "这一天的线索还太轻，{{selfReference}}不把没发生的事写满。等攒到更确定的小片段，再认真写给{{userAddressing}}。"
+    },
+    no_new_today: {
+      desktopText: "今天没有新信，{{selfReference}}也不乱写。",
+      mailboxText: "今天没有新信，{{selfReference}}也不乱写。{{userAddressing}}可以翻翻以前的小信。"
+    },
+    quality_blocked: {
+      desktopText: "这一封{{selfReference}}没写好，就先不拿出来打扰{{userAddressing}}啦。",
+      mailboxText: "这一封{{selfReference}}没有写好，就不拿来打扰{{userAddressing}}啦。"
+    },
+    privacy_blocked: {
+      desktopText: "有些内容边界还不安心，{{selfReference}}先把这封信收起来。",
+      mailboxText: "有些内容{{selfReference}}拿不准边界，这一封先不写出来。{{selfReference}}会记得只写能安心看的事。"
+    },
+    clock_rollback: {
+      desktopText: "桌面时间好像往回跳了一下，{{selfReference}}先不按错乱时间写新信。",
+      mailboxText: "桌面时间好像往回吹了一下，{{selfReference}}先不按错乱时间线写新信。"
+    },
+    future_time_jump: {
+      desktopText: "时间好像跳到未来啦，{{selfReference}}不会提前写还没发生的信。",
+      mailboxText: "时间好像跳得太快啦，{{selfReference}}不会提前生成未来的信。"
+    },
+    reply_fails: {
+      desktopText: "{{userAddressing}}，下一次回信会先停在信纸上，{{selfReference}}会提示没寄稳。",
+      mailboxText: "打开任意一封信，下一次回信会显示没有寄稳；草稿会留在原处。"
+    },
+    feedback_fails: {
+      desktopText: "{{userAddressing}}，下一次喜欢或不喜欢会先没记住，{{selfReference}}会温柔提醒。",
+      mailboxText: "打开任意一封信，下一次喜欢或不喜欢会显示暂时没记好。"
+    },
+    state_update_fails: {
+      desktopText: "{{userAddressing}}，下一次已读或收藏的小贴纸会先松一下。",
+      mailboxText: "下一次已读或收藏状态会显示暂时没贴稳；原来的信不会丢。"
+    },
+    delete_fails: {
+      desktopText: "{{userAddressing}}，下一次收起信纸会先没收好。",
+      mailboxText: "打开任意一封信，下一次收起会显示没有收好；信仍然会留在信箱里。"
+    }
+  };
+  const selected = copy[scenario];
+  if (!selected) return null;
+  return {
+    desktopText: renderCharacterTemplate(selected.desktopText, characterConfig),
+    mailboxText: renderCharacterTemplate(selected.mailboxText, characterConfig)
+  };
 }
 
 function updateSheetTilt(event: PointerEvent<HTMLElement>) {
@@ -1460,6 +1634,23 @@ function PetReactionToast({ reaction }: { reaction: PetReaction }) {
   );
 }
 
+function prototypeScenarioHintFor(scenario: MockScenario, characterConfig: CharacterConfig): string | null {
+  const scenarioCue = diaryScenarioCueFor(scenario, characterConfig);
+  if (scenarioCue) return scenarioCue.mailboxText;
+
+  const copy: Partial<Record<MockScenario, string>> = {
+    normal: "桌面有新信入口，收信箱倒序展示历史信件。",
+    multiple_unread: "桌面红点显示 12+，收信箱里多封信保持未拆状态。",
+    no_unread: "没有未读红点，收信箱只展示已拆历史。",
+    first_empty: "进入收信箱后展示首次空信箱，不生成不存在的日记。",
+    generation_failed: "进入收信箱后展示生成失败的安全空状态，不展示内部错误。",
+    quality_blocked: "这一封没有通过质量检查，前端只展示安全提示。",
+    privacy_blocked: "隐私边界不安心时只展示安全提示，不展示命中原因。"
+  };
+  const selected = copy[scenario];
+  return selected ? renderCharacterTemplate(selected, characterConfig) : null;
+}
+
 function PrototypePanel({
   open,
   scenario,
@@ -1476,25 +1667,32 @@ function PrototypePanel({
   onCharacterConfig: (field: "characterName" | "userAddressing" | "selfReference", value: string) => void;
 }) {
   const scenarios: Array<{ value: MockScenario; label: string }> = [
-    { value: "normal", label: "Normal · 2 unread, history present" },
-    { value: "multiple_unread", label: "Many unread (badge 12+)" },
-    { value: "no_unread", label: "No unread, history only" },
-    { value: "first_empty", label: "First-time empty mailbox" },
-    { value: "no_new_today", label: "No new today (quiet banner)" },
-    { value: "generation_failed", label: "Generation failed" },
-    { value: "quality_blocked", label: "Quality blocked" },
-    { value: "reply_fails", label: "Next reply will fail" },
-    { value: "delete_fails", label: "Next delete will fail" }
+    { value: "normal", label: "正常：2 封未读，有历史" },
+    { value: "multiple_unread", label: "多封未读（红点 12+）" },
+    { value: "no_unread", label: "无未读，仅历史" },
+    { value: "first_empty", label: "首次进入：空信箱" },
+    { value: "no_new_today", label: "今日无新日记（安静提示）" },
+    { value: "low_evidence", label: "低证据 / 低互动" },
+    { value: "generation_failed", label: "生成失败" },
+    { value: "quality_blocked", label: "质量检查拦截" },
+    { value: "privacy_blocked", label: "隐私边界拦截" },
+    { value: "clock_rollback", label: "本地时间倒流" },
+    { value: "future_time_jump", label: "本地时间跳到未来" },
+    { value: "reply_fails", label: "下次回信失败" },
+    { value: "feedback_fails", label: "下次喜欢 / 不喜欢失败" },
+    { value: "state_update_fails", label: "下次已读 / 收藏更新失败" },
+    { value: "delete_fails", label: "下次删除失败" }
   ];
+  const scenarioHint = prototypeScenarioHintFor(scenario, characterConfig);
 
   return (
     <>
-      <button className="proto-tab" aria-expanded={open} onClick={onToggle}>PROTOTYPE ▾</button>
+      <button className="proto-tab" aria-expanded={open} onClick={onToggle}>原型 ▾</button>
       {open && (
-        <aside className="proto-panel" role="region" aria-label="Prototype state controls">
-          <h4>State scenarios</h4>
+        <aside className="proto-panel" role="region" aria-label="原型状态控件">
+          <h4>状态场景</h4>
           <div className="row">
-            <label htmlFor="prototype-scenario">Scenario</label>
+            <label htmlFor="prototype-scenario">场景</label>
             <select
               id="prototype-scenario"
               value={scenario}
@@ -1505,10 +1703,11 @@ function PrototypePanel({
               ))}
             </select>
           </div>
+          {scenarioHint && <div className="scenario-hint">{scenarioHint}</div>}
 
-          <h4>Character config</h4>
+          <h4>角色配置</h4>
           <div className="row">
-            <label htmlFor="prototype-character-name">name</label>
+            <label htmlFor="prototype-character-name">角色名</label>
             <input
               id="prototype-character-name"
               type="text"
@@ -1517,7 +1716,7 @@ function PrototypePanel({
             />
           </div>
           <div className="row">
-            <label htmlFor="prototype-user-addressing">userAddressing</label>
+            <label htmlFor="prototype-user-addressing">对用户称呼</label>
             <input
               id="prototype-user-addressing"
               type="text"
@@ -1526,7 +1725,7 @@ function PrototypePanel({
             />
           </div>
           <div className="row">
-            <label htmlFor="prototype-self-reference">selfReference</label>
+            <label htmlFor="prototype-self-reference">角色自称</label>
             <input
               id="prototype-self-reference"
               type="text"
@@ -1534,7 +1733,7 @@ function PrototypePanel({
               onChange={(event) => onCharacterConfig("selfReference", event.target.value)}
             />
           </div>
-          <div className="hint">Prototype-only controls. The real app reads characterConfig from the host.</div>
+          <div className="hint">仅原型调试控件。真实应用会从宿主读取角色配置。</div>
         </aside>
       )}
     </>
@@ -1587,6 +1786,17 @@ type PrototypeCapableDiaryService = DiaryService & {
 function getPrototypeCapableService(service: DiaryService): PrototypeCapableDiaryService | null {
   if ("setScenario" in service && "setCharacterConfig" in service) {
     return service as PrototypeCapableDiaryService;
+  }
+  return null;
+}
+
+type CharacterConfigurablePortraitService = PortraitService & {
+  setCharacterConfig: (characterConfig: CharacterConfig) => void;
+};
+
+function getPortraitCharacterConfigService(service: PortraitService): CharacterConfigurablePortraitService | null {
+  if ("setCharacterConfig" in service) {
+    return service as CharacterConfigurablePortraitService;
   }
   return null;
 }

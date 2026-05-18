@@ -1795,6 +1795,16 @@ section.detail-window > .detail-body {
   outline: none;
   padding: 5px 8px;
 }
+.proto-panel .scenario-hint {
+  margin: -2px 0 12px;
+  padding: 8px 10px;
+  border: 1px solid rgba(141, 123, 232, .28);
+  border-radius: 5px;
+  background: rgba(141, 123, 232, .14);
+  color: rgba(255, 247, 234, .78);
+  font-size: 11px;
+  line-height: 1.55;
+}
 .proto-panel .hint {
   margin-top: 6px;
   color: rgba(255, 247, 234, .5);

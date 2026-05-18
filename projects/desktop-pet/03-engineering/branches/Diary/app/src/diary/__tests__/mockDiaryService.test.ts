@@ -141,4 +141,48 @@ describe("MockDiaryService", () => {
     expect(result.quality_result).toBe("fail");
     expect(result.quality_failure_reasons).toContain("privacy");
   });
+
+  it("covers PRD exception scenarios with safe mailbox states", async () => {
+    const service = new MockDiaryService();
+    const scenarios = [
+      ["low_evidence", "no_new_today"],
+      ["privacy_blocked", "quality_blocked"],
+      ["clock_rollback", "no_new_today"],
+      ["future_time_jump", "no_new_today"],
+      ["quality_blocked", "quality_blocked"],
+      ["no_new_today", "no_new_today"]
+    ] as const;
+
+    for (const [scenario, emptyState] of scenarios) {
+      service.setScenario(scenario);
+      const mailbox = await service.getMailbox({ user_id: userId, game_context_id: gameContextId, page: 1, page_size: 10 });
+
+      expect(mailbox.empty_state_type).toBe(emptyState);
+      expect(mailbox.unread_count).toBe(0);
+      expect(mailbox.items.every((item) => item.mailbox_status === "read")).toBe(true);
+    }
+
+    service.setScenario("generation_failed");
+    const failedMailbox = await service.getMailbox({ user_id: userId, game_context_id: gameContextId, page: 1, page_size: 10 });
+    expect(failedMailbox.empty_state_type).toBe("generation_failed");
+    expect(failedMailbox.items).toHaveLength(0);
+  });
+
+  it("simulates feedback and state update write failures through the service boundary", async () => {
+    const service = new MockDiaryService();
+    const mailbox = await service.getMailbox({ user_id: userId, game_context_id: gameContextId, page: 1, page_size: 10 });
+    const target = mailbox.items[0];
+
+    service.setScenario("feedback_fails");
+    await expect(service.submitDiaryFeedback(target.diary_id, 1, null, "button")).rejects.toThrow("这次反馈暂时没记好");
+
+    const feedback = await service.submitDiaryFeedback(target.diary_id, 1, null, "button");
+    expect(feedback.current_feedback.value).toBe(1);
+
+    service.setScenario("state_update_fails");
+    await expect(service.updateDiaryState(target.diary_id, userId, { is_favorited: true })).rejects.toThrow("这枚小贴纸暂时没贴稳");
+
+    const update = await service.updateDiaryState(target.diary_id, userId, { is_favorited: true });
+    expect(update.is_favorited).toBe(true);
+  });
 });

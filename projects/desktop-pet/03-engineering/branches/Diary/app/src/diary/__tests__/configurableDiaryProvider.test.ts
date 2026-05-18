@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { ConfigurableDiaryProvider } from "../../../server/llm/configurableDiaryProvider";
 import { demoCharacterConfig } from "../characterConfig";
+import { mockCharacterResonance, mockPortraitNodes } from "../userPortrait/mockPortraitData";
 
 describe("ConfigurableDiaryProvider", () => {
   it("falls back without configured env credentials", async () => {
@@ -29,6 +30,32 @@ describe("ConfigurableDiaryProvider", () => {
 
     expect(reaction.reaction_text).not.toMatch(/模型|接口|风控|隐私命中/);
     expect(reaction.action).toBe("nod");
+  });
+
+  it("reports redacted runtime readiness without exposing provider secrets", () => {
+    const provider = new ConfigurableDiaryProvider({
+      provider: "chat-completions-compatible",
+      authMode: "bearer",
+      apiKey: "test-key",
+      baseUrl: "https://example.test/v1",
+      diaryModel: "test-diary-model",
+      reactionModel: "test-reaction-model",
+      responseFormat: "json_object",
+      ttsProvider: "none",
+      ttsAuthMode: "bearer",
+      ttsEndpoint: "${DIARY_TTS_ENDPOINT}",
+      ttsApiKey: "${DIARY_TTS_API_KEY}",
+      ttsVoice: "${DIARY_TTS_VOICE}",
+    });
+
+    expect(provider.getRuntimeStatus()).toEqual({
+      llm_ready: true,
+      llm_auth_configured: true,
+      llm_base_url_configured: true,
+      llm_model_configured: true,
+      tts_ready: false,
+      tts_provider_enabled: false
+    });
   });
 
   it("maps structured chat-completions JSON into a pet reaction plan", async () => {
@@ -75,6 +102,100 @@ describe("ConfigurableDiaryProvider", () => {
     expect(reaction.action).toBe("happy_bounce");
     expect(reaction.should_speak).toBe(true);
     expect(reaction.voice_audio_url).toBeUndefined();
+  });
+
+  it("maps structured chat-completions JSON into a portrait pet reaction", async () => {
+    const fetchImpl = async () => new Response(JSON.stringify({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            reaction_text: "这颗星我会轻一点看，等你再确认。",
+            emotion: "thinking",
+            action: "thinking_loop",
+            should_speak: true
+          })
+        }
+      }]
+    }), { status: 200 });
+
+    const provider = new ConfigurableDiaryProvider({
+      provider: "chat-completions-compatible",
+      authMode: "bearer",
+      apiKey: "test-key",
+      baseUrl: "https://example.test/v1",
+      diaryModel: "test-diary-model",
+      reactionModel: "test-reaction-model",
+      responseFormat: "json_object",
+      ttsProvider: "none",
+      ttsAuthMode: "bearer",
+      ttsEndpoint: "${DIARY_TTS_ENDPOINT}",
+      ttsApiKey: "${DIARY_TTS_API_KEY}",
+      ttsVoice: "${DIARY_TTS_VOICE}",
+    }, fetchImpl);
+
+    const reaction = await provider.generatePortraitPetReaction({
+      character_config: demoCharacterConfig,
+      fallback: {
+        reaction_id: "fallback_portrait_reaction",
+        scene: "portrait_feedback_disliked",
+        reaction_text: "这张纸条可能还不太准。",
+        emotion: "thinking",
+        action: "thinking_loop",
+        should_speak: true,
+        created_at: "2026-05-18T00:00:00.000Z"
+      },
+      context: { action: "node_feedback", feedback_value: "not_accurate", node_name: "卡点" }
+    });
+
+    expect(reaction.reaction_id).toMatch(/^llm_portrait_reaction_/);
+    expect(reaction.scene).toBe("portrait_feedback_disliked");
+    expect(reaction.reaction_text).toBe("这颗星我会轻一点看，等你再确认。");
+    expect(reaction.action).toBe("thinking_loop");
+  });
+
+  it("maps structured chat-completions JSON into a game-only portrait resonance", async () => {
+    const fetchImpl = async () => new Response(JSON.stringify({
+      choices: [{
+        message: {
+          content: JSON.stringify({
+            character_name: "暖光守星者",
+            role_type: "陪伴 / 收尾 / 稳定推进",
+            role_key: "warm_mage",
+            resonance_points: ["会先照亮一小段路", "喜欢把进步慢慢收好"],
+            pet_explanation: "我觉得你像会把小胜利认真护住的人。"
+          })
+        }
+      }]
+    }), { status: 200 });
+
+    const provider = new ConfigurableDiaryProvider({
+      provider: "chat-completions-compatible",
+      authMode: "bearer",
+      apiKey: "test-key",
+      baseUrl: "https://example.test/v1",
+      diaryModel: "test-diary-model",
+      reactionModel: "test-reaction-model",
+      responseFormat: "json_object",
+      ttsProvider: "none",
+      ttsAuthMode: "bearer",
+      ttsEndpoint: "${DIARY_TTS_ENDPOINT}",
+      ttsApiKey: "${DIARY_TTS_API_KEY}",
+      ttsVoice: "${DIARY_TTS_VOICE}",
+    }, fetchImpl);
+
+    const resonance = await provider.generatePortraitCharacterResonance({
+      character_config: demoCharacterConfig,
+      active_nodes: mockPortraitNodes,
+      fallback: mockCharacterResonance
+    });
+
+    expect(resonance.resonance_id).toMatch(/^llm_resonance_/);
+    expect(resonance.status).toBe("ready");
+    expect(resonance.character_name).toBe("暖光守星者");
+    expect(resonance.resonance_points).toEqual(["会先照亮一小段路", "喜欢把进步慢慢收好"]);
+    expect(resonance.role_asset).toContain("resonance-role-sweet-mage.png");
+    expect(resonance.source_summary.privacy_boundary).toBe("summary_only");
+    expect(resonance.pet_explanation).not.toMatch(/现实人格|心理诊断|模型|接口/);
   });
 
   it("supports keyless local chat-completions adapters", async () => {
