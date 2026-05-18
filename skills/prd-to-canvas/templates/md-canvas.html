@@ -3559,6 +3559,21 @@
     .md-table th[data-cell-align="right"],
     .md-table td[data-cell-align="right"] { text-align: right; }
 
+    /* ============================================ Multi-cell selection ============================================ */
+    /* Excel-style drag-to-select: highlight selected cells with a translucent
+       primary tint. Background-only (not outline / box-shadow) so it works
+       with table-layout:fixed + <col> widths without column-divider artifacts. */
+    .md-table .is-multi-selected {
+      background: rgba(204, 120, 92, 0.18) !important;
+    }
+    body.is-multi-select-dragging,
+    body.is-multi-select-dragging * {
+      user-select: none !important;
+      -webkit-user-select: none !important;
+    }
+    body.is-multi-select-dragging .md-table th,
+    body.is-multi-select-dragging .md-table td { cursor: cell !important; }
+
     /* ============================================ HR clickable hit area ============================================ */
     .md-hr {
       min-height: 36px;
@@ -3951,6 +3966,9 @@
     <button type="button" class="ta-btn" data-act="align-left" title="居左 (默认)">⇤</button>
     <button type="button" class="ta-btn" data-act="align-center" title="居中">⇔</button>
     <button type="button" class="ta-btn" data-act="align-right" title="居右">⇥</button>
+    <button type="button" class="ta-btn" data-act="bold" title="加粗"><b>B</b></button>
+    <button type="button" class="ta-btn" data-act="italic" title="斜体"><i>I</i></button>
+    <button type="button" class="ta-btn" data-act="clear-content" title="清空所选 cell 内容">⌫</button>
     <span class="ta-sep"></span>
     <button type="button" class="ta-btn ta-danger" data-act="row-delete" title="删除当前行">－行</button>
     <button type="button" class="ta-btn ta-danger" data-act="col-delete" title="删除当前列">－列</button>
@@ -12530,6 +12548,51 @@
       if (block) block.dataset.layoutEdited = 'true';
     }
 
+    // Cells the toolbar's actions should apply to. Multi-select wins; falls
+    // back to the focused single cell (existing behavior).
+    function tableActionTargets() {
+      const sel = Array.from(document.querySelectorAll('.md-table .is-multi-selected'));
+      if (sel.length > 0) return sel;
+      if (tableActionsCell) return [tableActionsCell];
+      return [];
+    }
+
+    function isCellFullyWrappedIn(cell, tagName) {
+      const kids = Array.from(cell.childNodes).filter(n => !(n.nodeType === 3 && !n.nodeValue.trim()));
+      return kids.length === 1 && kids[0].nodeType === 1 && kids[0].tagName === tagName;
+    }
+    function wrapCellWith(cell, tagName) {
+      if (isCellFullyWrappedIn(cell, tagName)) return;
+      const wrap = document.createElement(tagName);
+      while (cell.firstChild) wrap.appendChild(cell.firstChild);
+      cell.appendChild(wrap);
+    }
+    function unwrapCellFrom(cell, tagName) {
+      if (!isCellFullyWrappedIn(cell, tagName)) return;
+      const wrap = Array.from(cell.childNodes).find(n => n.nodeType === 1);
+      while (wrap.firstChild) cell.insertBefore(wrap.firstChild, wrap);
+      wrap.remove();
+    }
+    function toggleInlineWrap(tagName) {
+      const cells = tableActionTargets();
+      if (cells.length === 0) return;
+      // If ALL targets are already wrapped → unwrap. Otherwise wrap the
+      // unwrapped ones. (Mixed state biases toward apply, matching Excel.)
+      const allWrapped = cells.every(c => isCellFullyWrappedIn(c, tagName));
+      cells.forEach(c => {
+        if (allWrapped) unwrapCellFrom(c, tagName);
+        else wrapCellWith(c, tagName);
+        markTableEdited(c);
+      });
+    }
+    function clearTargetsContent() {
+      const cells = tableActionTargets();
+      cells.forEach(c => {
+        c.innerHTML = '';
+        markTableEdited(c);
+      });
+    }
+
     tableActions.addEventListener('mousedown', e => {
       const btn = e.target.closest('.ta-btn');
       if (!btn) return;
@@ -12541,9 +12604,12 @@
       else if (act === 'col-right') insertTableCol('right');
       else if (act === 'row-delete') deleteTableRow();
       else if (act === 'col-delete') deleteTableCol();
-      else if (act === 'align-left') setCellAlign(tableActionsCell, 'left');
-      else if (act === 'align-center') setCellAlign(tableActionsCell, 'center');
-      else if (act === 'align-right') setCellAlign(tableActionsCell, 'right');
+      else if (act === 'align-left') tableActionTargets().forEach(c => setCellAlign(c, 'left'));
+      else if (act === 'align-center') tableActionTargets().forEach(c => setCellAlign(c, 'center'));
+      else if (act === 'align-right') tableActionTargets().forEach(c => setCellAlign(c, 'right'));
+      else if (act === 'bold') toggleInlineWrap('STRONG');
+      else if (act === 'italic') toggleInlineWrap('EM');
+      else if (act === 'clear-content') clearTargetsContent();
     });
 
     document.getElementById('content').addEventListener('focusin', e => {
@@ -12769,6 +12835,101 @@
         }
       }
       markTableEdited(cell);
+    });
+
+    // ============================================================
+    // Multi-cell selection — Excel-style drag a rectangle of cells, then
+    // toolbar actions (align / bold / italic / clear) apply to all of them.
+    // ============================================================
+    const MULTI_DRAG_THRESHOLD = 6;
+    let multiSelect = null;      // { table, anchor:{r,c}, focus:{r,c} }
+    let multiDragState = null;   // { cell, x, y, started }
+
+    function rcOfCell(cell) {
+      const tr = cell.closest('tr');
+      if (!tr) return null;
+      const table = tr.closest('table');
+      if (!table) return null;
+      const rows = Array.from(table.querySelectorAll('tr'));
+      return { table, r: rows.indexOf(tr), c: Array.from(tr.children).indexOf(cell) };
+    }
+
+    function clearMultiSelection() {
+      document.querySelectorAll('.md-table .is-multi-selected').forEach(el => el.classList.remove('is-multi-selected'));
+      multiSelect = null;
+    }
+
+    function applyMultiSelection() {
+      document.querySelectorAll('.md-table .is-multi-selected').forEach(el => el.classList.remove('is-multi-selected'));
+      if (!multiSelect) return;
+      const { table, anchor, focus } = multiSelect;
+      const r1 = Math.min(anchor.r, focus.r), r2 = Math.max(anchor.r, focus.r);
+      const c1 = Math.min(anchor.c, focus.c), c2 = Math.max(anchor.c, focus.c);
+      const rows = Array.from(table.querySelectorAll('tr'));
+      for (let r = r1; r <= r2; r++) {
+        const tr = rows[r];
+        if (!tr) continue;
+        for (let c = c1; c <= c2; c++) {
+          const cell = tr.children[c];
+          if (cell) cell.classList.add('is-multi-selected');
+        }
+      }
+    }
+
+    document.getElementById('content').addEventListener('mousedown', e => {
+      if (!editMode) return;
+      if (cellResize) return; // resize wins
+      const cell = e.target.closest && e.target.closest('th, td');
+      if (!cell || !cell.isContentEditable) return;
+      if (!cell.closest('.md-table')) return;
+      // Skip when starting on a resize edge — that drag is for column/row size
+      if (detectEdgeMode(cell, e.clientX, e.clientY)) return;
+      // Reset prior selection; rebuild if user actually drags
+      clearMultiSelection();
+      multiDragState = { cell, x: e.clientX, y: e.clientY, started: false };
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!multiDragState) return;
+      if (cellResize) { multiDragState = null; document.body.classList.remove('is-multi-select-dragging'); return; }
+      if (!multiDragState.started) {
+        const dx = Math.abs(e.clientX - multiDragState.x);
+        const dy = Math.abs(e.clientY - multiDragState.y);
+        if (dx < MULTI_DRAG_THRESHOLD && dy < MULTI_DRAG_THRESHOLD) return;
+        multiDragState.started = true;
+        document.body.classList.add('is-multi-select-dragging');
+      }
+      const overEl = document.elementFromPoint(e.clientX, e.clientY);
+      const targetCell = overEl && overEl.closest && overEl.closest('th, td');
+      if (!targetCell) return;
+      const a = rcOfCell(multiDragState.cell);
+      const f = rcOfCell(targetCell);
+      if (!a || !f || a.table !== f.table) return;
+      multiSelect = { table: a.table, anchor: { r: a.r, c: a.c }, focus: { r: f.r, c: f.c } };
+      applyMultiSelection();
+      // Suppress browser text selection during drag
+      const sel = window.getSelection();
+      if (sel) sel.removeAllRanges();
+      e.preventDefault();
+    });
+
+    document.addEventListener('mouseup', () => {
+      if (!multiDragState) return;
+      const wasDragging = multiDragState.started;
+      multiDragState = null;
+      document.body.classList.remove('is-multi-select-dragging');
+      // Drag ended on a single cell → not a selection, drop it
+      if (wasDragging && multiSelect) {
+        const { anchor, focus } = multiSelect;
+        if (anchor.r === focus.r && anchor.c === focus.c) clearMultiSelection();
+      }
+    });
+
+    // Esc clears the multi-selection
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape' && multiSelect) {
+        clearMultiSelection();
+      }
     });
 
     // ============================================================
