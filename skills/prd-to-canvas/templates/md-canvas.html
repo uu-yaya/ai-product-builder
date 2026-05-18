@@ -12904,22 +12904,23 @@
     document.addEventListener('mousemove', e => {
       if (!multiDragState) return;
       if (cellResize) { multiDragState = null; document.body.classList.remove('is-multi-select-dragging'); return; }
+      const overEl = document.elementFromPoint(e.clientX, e.clientY);
+      const targetCell = overEl && overEl.closest && overEl.closest('th, td');
+      // Multi-cell drag only activates when the cursor enters a DIFFERENT
+      // cell from the anchor. Movement within the same cell stays native
+      // text-selection, so users can highlight / copy text inside a cell.
       if (!multiDragState.started) {
-        const dx = Math.abs(e.clientX - multiDragState.x);
-        const dy = Math.abs(e.clientY - multiDragState.y);
-        if (dx < MULTI_DRAG_THRESHOLD && dy < MULTI_DRAG_THRESHOLD) return;
+        if (!targetCell || targetCell === multiDragState.cell) return;
         multiDragState.started = true;
         document.body.classList.add('is-multi-select-dragging');
       }
-      const overEl = document.elementFromPoint(e.clientX, e.clientY);
-      const targetCell = overEl && overEl.closest && overEl.closest('th, td');
       if (!targetCell) return;
       const a = rcOfCell(multiDragState.cell);
       const f = rcOfCell(targetCell);
       if (!a || !f || a.table !== f.table) return;
       multiSelect = { table: a.table, anchor: { r: a.r, c: a.c }, focus: { r: f.r, c: f.c } };
       applyMultiSelection();
-      // Suppress browser text selection during drag
+      // Suppress browser text selection now that we know it's a cross-cell drag
       const sel = window.getSelection();
       if (sel) sel.removeAllRanges();
       e.preventDefault();
