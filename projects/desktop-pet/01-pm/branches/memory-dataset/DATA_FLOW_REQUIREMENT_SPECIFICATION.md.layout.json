@@ -36,8 +36,41 @@
       "cols": [
         244,
         122,
-        151,
-        317
+        233,
+        432
+      ],
+      "rows": [
+        {
+          "index": 1,
+          "height": 92
+        }
+      ],
+      "aligns": [
+        {
+          "row": 1,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 2,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 3,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 4,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 5,
+          "col": 0,
+          "align": "center"
+        }
       ]
     },
     {
