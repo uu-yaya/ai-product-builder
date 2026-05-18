@@ -3551,6 +3551,17 @@
       transform: scale(1.12);
     }
 
+    /* ============================================ Cell-level lists (ul / ol) ============================================ */
+    /* GFM doesn't natively support block lists inside cells, so we render
+       and serialize them as inline HTML — supported by GitHub / marked /
+       most renderers. Tighter spacing than top-level lists. */
+    .md-table th ul, .md-table td ul,
+    .md-table th ol, .md-table td ol {
+      margin: 0;
+      padding-left: 18px;
+    }
+    .md-table th li, .md-table td li { margin: 2px 0; }
+
     /* ============================================ Per-cell alignment ============================================ */
     /* Stored in layout.json (sidecar) — does not survive GFM round-trip.
        td gets a data-cell-align attribute; CSS keys off that. */
@@ -3968,6 +3979,8 @@
     <button type="button" class="ta-btn" data-act="align-right" title="居右">⇥</button>
     <button type="button" class="ta-btn" data-act="bold" title="加粗"><b>B</b></button>
     <button type="button" class="ta-btn" data-act="italic" title="斜体"><i>I</i></button>
+    <button type="button" class="ta-btn" data-act="list-ul" title="无序列表">•</button>
+    <button type="button" class="ta-btn" data-act="list-ol" title="有序列表">1.</button>
     <button type="button" class="ta-btn" data-act="clear-content" title="清空所选 cell 内容">⌫</button>
     <span class="ta-sep"></span>
     <button type="button" class="ta-btn ta-danger" data-act="row-delete" title="删除当前行">－行</button>
@@ -4289,6 +4302,18 @@
       //  - form controls (checkboxes are handled separately by the list serializer)
       if (node.dataset && node.dataset.skipSerialize === 'true') return '';
       if (node.tagName === 'INPUT' || node.tagName === 'BUTTON') return '';
+      // UL / OL inside a table cell: emit as inline HTML so GFM round-trips
+      // through other markdown tools. (Top-level lists go through serializeBlock
+      // and never reach this function.)
+      if (node.tagName === 'UL' || node.tagName === 'OL') {
+        const tag = node.tagName.toLowerCase();
+        const items = Array.from(node.children).filter(c => c.tagName === 'LI');
+        const itemsHtml = items.map(li => {
+          const liInner = Array.from(li.childNodes).map(domToInlineMd).join('').trim();
+          return '<li>' + liInner + '</li>';
+        }).join('');
+        return '<' + tag + '>' + itemsHtml + '</' + tag + '>';
+      }
       const inner = Array.from(node.childNodes).map(domToInlineMd).join('');
       switch (node.tagName) {
         case 'STRONG': case 'B': return '**' + inner + '**';
@@ -12605,6 +12630,71 @@
       });
     }
 
+    // Detect the single "interesting" child of a cell (the list itself if
+    // that's all the cell holds, ignoring whitespace text nodes).
+    function cellSoleChildList(cell) {
+      const kids = Array.from(cell.childNodes).filter(n =>
+        !(n.nodeType === 3 && !n.nodeValue.trim()));
+      if (kids.length !== 1) return null;
+      const k = kids[0];
+      if (k.nodeType === 1 && (k.tagName === 'UL' || k.tagName === 'OL')) return k;
+      return null;
+    }
+
+    function toggleCellList(cell, listTag) {
+      const existing = cellSoleChildList(cell);
+      if (existing) {
+        if (existing.tagName === listTag) {
+          // Same type → revert to plain text, separating items with <br>
+          const items = Array.from(existing.children).filter(c => c.tagName === 'LI');
+          cell.innerHTML = '';
+          items.forEach((li, i) => {
+            if (i > 0) cell.appendChild(document.createElement('br'));
+            Array.from(li.childNodes).forEach(n => cell.appendChild(n.cloneNode(true)));
+          });
+        } else {
+          // ul ↔ ol switch — same items, different wrapper
+          const newList = document.createElement(listTag);
+          Array.from(existing.children).filter(c => c.tagName === 'LI').forEach(li => {
+            newList.appendChild(li.cloneNode(true));
+          });
+          cell.innerHTML = '';
+          cell.appendChild(newList);
+        }
+      } else {
+        // Plain content → list. Split on <br> / text newlines for items.
+        const parts = [];
+        let buf = '';
+        Array.from(cell.childNodes).forEach(n => {
+          if (n.nodeType === 1 && n.tagName === 'BR') {
+            parts.push(buf);
+            buf = '';
+          } else if (n.nodeType === 3) {
+            const segs = n.nodeValue.split('\n');
+            segs.forEach((seg, i) => {
+              if (i > 0) { parts.push(buf); buf = ''; }
+              buf += seg;
+            });
+          } else {
+            // Wrap element nodes by serializing back to HTML
+            buf += (n.outerHTML || n.textContent || '');
+          }
+        });
+        if (buf) parts.push(buf);
+        const cleaned = parts.map(p => p.trim()).filter(p => p);
+        if (cleaned.length === 0) cleaned.push('');
+        const newList = document.createElement(listTag);
+        cleaned.forEach(p => {
+          const li = document.createElement('li');
+          li.innerHTML = p;
+          newList.appendChild(li);
+        });
+        cell.innerHTML = '';
+        cell.appendChild(newList);
+      }
+      markTableEdited(cell);
+    }
+
     tableActions.addEventListener('mousedown', e => {
       const btn = e.target.closest('.ta-btn');
       if (!btn) return;
@@ -12621,6 +12711,8 @@
       else if (act === 'align-right') tableActionTargets().forEach(c => setCellAlign(c, 'right'));
       else if (act === 'bold') toggleInlineWrap('STRONG');
       else if (act === 'italic') toggleInlineWrap('EM');
+      else if (act === 'list-ul') tableActionTargets().forEach(c => toggleCellList(c, 'UL'));
+      else if (act === 'list-ol') tableActionTargets().forEach(c => toggleCellList(c, 'OL'));
       else if (act === 'clear-content') clearTargetsContent();
     });
 
@@ -12692,6 +12784,16 @@
       const rows = Array.from(table.querySelectorAll('tr'));
       return (tr === rows[rows.length - 1]) && (cell === tr.lastElementChild);
     }
+    function caretInsideListItem(cell) {
+      const sel = window.getSelection();
+      if (!sel || !sel.rangeCount) return false;
+      let n = sel.anchorNode;
+      while (n && n !== cell && n.parentNode) {
+        if (n.tagName === 'LI') return true;
+        n = n.parentNode;
+      }
+      return false;
+    }
 
     document.getElementById('content').addEventListener('keydown', e => {
       if (!editMode) return;
@@ -12724,6 +12826,9 @@
           markTableEdited(cell);
           return;
         }
+        // Inside a <li> in this cell? Let browser default create a new <li>
+        // (so editing in-cell lists works the way users expect).
+        if (caretInsideListItem(cell)) { markTableEdited(cell); return; }
         // Plain Enter → navigate
         e.preventDefault();
         if (isLastCellOfTable(cell)) {
