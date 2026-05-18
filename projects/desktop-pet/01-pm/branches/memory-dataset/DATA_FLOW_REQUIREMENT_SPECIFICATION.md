@@ -100,9 +100,9 @@ flowchart LR
 
 统一 envelope 只统一外壳，不要求所有数据一起上传。每类数据按自己的触发时机单独发送，也允许离线后批量补传。
 
-| data_field | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 消费侧获取的时机 / 场景 | 消费侧回写的时机 / 场景 | 优先级 |
-|---|---|---|---|---|---|---|---|---|
-| `envelope_version` | 上报协议版本 | string | `"1.0"` | Client → Memory | 所有上报都携带 | 不直接消费 | 协议升级时变更 | P0 |
+| 数据 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 消费侧获取的时机 / 场景 | 消费侧回写的时机 / 场景 | 优先级 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| `envelope_version` | 上报协议版本 | string | `"v1.0"` | Client → Memory | 所有上报都携带 | 不直接消费 | 协议升级时变更 | P0 |
 | `record_id` | 事实源唯一 ID | string | `"src_game_event_001"` | Client → Memory | 单条 / 批量均携带 | Memory 返回 `source_record_ids[]` 时客户端可反查 | 客户端生成并保证本地去重 | P0 |
 | `record_type` | 事实源类型 | enum | `game_event` | Client → Memory | 按事件类型独立发送 | 客户端查询记忆详情时识别来源 | 客户端上报时填写 | P0 |
 | `game_id` | 游戏标识 | string | `"game_abc"` | Client → Memory / Memory → Client | 所有游戏相关数据必带 | 客户端按当前游戏过滤记忆 | 游戏切换、启动、关闭、查询时都带 | P0 |
