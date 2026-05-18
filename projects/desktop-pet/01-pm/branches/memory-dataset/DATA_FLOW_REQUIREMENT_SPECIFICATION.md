@@ -831,7 +831,7 @@ MCP 信号只接受用户授权 app 的白名单字段。客户端消费的是 M
 游戏链路固定为 `Game SDK → Client → Memory`。客户端可以全量上报 `idip_snapshot`；差异、异常、里程碑由 Memory 或游戏侧整理后返回给客户端消费。
 
 | 数据 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-|---|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `idip_snapshot` | 游戏状态完整快照 | object | `{level:88,rank:"钻石二"}` | Client → Memory | 生命周期快照 / 周期心跳 / 批量补传 | Memory 加工后客户端在开局、复盘、日记、高光中消费 | 启动、关闭、session 结束、心跳时完整上报 | P0 |
 | `idip_field_metadata` | IDIP 字段语义配置 | object | `{level:{type:"int"}}` | Client → Memory / Memory → Client | 游戏接入配置 / query response | 客户端解释进度字段、复盘展示 | 游戏接入或字段 schema 变化时上报 | P0 |
 | `idip_delta` | 状态变化 | object | `{level:"+1"}` | Memory → Client / Client → Memory | push refs + pull detail / game event | 结算页、复盘、日记、祝贺 | 游戏侧直接提供 delta 时可上报；否则 Memory 由快照对比生成 | P1 |
@@ -843,7 +843,7 @@ MCP 信号只接受用户授权 app 的白名单字段。客户端消费的是 M
 实时事件包括通用事件和游戏自定义事件。基本事件至少包含 `game_launch`、`game_close`、`session_start`、`session_end`、`settlement`、`objective_progress`、`fail`、`success`。
 
 | 数据 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-|---|---|---|---|---|---|---|---|---|
+| --- | --- | --- | --- | --- | --- | --- | --- | --- |
 | `game_session.start` | 一局 / 一段游戏开始 | ISO 8601 | `"2026-05-12T20:00Z"` | Client → Memory | `session_start` | session 复盘、时长统计起点 | Game SDK 推送后立即上报 | P0 |
 | `game_session.end` | 一局 / 一段游戏结束 | ISO 8601 | `"2026-05-12T20:30Z"` | Client → Memory | `session_end` | 结算、复盘、日记触发 | Game SDK 推送后立即上报 | P0 |
 | `game_session.in_game_time` | 游戏内时间 | string | `"游戏内第 5 日"` | Client → Memory | game_event / heartbeat | 剧情同步、复盘时间线 | 游戏提供时随事件或心跳上报 | P0 |
