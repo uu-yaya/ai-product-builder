@@ -57,13 +57,13 @@
 |  | 5. 用户删记忆、改记忆、关闭授权后，记忆系统负责让这些变更真正生效，避免旧记忆继续被使用 |  |
 | 游戏 SDK | 向客户端提供游戏生命周期、状态快照、实时事件和游戏自定义字段 | 不直接绕过客户端写入记忆系统 |
 
-### 2.2 Source Record 与 Derived Memory
+### 2.2 Source Record / Derived Memory / Current Context
 
-| 概念 | 定义 | 例子 |
-|---|---|---|
-| `source_record` | 客户端上报给记忆系统的标准化原始事实记录 | `game_event`、`idip_snapshot`、`chat_message`、`user_action`、`pc_signal`、`vlm_observation` |
-| `derived_memory` | 记忆系统基于 source records 加工出的可消费记忆 | `atomic_facts`、`episode`、`profile`、`highlight_candidate`、`memory_digest` |
-| `current_context` | 客户端基于 memory 返回 + 游戏数据 + PC 状态 + 本地 VLM 生成的运行时判断 | `activity_topic`、`mood_estimate`、`interrupt_suitability` |
+| 概念 | 定义 | 解释 | 例子 |
+| --- | --- | --- | --- |
+| `source_record` | 事实源记录 | 客户端上报给记忆系统的标准化原始事实记录 | `game_event`、`idip_snapshot`、`chat_message`、`user_action`、`pc_signal`、`vlm_observation` |
+| `derived_memory` | 加工记忆 | 记忆系统基于 `source records` 加工出的可消费记忆 | `atomic_facts`、`episode`、`profile`、`highlight_candidate`、`memory_digest` |
+| `current_context` | 运行时上下文 | 客户端基于 memory 返回 + 游戏数据 + PC 状态 + 本地 VLM 生成的当下判断 | `activity_topic`、`mood_estimate`、`interrupt_suitability` |
 
 ### 2.3 证据链规则
 
