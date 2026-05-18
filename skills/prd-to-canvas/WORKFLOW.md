@@ -21,9 +21,12 @@ Phase 0 通过后：
 
 1. **解析参数**：用户给的 PRD 路径（必填）+ 可选 `--design <path>` + 可选 `--out <dir>`
 2. **检查 PRD 可读**：路径存在、是 .md / .markdown 文件、能 Read
-3. **确定输出目录**：默认 `<prd_dir>/canvas/`，或 `--out` 指定。不存在则创建。
-   - 注意：不同 PRD 通常本来就在不同目录（如 `Diary/` vs `user-portrait/`），它们的 `<prd_dir>/canvas/` 也自然不同，不会撞。
-   - 若两份 PRD 同目录（罕见），用 `--out` 显式分开。
+3. **算 PRD slug**：PRD basename 去 `.md` / `.markdown` 后缀，小写化，把空格 / `_` / 其他特殊字符替换为 `-`，再去掉开头结尾的 `-`。例：
+   - `DIARY_MODULE_REQUIREMENTS.md` → `diary-module-requirements`
+   - `DATA_FLOW_REQUIREMENT_SPECIFICATION.md` → `data-flow-requirement-specification`
+4. **确定输出目录**：默认 `<prd_dir>/canvas/<prd_slug>/`，或 `--out` 指定。不存在则创建。
+   - **为什么不用 `<prd_dir>/canvas/`**：实测发现同一目录下可能有多份 PRD（如 `memory-dataset/` 下放了 DRS 和 DFRS 两份），平铺 `canvas/` 会撞文件互相覆盖。**默认必带 slug 子目录**才安全。
+   - 用户可用 `--out <path>` 显式指定别的位置（如 `--out ./canvas-foo`）。
 4. **检测 DESIGN.md**（按 SKILL.md 中的检测顺序）。结果存入 session state
 5. **询问用户两个问题**（用 AskUserQuestion 或同等机制）：
    - **Q1: 输入范围** — 单份 PRD / 多份批量（v1 仅实现单份；多份提示用户当前不支持）

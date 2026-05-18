@@ -103,16 +103,20 @@ prd-to-canvas/
 
 ## 输出落哪
 
-默认输出在 `<原 PRD 目录>/canvas/`：
+默认输出在 `<原 PRD 目录>/canvas/<PRD-slug>/`（slug = PRD basename 去后缀小写化）：
 
 ```
-your-prd.md                ← 你原来的（永远不动）
+your-prd.md                          ← 你原来的（永远不动）
 canvas/
-├── analysis.html          ← Phase 2 报告（只读 dashboard）
-├── decisions.json         ← Phase 3 对话决策的审计/重放记录
-├── canonical.md           ← Phase 4 重写
-└── index.html             ← 最终成品，浏览器双击打开
+└── your-prd/                        ← 每份 PRD 自己一个子目录
+    ├── analysis.html                ← Phase 2 报告（只读 dashboard）
+    ├── decisions.json               ← Phase 3 对话决策的审计/重放记录
+    ├── canonical.md                 ← Phase 4 重写
+    └── index.html                   ← 最终成品，浏览器双击打开
 ```
+
+> 为什么要 slug 子目录：同目录可能有多份 PRD（实测 `memory-dataset/` 下放了
+> DRS 和 DFRS 两份），平铺 `canvas/` 会撞文件互相覆盖。slug 子目录默认隔离。
 
 如果你想换路径：
 

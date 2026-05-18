@@ -30,14 +30,22 @@ Step 6: 确认 ready，进 Phase 1
 ### 检测
 
 ```bash
-# 算出预期输出目录
-OUT_DIR="<prd_dir>/canvas"  # 或者 --out 指定的
+# 算出预期输出目录（slug = PRD basename 去后缀小写化 / 见 WORKFLOW.md Step 3）
+OUT_DIR="<prd_dir>/canvas/<prd_slug>"  # 或者 --out 指定的
 
 # 看有没有 decisions.partial.json（Phase 3 中途死了的进度）
 test -f "$OUT_DIR/decisions.partial.json" && cat "$OUT_DIR/decisions.partial.json"
 
 # 或者 decisions.json（完整跑过）
 test -f "$OUT_DIR/decisions.json" && cat "$OUT_DIR/decisions.json"
+
+# 旧版本兼容：如果新路径没找到，也看一下平铺 canvas/decisions.json
+# （如果存在 + prd_path 匹配当前 PRD，按返访处理；不匹配就当首次）
+test -f "<prd_dir>/canvas/decisions.json" && {
+  cat "<prd_dir>/canvas/decisions.json" | grep -q "$(basename "$PRD_PATH")" \
+    && echo "OLD_LAYOUT_RETURNING_USER" \
+    || echo "OLD_LAYOUT_DIFFERENT_PRD"
+}
 ```
 
 如果 `decisions.partial.json` 存在且 `partial: true` → **断点续传场景**：
@@ -675,7 +683,7 @@ options:
 模式: server  /  file
 agent: 执行+审核（E 模式）  /  单 agent（A 模式）
 
-即将生成（在 <out>/ = <prd_dir>/canvas/）:
+即将生成（在 <out>/ = <prd_dir>/canvas/<prd_slug>/）:
 
   candidates.json       Phase 1 检测出的 N 个候选块（agent 内部用）
   review.json           Phase 1 审核 agent 复查（仅 E 模式）

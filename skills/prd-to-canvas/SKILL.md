@@ -143,7 +143,7 @@ CSS source order 决定后定义的优先——这块自动覆盖模板内置的
 
 ## 关键原则
 
-- **永远不覆盖用户原 PRD**。所有输出落在原 PRD 同目录下的 `canvas/` 子目录（或用户指定的输出路径）。
+- **永远不覆盖用户原 PRD**。所有输出落在 `<原 PRD 目录>/canvas/<PRD-slug>/` 子目录（或用户指定的输出路径）。**slug 子目录是必需的**——避免同目录多份 PRD 共享 `canvas/` 互相覆盖。
 - **PRD 文件名必须传给模板**（关键！）。md-canvas 模板里的 `FILENAME` 常量被用来组 localStorage key（`md-canvas:<FILENAME>:mocks` / `:prompts` / `:agents` / `:b-extras` / `:prototypes`）。如果两份 PRD 共享同一个 FILENAME：
   - 它们的 canvas-only 块状态（Mock / Prompt / Agent / Prototype / B 模式额外 status）**互相污染**
   - 打开新 canvas 时浏览器会弹"检测到本地未提交修改，是否恢复？"——把另一份 PRD 的状态恢复到当前 PRD
@@ -157,7 +157,7 @@ CSS source order 决定后定义的优先——这块自动覆盖模板内置的
 
 ## 输出文件清单
 
-跑完整流程后，用户会在 `<prd-dir>/canvas/` 看到：
+跑完整流程后，用户会在 `<prd-dir>/canvas/<prd-slug>/` 看到：
 
 | 文件 | 用途 |
 | --- | --- |
