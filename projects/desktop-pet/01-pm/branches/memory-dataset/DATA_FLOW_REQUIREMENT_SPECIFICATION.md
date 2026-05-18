@@ -122,14 +122,14 @@ flowchart LR
 1. 普通行为事实：例如用户点击、打开某个记忆页、忽略一条提示，作为事实源记录进入 Memory。
 2. 状态变更行为：例如保存、删除、纠错、确认画像、授权变更，属于 mutation，会改变 Memory 中的记忆状态，必须有 ack。
 
-| 上报方式 | 适合数据 | 触发时机 | 是否允许批量 | 是否必须 ack | 传输特点 | 优先级 |
-|---|---|---|---|---|---|---|
-| 实时事实源上报 | `game_event`、普通 `user_action`、`chat_message`、`pet_runtime_event` | 事件发生立即发送 | 一般不批量；离线时可补传 | 建议 ack | 小包；低延迟；每条保留独立 `record_id` | P0 |
-| 生命周期快照 | `game_launch`、`game_close`、`session_start`、`session_end`、完整 `idip_snapshot` | 游戏启动 / 关闭 / 一局开始结束 | 可按 session 批量补传 | 必须 ack | 中小包；完整快照；用于建立 session 边界 | P0 |
-| 周期心跳 | 完整 `idip_snapshot`、必要 PC 低敏状态 | 游戏运行中按配置间隔发送 | 可合并连续心跳 | 建议 ack；失败可下次补发 | 允许完整快照；由 Memory 做对比；不要求客户端只发 diff | P0 / P1 |
-| VLM 语义观察上报 | `vlm_observation`、`semantic_tags[]`、`user_visible_summary` | 强感知开启且出现业务需要；弱感知仅在用户保存、高光、复盘、日记等确认场景 | 不建议批量；按观察事件发送 | 必须 ack | 不上传原图；必须带 `source_record_ids[]` 与 `raw_frame_stored=false` | P1 |
-| 用户变更回写 | `user_action.save_highlight`、`user_action.delete_memory`、`user_action.correct_memory`、`user_action.confirm_profile`、`consent_update` | 用户执行保存 / 删除 / 纠错 / 确认 / 授权变更时 | 不批量 | 必须 ack | 高优先级 mutation；影响 Memory 状态；失败需重试或提示用户 | P0 |
-| 批量补传 | 离线期间积压的 `source_records`、低频日志、延迟上传事件 | 网络恢复 / 客户端空闲 / 退出前 flush | 是 | 批次必须 ack | 多条 Envelope 批量发送；单条仍保留独立 `record_id`、`occurred_at`、`consent_snapshot_id` | P1 |
+| 上报方式 | 适合数据 | 触发时机 | 是否允许批量 | 传输特点 | 优先级 |
+| --- | --- | --- | --- | --- | --- |
+| 实时事实源上报 | `game_event`、普通 `user_action`、`chat_message`、`pet_runtime_event` | 事件发生立即发送 | 不批量；离线时可补传 | 小包；低延迟；每条保留独立 `record_id` | P0 |
+| 生命周期快照 | `game_launch`、`game_close`、`session_start`、`session_end`、完整 `idip_snapshot` | 游戏启动 / 关闭 / 一局开始结束 | 可按 session 批量补传 | 中小包；完整快照；用于建立 session 边界 | P0 |
+| 周期心跳 | 完整 `idip_snapshot`、必要 PC 低敏状态 | 游戏运行中按配置间隔发送 | 可合并连续心跳 | 允许完整快照；由 Memory 做对比；不要求客户端只发 diff | P0 / P1 |
+| VLM 语义观察上报 | `vlm_observation`、`semantic_tags[]`、`user_visible_summary` | 强感知开启且出现业务需要；弱感知仅在用户保存、高光、复盘、日记等确认场景 | 按观察事件发送 | 不上传原图；必须带 `source_record_ids[]` 与 `raw_frame_stored=false` | P1 |
+| 用户变更回写 | `user_action.save_highlight`、`user_action.delete_memory`、`user_action.correct_memory`、`user_action.confirm_profile`、`consent_update` | 用户执行保存 / 删除 / 纠错 / 确认 / 授权变更时 | 不批量 | 高优先级 mutation；影响 Memory 状态；失败需重试或提示用户 | P0 |
+| 批量补传 | 离线期间积压的 `source_records`、低频日志、延迟上传事件 | 网络恢复 / 客户端空闲 / 退出前 flush | 是 | 多条 Envelope 批量发送；单条仍保留独立 `record_id`、`occurred_at`、`consent_snapshot_id` | P1 |
 
 补充规则：
 
