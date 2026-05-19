@@ -358,7 +358,6 @@ flowchart LR
 | `diary_chat` | 日记页对话 | 用户进入日记页 | §5.4 | P1 |
 | `memory_review` | 个人画像页对话 | 用户进入个人画像页 | §5.5 | P1 |
 | `settings_chat` | 设置页对话（如询问关系定位、授权说明） | 用户在设置页与桌宠对话 | §5.6 | P1 |
-| `screen_share_chat` | 强感知屏幕共享期间的对话 | `vlm_strong_sensing` 开启期间 | §5.7.1 | P1 |
 
 **类别 B：桌宠主动表达场景**（`chat_message` 用，speaker=pet）
 
@@ -444,9 +443,11 @@ sequenceDiagram
 
 ##### 3.1.2.3 游戏自定义事件
 
-游戏有 SDK 的，可在通用事件之外追加自定义 `event_type`（envelope 字段 `trigger_cause=event_driven`），通过 `custom_fields` 携带特定字段。`custom_fields` 禁止承载真实账号、付费记录、实名信息。
+游戏有 SDK 的，可在通用事件之外追加自定义 `event_type`（envelope 字段 `trigger_cause=event_driven`），通过 `custom_fields` 携带该游戏专属字段。`custom_fields` 禁止承载真实账号、付费记录、实名信息。
 
-**示例**：
+> **三层字段归属**：① `common_fields` 第一层（**所有游戏共通**，见 §3.1.2.4） + ② `common_fields` 第二层（**按 game_category 适用**，见 §3.1.2.5） + ③ `custom_fields`（该**单个游戏**专属）。
+
+**示例（PvP 对战类游戏 game_category=pvp_battle）**：
 
 ```json
 {
@@ -455,36 +456,172 @@ sequenceDiagram
   "payload": {
     "event_type": "boss_defeated",
     "session_id": "sess_001",
-    "match_id": "match_789",
     "common_fields": {
-      "level_id": "chapter_02",
-      "difficulty": "hard",
-      "client_locale": "zh-CN"
+      "game_category": "pvp_battle",
+      "game_mode": "ranked_match",
+      "client_locale": "zh-CN",
+      "game_version": "2.7.1",
+      "match_id": "match_789",
+      "match_result": "win",
+      "team_size": 5,
+      "map_id": "summoner_rift"
     },
     "custom_fields": {
       "boss_id": "boss_dragon",
       "duration_sec": 420,
-      "party_size": 4,
       "remaining_hp_percent": 12
     }
   }
 }
 ```
 
-##### 3.1.2.4 `common_fields` 字段表
+##### 3.1.2.4 `common_fields` 第一层：跨所有游戏通用字段
 
-> `common_fields` 是 game_event payload 内的固定子对象，承载跨游戏共有的会话 / 关卡 / 难度 / 区服等结构化字段。`custom_fields` 才允许游戏自定义。
+> 这一层字段**任何 game_category 都适用**，必填字段所有接入游戏都必须提供。`game_category` 字段是游戏接入时固定的（同一游戏只有一个值），用来决定第二层（§3.1.2.5）适用哪套字段。
 
 | 字段 | 含义 | 数据类型 | 必填 | 示例值 | 优先级 |
 | --- | --- | --- | --- | --- | --- |
 | `session_id` | 一局 / 一段游戏的会话 ID | string | 是 | "sess_2026051821001" | P0 |
-| `match_id` | 对局 / 比赛 ID（PvP 类游戏） | string | 否 | "match_789" | P0 |
-| `level_id` | 关卡 / 章节 ID（PvE 类游戏） | string | 否 | "chapter_02" | P0 |
-| `difficulty` | 难度档位 | enum / string | 否 | "hard" | P0 |
+| `game_category` | **游戏类别**（决定第二层字段适用范围，详见 §3.1.2.5）。enum：`pvp_battle` / `pve_quest` / `pve_roguelike` / `open_world` / `card_strategy` / `simulation` / `other` | enum | 是 | "pvp_battle" | **P0** |
+| `game_mode` | 运行时游戏模式（同一游戏不同模式可变，如 ranked / casual / story / coop / ...） | string | 否 | "ranked_match" | P0 |
 | `client_locale` | 客户端语言区域 | string (BCP47) | 是 | "zh-CN" | P1 |
 | `game_version` | 游戏版本号 | string | 是 | "2.7.1" | P1 |
-| `game_mode` | 游戏模式（ranked / casual / arena / ...） | string | 否 | "ranked_match" | P0 |
+
+> **`game_category` vs `game_mode` 的边界**：category 在游戏**接入时固定**，整个生命周期不变；mode 是**运行时**用户选择的玩法模式，可在同一游戏内切换。一个 `pvp_battle` 游戏可能有 `ranked / casual / arena` 多种 mode；一个 `pve_quest` 游戏可能有 `story / coop / hard_mode` 多种 mode。
+
+##### 3.1.2.5 `common_fields` 第二层：按 `game_category` 适用的字段
+
+> 每个 game_category 给出**典型的、跨同类游戏可比较**的字段。游戏接入方按 category 选用适用字段，**不适用的字段不填**；该游戏**独有**的字段走 §3.1.2.3 `custom_fields`。每个游戏接入时由 PM + Engineering + 游戏接入方三方 review schema。
+
+```mermaid
+flowchart TD
+    Start([游戏接入<br/>需要选 game_category]) --> Q1{长期养成型？<br/>人口 / 经济 / 农场 / 角色<br/>无明确胜负}
+    Q1 -->|是| C_SIM([simulation])
+    Q1 -->|否| Q2{回合制 + 牌组对战？}
+    Q2 -->|是| C_CARD([card_strategy])
+    Q2 -->|否| Q3{玩家死亡后整局归零？<br/>每次随机生成关卡}
+    Q3 -->|是| C_ROGUE([pve_roguelike])
+    Q3 -->|否| Q4{每局独立对局 + 段位 / 胜负？<br/>玩家 vs 玩家}
+    Q4 -->|是| C_PVP([pvp_battle])
+    Q4 -->|否| Q5{按章节 / 关卡推进<br/>的剧情型？}
+    Q5 -->|是| C_QUEST([pve_quest])
+    Q5 -->|否| Q6{探索为主？<br/>无明确对局<br/>世界持续状态}
+    Q6 -->|是| C_OPEN([open_world])
+    Q6 -->|否| C_OTHER([other<br/>走 custom_fields<br/>如音游 / 竞速 / 体育模拟])
+
+    style C_SIM fill:#fef3c7,stroke:#92400e
+    style C_CARD fill:#fef3c7,stroke:#92400e
+    style C_ROGUE fill:#fef3c7,stroke:#92400e
+    style C_PVP fill:#fef3c7,stroke:#92400e
+    style C_QUEST fill:#fef3c7,stroke:#92400e
+    style C_OPEN fill:#fef3c7,stroke:#92400e
+    style C_OTHER fill:#e5e7eb,stroke:#6b7280
+```
+
+###### A. `pvp_battle` PvP 对战类（MOBA / FPS / 格斗 / 即时战略）
+
+> **核心特征**：玩家 vs 玩家，每局独立 `match_id`，段位 / 排名是核心成长。**典型游戏**：王者荣耀 / LoL / DOTA2 / CS:GO / Valorant / Apex / 街霸。**桌宠陪伴重点**：赛后复盘、连败安慰、上分庆祝。
+
+| 字段 | 含义 | 数据类型 | 必填 | 示例值 | 优先级 |
+| --- | --- | --- | --- | --- | --- |
+| `match_id` | 对局 / 比赛 ID | string | 是（对该类必填） | "match_789" | P0 |
+| `match_result` | 对局结果 | enum (`win` / `lose` / `draw` / `quit`) | 否 | "win" | P0 |
+| `mmr` | 匹配分 | number | 否 | 2350 | P1 |
+| `rank_tier` | 段位（铂金 / 钻石 / 王者 等，游戏自定义枚举） | string | 否 | "diamond_3" | P1 |
 | `team_size` | 当前队伍人数 | integer | 否 | 5 | P1 |
+| `opponent_count` | 对方人数 | integer | 否 | 5 | P1 |
+| `map_id` | 地图 ID | string | 否 | "summoner_rift" | P1 |
+| `kda` | 击杀 / 死亡 / 助攻三元组 | object `{k, d, a}` | 否 | `{k:8, d:3, a:12}` | P1 |
+
+###### B. `pve_quest` PvE 剧情 / 任务类（RPG / 解谜 / 单机闯关）
+
+> **核心特征**：按章节 / 关卡推进，有明确进度感和叙事；死亡重来仍在原关卡。**典型游戏**：仙剑奇侠传 / 巫师 3 / FF7 Remake / 战神 / 空洞骑士 / 传送门。**桌宠陪伴重点**：剧情共鸣、卡点安慰、通关庆祝（"卡在第 7 章 BOSS"是最常引用的场景）。
+
+| 字段 | 含义 | 数据类型 | 必填 | 示例值 | 优先级 |
+| --- | --- | --- | --- | --- | --- |
+| `level_id` | 关卡 / 章节 ID | string | 是（对该类必填） | "chapter_02" | P0 |
+| `chapter_id` | 大章节 ID（与 level 分两级） | string | 否 | "act_03" | P1 |
+| `difficulty` | 难度档位 | enum / string | 否 | "hard" | P0 |
+| `objective_id` | 当前目标 / 任务 ID | string | 否 | "obj_kill_dragon" | P1 |
+| `chapter_progress` | 章节进度百分比（0-100） | number | 否 | 65 | P1 |
+| `retry_count` | 本关重试次数 | integer | 否 | 3 | P1 |
+| `save_slot_id` | 存档槽位（多周目用） | string | 否 | "slot_2" | P1 |
+
+###### C. `pve_roguelike` PvE 肉鸽 / 无尽类（rogue / 塔防 / 无尽闯关）
+
+> **核心特征**：每次开局重新开始（`run_id` 归零），构筑 / 流派每局变；与 `pve_quest` 的关键区别是"死亡整局归零、关卡随机生成"。**典型游戏**：杀戮尖塔 / 哈迪斯 / 以撒 / 吸血鬼幸存者 / 元气骑士 / 植物大战僵尸。**桌宠陪伴重点**：构筑讨论、run 内死亡安慰、突破最高楼层庆祝。
+
+| 字段 | 含义 | 数据类型 | 必填 | 示例值 | 优先级 |
+| --- | --- | --- | --- | --- | --- |
+| `run_id` | 本次跑团 / 跑塔的唯一 ID（死后归零） | string | 是（对该类必填） | "run_2026051901" | P0 |
+| `floor_id` / `wave_id` | 当前楼层 / 波次 | string / integer | 否 | "floor_15" / 23 | P0 |
+| `character_build` | 当前构筑 / 流派 | string | 否 | "fire_mage" | P1 |
+| `death_count` | 本 run 死亡次数 | integer | 否 | 2 | P1 |
+| `difficulty` | 本 run 难度 | enum / string | 否 | "ascension_5" | P1 |
+
+###### D. `open_world` 开放世界 / 沙盒探险类
+
+> **核心特征**：没有明确"对局"或"关卡"，世界是持续状态；同存档可玩几百小时；任务可并行 / 自由选择。**典型游戏**：原神 / 塞尔达旷野之息 / 艾尔登法环 / GTA 5 / Minecraft / Terraria。**桌宠陪伴重点**：探索发现分享、任务推荐、长 session 健康提醒。
+
+| 字段 | 含义 | 数据类型 | 必填 | 示例值 | 优先级 |
+| --- | --- | --- | --- | --- | --- |
+| `region_id` | 当前地图区域 ID | string | 是（对该类必填） | "mondstadt" | P0 |
+| `current_quest_id` | 当前主线 / 支线任务 ID | string | 否 | "quest_main_007" | P1 |
+| `world_progress` | 世界探索完成度（0-100）或里程碑标识 | number / string | 否 | 78 | P1 |
+| `playtime_in_session_min` | 本 session 已游玩分钟数 | integer | 否 | 45 | P1 |
+
+###### E. `card_strategy` 卡牌 / 策略类
+
+> **核心特征**：基于回合制对战，牌组构筑是核心元玩法；与 `pvp_battle` 的区别是"决策 / 构筑主导"而非"操作主导"，回合制让单一动作复盘成为可能。**典型游戏**：炉石传说 / 万智牌 Arena / 影之诗 / 云顶之弈 / 多多自走棋。**桌宠陪伴重点**：牌组调整建议、卡关分析（"输给快攻太多了"）。
+
+| 字段 | 含义 | 数据类型 | 必填 | 示例值 | 优先级 |
+| --- | --- | --- | --- | --- | --- |
+| `match_id` | 对局 ID | string | 是（对该类必填） | "match_card_001" | P0 |
+| `deck_id` | 使用的牌组 ID | string | 否 | "deck_aggro_red" | P0 |
+| `opponent_archetype` | 对手套路 / 流派 | string | 否 | "control_blue" | P1 |
+| `turn_count` | 本局回合数 | integer | 否 | 14 | P1 |
+| `match_result` | 对局结果 | enum (`win` / `lose` / `draw` / `concede`) | 否 | "win" | P0 |
+
+###### F. `simulation` 模拟经营 / 养成类
+
+> **核心特征**：长期培养一个对象（城市 / 角色 / 农场），时间感强（"游戏内第 N 天"）；没有明确胜负，累计成就是核心；与 `open_world` 的区别是"建设型"vs"探索型"。**典型游戏**：模拟城市 / 城市天际线 / 双点医院 / 动物森友会 / 星露谷物语 / 放置奇兵 / 文明 6。**桌宠陪伴重点**：阶段性成就庆祝（"今天人口破千了"）、经营建议、看用户养成进度。
+
+| 字段 | 含义 | 数据类型 | 必填 | 示例值 | 优先级 |
+| --- | --- | --- | --- | --- | --- |
+| `in_game_day` | 游戏内第几天 | integer | 是（对该类必填） | 47 | P0 |
+| `economy_score` | 经济 / 资源综合分 | number | 否 | 8500 | P1 |
+| `population` | 当前人口 / 经营单位数 | integer | 否 | 230 | P1 |
+| `building_count` | 已建造建筑数 | integer | 否 | 42 | P1 |
+
+###### G. `other` 其他 / 未来扩展（如 racing / music_rhythm / puzzle / social_sandbox）
+
+> 当前 PM 推荐集未覆盖的游戏类别。接入时全部字段走 §3.1.2.3 `custom_fields`；如同类游戏接入超过 2 个，建议升级为独立 category 并补 schema。
+
+---
+
+###### 实际接入示例
+
+游戏接入方可参考下表确定 `game_category` 和第二层字段子集：
+
+| 游戏 | game_category | 第二层适用子集 | custom_fields 独有（示例）|
+| --- | --- | --- | --- |
+| 王者荣耀 | `pvp_battle` | match_id / match_result / mmr / rank_tier / team_size / map_id / kda | 英雄 ID / 出装方案 / 召唤师技能 |
+| LoL 英雄联盟 | `pvp_battle` | 同上 + opponent_count | 英雄 / 符文 / 装备 / 助记技能 |
+| 仙剑奇侠传 | `pve_quest` | level_id / chapter_id / difficulty / chapter_progress | 队伍配置 / 当前章节剧情节点 |
+| 战神 | `pve_quest` | level_id / difficulty / retry_count / save_slot_id | 武器解锁 / 技能树进度 |
+| 杀戮尖塔 | `pve_roguelike` | run_id / floor_id / character_build / death_count / difficulty | 当前牌组 / 圣物列表 / 楼层精英遭遇 |
+| 哈迪斯 | `pve_roguelike` | run_id / floor_id / character_build / death_count | 武器选择 / 神祝福列表 |
+| 原神 | `open_world` | region_id / current_quest_id / world_progress / playtime_in_session_min | 角色等级 / 抽卡保底数 / 树脂值 |
+| 塞尔达旷野之息 | `open_world` | region_id / current_quest_id / world_progress | 神庙数 / 心之容器 / 装备耐久 |
+| 炉石传说 | `card_strategy` | match_id / deck_id / opponent_archetype / turn_count / match_result | 职业 / 模式（标准 / 狂野 / 酒馆战旗）/ 当前奖励等级 |
+| 云顶之弈 | `card_strategy` | match_id / deck_id（羁绊组合）/ opponent_archetype（其他玩家阵容）/ turn_count | 等级 / 经济 / 装备合成情况 |
+| 模拟城市 | `simulation` | in_game_day / economy_score / population / building_count | 灾害事件 / 区域规划方案 |
+| 动物森友会 | `simulation` | in_game_day / population（村民数）| 当前季节 / 节日 / 博物馆完成度 |
+| OSU（音游） | `other` | （走 custom_fields） | beatmap_id / accuracy / pp 分数 |
+
+> **不确定怎么归类时**：先按速查表问题顺序判别；如仍有歧义，**优先归类到第一个命中的 category**（例如：原神既有探索又有对战，但探索是核心 → `open_world`；炉石酒馆战旗既是 card 又是 pvp → `card_strategy`，因构筑维度更核心）。
+
+> **接入流程提醒**：每个游戏接入时，游戏接入方提交 schema 提案（含 `game_category` + 本类适用的第二层字段子集 + custom_fields 独有字段），PM + Engineering 三方 review 后锁入"该游戏的 game_event schema"，记忆系统按此 schema 校验后续上报。
 
 #### 3.1.3 PC 环境信号
 
@@ -680,6 +817,10 @@ sequenceDiagram
 | --- | --- | --- |
 | ① 开关变化 | `user_action` (mutation) | `update + consent.vlm_strong_sensing`，记录开 / 关时刻和 app_scope |
 | ② 会话审计 | `pet_runtime_event` | `event_type=vlm_strong_sensing_session_start` / `vlm_strong_sensing_session_end`，含 duration_sec / app_scope / ui_indicator_shown |
+
+> **关键约束（v2.1 终版）**：强感知会话期间，客户端**整段不上报**任何 source_record 到记忆系统 —— 包括 `chat_message`（用户与桌宠对话）/ `pc_signal` / `vlm_observation` 等。所有数据**仅本地存活于 current_context**，强感知结束时丢弃。这与"强感知 = 临时陪伴 / 不留痕"的设计原则一致（类比腾讯会议屏幕共享：共享期间的对话不进入会议记录）。如用户希望强感知期间的某次对话被记下来，应**先关闭强感知**再继续对话；这种设计取舍换来用户对强感知的明确隐私预期。
+
+> **`screen_share_chat` client_scene 不存在**（v2.1 终版）：基于上述约束，§3.1.1.5 client_scene 枚举里**不列**该值；强感知期间客户端不发任何 chat_message envelope。
 
 ##### 3.1.5.2 弱感知（长期数据源，入记忆）
 
@@ -1978,6 +2119,8 @@ sequenceDiagram
 >     - **`diary_entry` target_type 归类调整（v2.1 终版）**：原先列在 A 类（用户主动 save 创建），但 Diary PRD 实际流程是"每生理日 Diary 模块**自动生成 + 自动持久化**"，没有用户主动保存动作。已**移到 B 类**（Memory 自动加工的顶层资源，与 episode / atomic_fact 同类）；`save + diary_entry` mutation 路径**移除**；用户对日记的 mutation 入口仅剩 `update`（编辑标题/收藏/mailbox_status）/ `delete` / `feedback`。payload schema 仍由 Diary PRD §七.2 提供。
 >     - **不补的 Diary 概念**：`mailbox_status`（实时聚合）/ `pet_reaction`（客户端现场生成）/ `diary_entry` UI 字段（card_visual_type / detail_layout_type 等）/ `character_config`（合作游戏接入资产）。
 > 21. **高光页 UI 概念完全删除**：v2.1 决策"高光不作为独立 UI 页面，高光时刻通过日记自然提及"。具体修订：①删除 `highlight_recall` client_scene / `highlight_detail` query_type / `highlight_ready` push_type；②删除 save / update / delete / feedback + highlight 所有用户 mutation 入口（highlight 完全 ai_inferred_writable 后台化）；③§5.4 标题改为"日记生成与保存"，流程图删除"用户保存高光"步骤；④`proactive_congratulate` 桌宠主动祝贺改由 idip_milestone push 触发；⑤§4.1.3.11 highlight_event 字段表完整保留，但 query_type 列从 highlight_detail 改为 diary_detail（仅通过日记间接访问）；⑥highlight_event.source enum 去掉 `user_saved`。用户对高光的反馈通过对包含该高光的日记 feedback 间接传递。
+> 24. **强感知"整段不上报"约束 + 删除 screen_share_chat**：v2.1 之前 client_scene 枚举有 `screen_share_chat`（"强感知期间的对话"），暗示强感知期间 chat_message 仍上报。v2.1 终版收紧：**强感知会话期间客户端整段不上报任何 source_record**（chat_message / pc_signal / vlm_observation 等），全部仅本地存活于 current_context，强感知结束时丢弃。这与"强感知 = 临时陪伴 / 不留痕"原则一致（类比腾讯会议屏幕共享期间对话不进入会议记录）。如用户希望某次对话被记下来，应先关闭强感知再聊。具体修订：①§3.1.1.5 类别 A 删除 `screen_share_chat` 行；②§3.1.5.1 加"强感知下唯一进入跨系统的两类事件"表下的关键约束声明。
+> 23. **`game_category` 引入 + `common_fields` 分层重构**：解决原 common_fields 里 `match_id`（PvP）/ `level_id`（PvE）/ `difficulty` / `team_size` 等字段都标"否"必填、无法说清何时填的问题。①新增 **`game_category`** 字段（必填 enum：`pvp_battle` / `pve_quest` / `pve_roguelike` / `open_world` / `card_strategy` / `simulation` / `other`），游戏接入时固定，整个生命周期不变；②原 common_fields 拆为**三层**：§3.1.2.4 第一层（跨所有游戏通用，5 字段 session_id / game_category / game_mode / client_locale / game_version）+ §3.1.2.5 第二层（按 game_category 适用的字段示例，6 类 + other）+ §3.1.2.3 第三层 custom_fields（单游戏专属）；③明确 `game_category` 与 `game_mode` 的边界（前者接入时固定，后者运行时可变）；④第二层字段是 PM 推荐集，每游戏接入时三方 review schema。
 > 22. **§3.2.3 target_type 重构为三表**：原 §3.2.3 单表存在 8 个问题（diary_reply 混淆 / "谁创建"列维度混乱 / 标题过简 / 缺 mutability_policy 列 / 示例 vs 完整清单模糊 / 排序混乱 / 与 §3.2.1 关系不清 / assessment 命名不一致）。重构为三个小节：①§3.2.3.1 命名约定与三类划分（**A 类用户主动 save / B 类 Memory 加工 / C 类子命名空间字段**）；②§3.2.3.2 target_type 示例表（按 A/B/C 分组，含 mutability_policy + 详见章节列）；③§3.2.3.3 action × target_type 矩阵（5 action × 12 target 类型完整可达性）。同时声明 highlight_event 不在 target_type 表内（v2.1 完全后台化）。
 >
 > **v2 → v1 既有变化（保留）**：
