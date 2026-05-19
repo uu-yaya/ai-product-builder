@@ -1,169 +1,312 @@
-# Data Flow Requirement Specification: Memory System ↔ Client
-
-## 0.概述
-
-- 客户端负责采集、标准化、上报、消费和回写；
-- ​记忆系统负责接收、存储、加工、查询、推送、删除与解释。
-
-本文件的核心：
-
-1. 哪些数据会从客户端进入记忆系统。
-2. 哪些数据会从记忆系统返回客户端。
-3. 哪些客户端本地判断不能完整回写，只能回写其事实源或业务确认后的子结果。
-4. 每类数据在什么业务场景、什么触发时机、用什么方式传输。
+# 数据流通需求说明书：记忆系统 ↔ 客户端
 
 ---
 
-## 1. 背景与目标
+## 目录
 
-### 1.1 问题定义
-
-| 维度 | 客户端需要什么 | 记忆系统需要提供什么 |
-|---|---|---|
-| 过去发生过什么 | 对话、游戏事件、用户保存、高光、纠错 | 可追溯的事实源、摘要、画像、证据链 |
-| 用户现在在做什么 | 游戏实时事件、PC 状态、本地 VLM 语义、当前会话状态 | 可查询的历史上下文与近期记忆材料 |
-| 用户希望桌宠怎么陪 | 偏好、授权、打扰边界、反馈 | 长期稳定的 preference / profile / consent 状态 |
-| 哪些内容可被记住 | 用户确认、业务确认、隐私边界 | 写入规则、删除 / 纠错 / 失效机制 |
-
-### 1.2 本文档目标
-
-| 目标 | 说明 |
-| --- | --- |
-| 定义**跨系统数据** | 只写`客户端 ↔ 记忆系统`之间移动的数据 |
-| 定义**触发时机** | 明确`实时事件`、`生命周期快照`、`周期心跳`、`批量补传`、`用户触发`、`后台加工推送` |
-| 定义**传输方式** | 统一 envelope，但不把所有数据打成一个大包 |
-| 定义**证据链** | 加工结果必须尽量追溯到 `source_record_ids[]` |
-| 定义 **VLM 边界** | 客户端本地处理 VLM；原图不进记忆系统；语义结果按场景选择性回写 |
+- [§0 文档定位](#0-文档定位)
+- [§1 系统分工与数据原则](#1-系统分工与数据原则)
+- [§2 统一传输契约](#2-统一传输契约)
+- [§3 Client → Memory 上报](#3-client--memory-上报)
+- [§4 Memory → Client 返回](#4-memory--client-返回)
+- [§5 Mutation / Ack 双向闭环](#5-mutation--ack-双向闭环)
+- [§6 业务场景接力图](#6-业务场景接力图)
+- [§7 优先级建议](#7-优先级建议)
+- [§8 隐私与排除项](#8-隐私与排除项)
+- [§9 待确认问题](#9-待确认问题)
+- [§10 验收标准](#10-验收标准)
 
 ---
 
-## 2. 核心分工与数据原则
+## 0. 文档定位
 
-### 2.1 系统分工
+### 0.1 本文档解决什么
 
-| 系统 | 负责 | 不负责 |
-| --- | --- | --- |
-| **客户端** | 1. 接收 Game SDK 数据并将其统一标准化； | 1. 不长期保存完整记忆； |
-| **** | 2. 采集 PC / OS 低敏状态，并只上传允许进入 Memory 的标准化事实； | 2. 不把临时判断伪装成长期事实； |
-| **** | 3. 本地处理 VLM，必要时只回写语义结果，不上传原图； | 3. 不把高敏原始数据上传给 Memory； |
-| **** | 4. 拉取 Memory 返回的 `profile`、`profile_meta`、`episode`、`highlight_event`、`user_preferences`、MCP 摘要、角色相似度结果等数据； | 4. 不绕过 Memory 自行决定长期记忆的有效性； |
-| **** | 5. 综合“Memory 返回 + 游戏实时数据 + PC 状态 + 本地 VLM”生成本地 `current_context`； | 5. 不把第三方 app 正文、窗口全文、原始音频、键盘字符流写入 Memory； |
-| **** | 6. 回写用户保存、删除、纠错、反馈、授权、偏好、重测等 mutation； |  |
-| **记忆系统** | 1. 作为数据舱接收客户端上报的标准化事实源； | 1. 不直接采集游戏 SDK； |
-| **** | 2. 持久化用户授权、偏好、删除策略、记忆控制等显式配置； | 2. 不直接读用户屏幕或接收 VLM 原图； |
-| **** | 3. 把事实源整理成客户端可消费的 `atomic_facts`、`episode`、`profile`、`profile_meta`、`highlight_event`、`memory_digest`、角色相似度结果等； | 3. 不决定桌宠当下是否开口； |
-|  | 4. 接收客户端按业务场景发起的 pull query，返回详情数据； | 4. 不接收未授权 MCP app 数据或第三方正文内容； |
-|  | 5. 后台加工结果变化时，只 push 变化通知和轻摘要，详情由客户端按需 pull； |  |
-|  | 6. 执行保存、删除、纠错、授权变更、偏好变更、重测等 mutation，并返回处理回执（ack）； |  |
-| **游戏 SDK** | 向客户端提供游戏生命周期、状态快照、实时事件和游戏自定义字段 | 不直接绕过客户端写入记忆系统 |
-| **授权 MCP apps** | 在用户授权后向 Memory 提供白名单范围内的 app 元数据 / 任务标题 / app 自生成摘要 | 不向客户端或 Memory 暴露聊天、邮件、文档、会议正文和附件内容 |
-
-### 2.2 数据对象分类
-
-> 数据对象分类只描述 Envelope 内 payload 的业务性质，不等于传输格式。 
-> ​Client ↔ Memory 之间的实际数据传送最终都必须按第 3 章用 Envelope 包装： 
-> `​source_record` 通过上报 Envelope 发送 
-> `​user_control_state `通过 query / mutation / consent Envelope 同步 
-> `​derived_memory `通过 query response / push Envelope 返回。
-
-| 概念 | 定义 | 解释 |
-| --- | --- | --- |
-| `source_record` | 事实源记录 | 不管内容来自游戏内、授权数据源、用户 PC 操作，还是用户与桌宠交互，只要由客户端拿到、整理成标准化结构，并且内容保持 raw，就属于上报给记忆系统的事实源记录。 |
-| `derived_memory` | 加工记忆 | 记忆系统基于 `source_records` 加工出的客户端可消费记忆，例如原子事实、情节、画像、高光、摘要、角色相似度结果等。 |
-| `user_control_state` | 用户控制状态 | 用户显式设置并由 Memory 持久化、客户端读取执行的授权、偏好、删除策略、纠错规则和确认状态。 |
-
-### 2.3 数据流原则
-
-| 原则 | 说明 |
+| 维度 | 本文档回答 |
 | --- | --- |
-| 先有原始事实，再有加工记忆 | 客户端先把 raw 的事实源上报给 Memory，Memory 再基于这些事实生成画像、情节、高光、摘要、角色测定等加工结果。 |
-| 加工结果必须能解释来源 | 客户端展示画像、高光、角色测定等结果时，应能让用户知道这条结果大概来自哪些聊天、游戏事件、PC 信号或 VLM 语义结果。 |
-| 用户纠错 / 删除要能影响正确对象 | 用户说“不准”“删除”“别记这个”时，客户端不能只发一句自然语言给 Memory，而要能指向要改的记忆或证据范围。 |
-| 授权变化会影响已有记忆 | 用户撤回某类授权后，Memory 需要知道哪些加工结果依赖这类数据，从而停用、删除或重新加工。 |
+| **数据范围** | 哪些数据会在客户端和记忆系统之间流动；纯本地或不入记忆的数据不写。 |
+| **数据方向** | 每条数据是 Client→Memory、Memory→Client，还是双向 mutation。 |
+| **触发时机** | 每条数据在什么业务场景、什么时刻被传输（实时事件 / 生命周期 / 心跳 / 用户触发 / 后台 push / 批量补传）。 |
+| **传输方式** | 用哪种契约管道（上报 envelope / pull query / 轻量 push / mutation）。 |
+| **闭环验证** | 一条事实源如何被加工、被消费、被反馈、被失效，形成可追溯的证据链与状态机。 |
 
-### 2.4 总体数据流
+### 0.2 排除项
+
+| 数据 / 对象 | 原因 |
+| --- | --- |
+| `current_context`（客户端临时决策包） | 100% 客户端本地合成，不回写完整对象；它的"输入材料"分别在 §3 / §4 已覆盖。 |
+| VLM 原始帧 / 屏幕截图 | 客户端本地处理后即丢弃，永不进入跨系统传输。 |
+| 原始系统音频 / 麦克风音频 / 通话内容 | 不属本分支；音频只送派生信号入记忆，原始流不跨系统。 |
+| 键盘字符流 / 输入法明文 / 第三方 app 正文 | 永禁；只允许桶化统计或语义事件。 |
+| 客户端本地未上报的 chat draft、未提交的设置 | 未发送前不属跨系统数据。 |
+| Game SDK 私有协议细节 | 由"Game SDK → 客户端"段承担，本文档只关心"客户端 → 记忆系统"那一跳。 |
+
+---
+
+## 1. 系统分工与数据原则
+
+### 1.1 角色与责任
+
+| 角色 | 数据舱角色 | 主要职责 | **不**做 |
+| --- | --- | --- | --- |
+| **记忆系统**（Memory System） | 数据舱 | 接收客户端上报的事实源；持久化用户控制状态；后台加工生成 `derived_memory`；响应客户端 pull；变化时 push 轻通知；执行 mutation 并返回 ack；维护证据链与失效状态机。 | 不直接采集游戏 SDK / 屏幕 / 音频 / MCP；不决定桌宠当下是否说话；不绕过授权写入。 |
+| **客户端**（Pet Client） | 数据采集与消费端 | 采集并标准化游戏 SDK / PC 环境 / 用户输入 / VLM 语义；按业务场景上报事实源；按场景 pull 加工记忆；本地合成 `current_context`；接收用户保存 / 删除 / 纠错 / 授权变更并回写为 mutation。 | 不长期保存完整记忆；不把临时判断伪装成长期事实；不上传原图 / 原始音频 / 键盘字符流。 |
+| **Game SDK** | 数据生产者 | 向客户端推送游戏生命周期、状态快照、实时事件、自定义字段。 | 不直接绕过客户端写入记忆系统。 |
+| **授权 MCP app** | 数据生产者 | 在用户授权后向**客户端**提供白名单字段（任务标题 / 元数据 / app 自生成摘要）。 | 不直接连记忆系统（详见 §3.1.4）；不暴露正文 / 附件。 |
+
+### 1.2 客户端的数据来源全貌（明确边界）
+
+客户端实际有 5 类数据来源，但**只有 2 类涉及跨系统流通**：
 
 ```mermaid
 flowchart LR
-  GameSDK["游戏 SDK"] --> Client["客户端"]
-  PC["PC / OS 低敏信号"] --> Client
-  UserPet["用户 / 桌宠交互"] --> Client
-  Screen["屏幕画面帧"] --> LocalVLM["客户端本地 VLM"]
-  LocalVLM --> Client
-  MCPApps["授权 MCP Apps"] --> Memory["记忆系统"]
+  A[Game SDK 实时事件]:::nonflow --> Client
+  B[客户端自身运行事件<br/>UI 点击 / 桌宠行为]:::nonflow --> Client
+  C[PC OS 环境信号<br/>active_app / 音频 / 浏览器 tab]:::nonflow --> Client
+  D[本地 VLM 语义结果<br/>原图不出本地]:::nonflow --> Client
+  E[授权 MCP app 数据<br/>白名单字段]:::nonflow --> Client
+  Client -->|跨系统：本文档 §3| Memory[(记忆系统)]
+  Memory -->|跨系统：本文档 §4 §5| Client
+  classDef nonflow fill:#fff5e6,stroke:#d99,stroke-dasharray:3 3;
+```
 
-  Client -->|事实源记录：game_event / idip / chat / pc_signal / vlm_observation| Memory
-  Client -->|用户控制与 mutation：授权 / 偏好 / 保存 / 删除 / 纠错 / 反馈 / 重测| Memory
-  Memory -->|轻量推送：变化通知 / 摘要 / resource_refs| Client
-  Client -->|主动查询：对话 / 开局 / 复盘 / 画像 / 高光 / MCP / 角色测定| Memory
-  Memory -->|查询返回：profile / profile_meta / episode / highlight / preferences / assessment / MCP 摘要| Client
+- 5 类来源 → 客户端的过程是"采集"，由客户端本地负责，**不在本文档范围**。
+- 客户端 ↔ 记忆系统的过程才是本文档要严格契约化的部分。
+- 客户端最终交付给桌宠的"当下决策包"`current_context` 由：①记忆系统返回的画像 / 摘要 / 偏好（来自 §4） + ②客户端 5 类本地来源 合成 —— 合成结果**不回写**，只把支撑它的 raw `source_record` 按需上报。
+
+### 1.3 数据对象三分类
+
+所有跨系统数据按"是什么"分三类。每条数据在表格里都标注分类，便于判断"谁能写谁、能否被加工覆盖"。
+
+| 分类 | 含义 | 谁写入 | 能否被自动覆盖 | 例子 |
+| --- | --- | --- | --- | --- |
+| **`source_record`**（事实源记录） | 客户端采集到的 raw 事实，原样上报给记忆系统。 | Client → Memory | 不会被自动覆盖；只能被失效（`is_active=false`）。 | `chat_message` / `game_event` / `pc_signal` / `vlm_observation` / `mcp_observation` |
+| **`derived_memory`**（加工记忆） | 记忆系统基于多条 `source_record` 后台加工出的可消费记忆。 | Memory → Client | 会被记忆系统重新加工而刷新；用户 `correct_memory` 可锁定。 | `atomic_facts` / `episode` / `profile.*` / `highlight_event` / `assessment` / `memory_digest` / `idip_delta` |
+| **`user_control_state`**（用户控制状态） | 用户显式设置的授权 / 偏好 / 删除策略 / 称呼等；记忆系统持久化，客户端读取并严格执行。 | Client → Memory（mutation） | 永不被自动覆盖；只有用户 mutation 才能改。 | `privacy_grants.*` / `display_name` / `disturbance_boundaries` / `do_not_remember_rules[]` / `deletion_policy` |
+
+> **规则**：一条字段只能属于一类。如果一个业务概念既需要"客户端推导"又需要"记忆系统加工"，**拆成两个字段**（详见 §1.4 D3）。
+
+### 1.4 数据流原则（六条）
+
+| # | 原则 | 含义 |
+| --- | --- | --- |
+| 1 | **先事实，再加工** | `source_record` 必须先写入，`derived_memory` 才能被生成；客户端不能直接上报"加工结论"。 |
+| 2 | **加工结果可解释** | 每条 `derived_memory` 必须带 `source_record_ids[]` 或 `evidence_ids[]`，让客户端可以反查证据。 |
+| 3 | **用户控制最高优先级** | `user_control_state` 不会被任何加工覆盖；用户 mutation 永远优先于 AI 推断。 |
+| 4 | **双向字段必拆名** | 同一业务概念若客户端和记忆系统都要写，必须拆成两个字段（如 `emotion_signal_observed` / `emotion_signal_derived`，`playstyle_tags_user_set` / `playstyle_tags_inferred`），避免方向歧义。 |
+| 5 | **授权快照贯穿全链** | 每条 `source_record` 必带当时的 `consent_snapshot_id`；用户撤回授权时，记忆系统沿这条链反向溅透清理（详见 §5.4）。 |
+| 6 | **本地合成不回写完整对象** | 客户端的 `current_context` 是临时决策包，只回写支撑它的 raw `source_record` 或用户明确确认的 mutation，永不回写整个 context。 |
+
+### 1.5 总体数据流
+
+```mermaid
+flowchart LR
+  GameSDK["Game SDK<br/>(生命周期+事件)"]:::ext --> Client
+  PC["PC 环境<br/>(active_app/音频/tab/OSA)"]:::ext --> Client
+  Screen["屏幕画面帧"]:::ext --> LocalVLM["客户端本地 VLM"]:::local
+  LocalVLM -->|语义结果| Client
+  UserPet["用户 ↔ 桌宠交互"]:::ext --> Client
+  MCPApp["授权 MCP app"]:::ext -->|经客户端中转| Client
+
+  Client -->|"§3.1 事实源上报<br/>chat / game / pc / vlm / mcp"| Memory[(记忆系统)]
+  Client -->|"§3.2 mutation<br/>保存/删除/纠错/授权/重新总结"| Memory
+  Memory -->|"§4.1 加工记忆 pull response<br/>profile / episode / highlight / assessment"| Client
+  Memory -->|"§4.2 控制状态 pull response<br/>preferences / consent"| Client
+  Memory -->|"§4.3 轻量 push<br/>resource_refs + summary"| Client
+  Memory -->|"§5 ack<br/>mutation 处理结果"| Client
+
+  classDef ext fill:#eef,stroke:#88a;
+  classDef local fill:#fff5e6,stroke:#d99;
 ```
 
 ---
 
-## 3. 传输契约
+## 2. 统一传输契约
 
-### 3.1 统一上报 Envelope
+### 2.1 四种管道
 
-统一 envelope 只统一外壳，不要求所有数据一起上传。每类数据按自己的触发时机单独发送，也允许离线后批量补传。
+跨系统流通统一用 4 种管道，每条数据只走其中一种主管道：
 
-| 数据 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 消费侧获取的时机 / 场景 | 消费侧回写的时机 / 场景 | 优先级 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `envelope_version` | 上报协议版本 | string | `"v1.0"` | Client → Memory | 所有上报都携带 | 不直接消费 | 协议升级时变更 | P0 |
-| `record_id` | 事实源唯一 ID | string | `"src_game_event_001"` | Client → Memory | 单条 / 批量均携带 | Memory 返回 `source_record_ids[]` 时客户端可反查 | 客户端生成并保证本地去重 | P0 |
-| `record_type` | 事实源类型 | enum | `game_event` | Client → Memory | 按事件类型独立发送 | 客户端查询记忆详情时识别来源 | 客户端上报时填写 | P0 |
-| `game_id` | 游戏标识 | string | `"game_abc"` | Client → Memory / Memory → Client | 所有游戏相关数据必带 | 客户端按当前游戏过滤记忆 | 游戏切换、启动、关闭、查询时都带 | P0 |
-| `game_user_id_pseudonym` | 游戏用户账号脱敏标识 | string | `"u_hash_123"` | Client → Memory / Memory → Client | 所有用户相关数据必带 | 客户端拉取该用户在该游戏下的记忆 | 首次绑定账号、上报任意数据时带 | P0 |
-| `occurred_at` | 事件实际发生时间 | ISO 8601 | `"2026-05-18T21:10:00Z"` | Client → Memory | 所有事实源必带 | 排序、摘要、证据链 | 事件发生时写入 | P0 |
-| `sent_at` | 客户端发送时间 | ISO 8601 | `"2026-05-18T21:10:01Z"` | Client → Memory | 所有上报必带 | 排查延迟 / 离线补传 | 发送时写入 | P0 |
-| `consent_snapshot_id` | 当时授权状态快照 ID | string | `"consent_20260518_001"` | Client → Memory | 所有可能入记忆的数据必带 | Memory 判断是否可存 / 可加工 / 可回传 | 授权状态变化后更新 | P0 |
-| `payload_schema_version` | payload schema 版本 | string | `"game_event.v1"` | Client → Memory | payload 随附 | 兼容不同游戏和字段版本 | 游戏接入或字段变更时更新 | P0 |
-| `payload` | 具体事实内容 | object | `{event_type:"boss_defeated"}` | Client → Memory | 随 `record_type` 独立定义 | Memory 加工和后续返回依据 | 按对应场景上报 | P0 |
+| 管道 | 方向 | 适合数据 | 同步特征 |
+| --- | --- | --- | --- |
+| **上报 Envelope** | Client → Memory | `source_record`（含 mutation 也复用同一外壳） | 一条 envelope 一个 `record_id`；可单发、可批量补传。 |
+| **Pull Query / Response** | Client → Memory → Client | 客户端主动取加工记忆或控制状态 | 客户端按业务场景发起，Memory 返回详情；同步。 |
+| **轻量 Push** | Memory → Client | 加工结果变化通知 | 只带 `resource_refs[]` 和短摘要；不推大对象；客户端按需 pull。 |
+| **Mutation / Ack** | Client → Memory（mutation） + Memory → Client（ack） | 用户操作改变记忆系统状态 | 必有 `ack_status`，失败可重试或提示。 |
 
-### 3.2 上报方式与触发
+### 2.2 上报 Envelope 通用字段
 
-> 统一 Envelope 只表示“所有上报都有同一层外壳”，不表示所有数据要合成一个大包发送。客户端应按业务触发时机分别上报，Memory 负责在服务端侧做去重、对比、聚合和加工。
+所有 `source_record` 和 mutation 都用同一外壳，**但不要求所有数据合成一个大包**。客户端按业务时机分别上报。
 
-`user_action` 是用户行为大类，需要再区分两类：
-
-1. 普通行为事实：例如用户点击、打开某个记忆页、忽略一条提示，作为事实源记录进入 Memory。
-2. 状态变更行为：例如保存、删除、纠错、确认画像、授权变更，属于 mutation，会改变 Memory 中的记忆状态，必须有处理回执（ack）。
-
-| 上报方式 | 适合数据 | 触发时机 | 是否允许批量 | 传输特点 | 优先级 |
+| 字段 | 含义 | 格式 | 必填 | 优先级 | 说明 |
 | --- | --- | --- | --- | --- | --- |
-| 实时事实源上报 | `game_event`、普通 `user_action`、`chat_message`、`pet_runtime_event` | 事件发生立即发送 | 不批量；离线时可补传 | 小包；低延迟；每条保留独立 `record_id` | P0 |
-| 生命周期快照 | `game_launch`、`game_close`、`session_start`、`session_end`、完整 `idip_snapshot` | 游戏启动 / 关闭 / 一局开始结束 | 可按 session 批量补传 | 中小包；完整快照；用于建立 session 边界 | P0 |
-| 周期心跳 | 完整 `idip_snapshot`、必要 PC 低敏状态 | 游戏运行中按配置间隔发送 | 可合并连续心跳 | 允许完整快照；由 Memory 做对比；不要求客户端只发 diff | P0 / P1 |
-| VLM 语义观察上报 | `vlm_observation`、`semantic_tags[]`、`user_visible_summary` | 强感知开启且出现业务需要；弱感知仅在用户保存、高光、复盘、日记等确认场景 | 按观察事件发送 | 不上传原图；必须带 `source_record_ids[]` 与 `raw_frame_stored=false` | P1 |
-| 用户变更回写 | `user_action.save_highlight`、`user_action.delete_memory`、`user_action.correct_memory`、`user_action.confirm_profile`、`consent_update` | 用户执行保存 / 删除 / 纠错 / 确认 / 授权变更时 | 不批量 | 高优先级 mutation；影响 Memory 状态；失败需重试或提示用户 | P0 |
-| 批量补传 | 离线期间积压的 `source_records`、低频日志、延迟上传事件 | 网络恢复 / 客户端空闲 / 退出前 flush | 是 | 多条 Envelope 批量发送；单条仍保留独立 `record_id`、`occurred_at`、`consent_snapshot_id` | P1 |
+| `envelope_version` | 协议版本 | string | 是 | P0 | 协议升级用 |
+| `record_id` | 事实源唯一 ID | string | 是 | P0 | 客户端生成；本地去重 |
+| `record_type` | 事实源类型 | enum | 是 | P0 | 见 §3.1 各子节 |
+| `game_id` | 游戏标识 | string | 是 | P0 | 不同游戏数据隔离 |
+| `game_user_id_pseudonym` | 用户脱敏 ID | string | 是 | P0 | 不存真实账号 |
+| `occurred_at` | 事件实际发生时间 | ISO 8601 | 是 | P0 | 排序、时间线、衰减 |
+| `sent_at` | 客户端发送时间 | ISO 8601 | 是 | P0 | 排查延迟、离线补传 |
+| `consent_snapshot_id` | 当时授权快照 ID | string | 是 | P0 | 反向溅透清理用（§5.4） |
+| `payload_schema_version` | payload schema 版本 | string | 是 | P0 | 兼容字段升级 |
+| `payload` | 业务内容 | object | 是 | P0 | 按 `record_type` 各自定义 |
 
-**补充规则：**
-
-- 上报通道不按数据来源统一打包，而按业务时机拆分：游戏事件实时发，生命周期和 IDIP 在关键边界发，心跳按频率发，用户 mutation 立即发。
-- 对客户端来说，完整 `idip_snapshot` 可以全量发送；是否做差异比较、摘要或生成记忆，由 Memory 处理。
-- 任何会改变 Memory 状态的用户动作，都必须使用 mutation 语义，并要求 Memory 返回处理结果。
-- 离线上报允许补传原始事实，但补传不应绕过授权校验；每条记录仍要带当时的 `consent_snapshot_id`。
-
-#### 3.2.1 上报 JSON 示例
-
-以下 JSON 是需求级示例，用来表达不同触发场景下“客户端应该发什么”。最终接口字段可由工程侧再收敛，但不应改变这些业务语义。
-
-**实时事实源上报：游戏实时事件**
+**通用 envelope 示例**：
 
 ```json
 {
   "envelope_version": "1.0",
-  "record_id": "rec_game_event_001",
-  "record_type": "game_event",
+  "record_id": "rec_<type>_<uuid>",
+  "record_type": "<game_event | chat_message | pc_signal | vlm_observation | mcp_observation | user_action | consent_update | ...>",
   "game_id": "game_abc",
   "game_user_id_pseudonym": "u_hash_123",
   "occurred_at": "2026-05-18T21:10:00Z",
   "sent_at": "2026-05-18T21:10:01Z",
   "consent_snapshot_id": "consent_20260518_001",
+  "payload_schema_version": "<type>.v1",
+  "payload": { "...": "见各 record_type 定义" }
+}
+```
+
+### 2.3 六类触发时机
+
+| 触发时机 | 适合的 record_type | 是否允许批量 | 默认 SLA | 说明 |
+| --- | --- | --- | --- | --- |
+| **实时事件上报** | `chat_message` / `game_event` / `user_action`（普通） / `pet_runtime_event` | 否（单发） | 事件发生后 ≤ 2s | 离线时可缓存入"批量补传" |
+| **生命周期快照** | `game_launch` / `game_close` / `session_start` / `session_end` | 按 session 可批量 | 边界事件发生时立即 | 启动 / 关闭 / 一局开始结束 |
+| **周期心跳** | `idip_snapshot`（heartbeat 模式）/ `pc_signal` 关键字段 | 可合并连续心跳 | 见 §2.4 推荐间隔 | 服务端做 diff（详见 §3.1.2.2） |
+| **状态变化触发** | `pc_signal`（active_app 切换）/ `consent_update` | 否 | 状态变化即发 | 不是定时上报 |
+| **用户主动触发** | 所有 mutation：`user_action.save_highlight` / `user_action.delete_memory` / `user_action.correct_memory` / `user_action.confirm_profile` / `user_action.request_resummarize` / `user_action.submit_feedback` / `consent_update` | 否 | 用户操作后 ≤ 1s | 必须有 ack |
+| **批量补传** | 离线期间积压的所有上述类型 | 是 | 网络恢复后 ≤ 30s 内启动 | 每条仍带独立 `record_id` / `occurred_at` / `consent_snapshot_id` |
+
+### 2.4 运营参数默认推荐值
+
+> 以下为 PM 建议起点，最终由 Engineering Thread 根据真实压测结果调优；调优后回写到 `decisions/DECISION_LOG.md`。
+
+| 参数 | 推荐值 | 备注 |
+| --- | --- | --- |
+| `idip_heartbeat_interval_sec` | **60** | 无 SDK 实时事件的游戏；快节奏游戏可降至 30，慢节奏可升至 120 |
+| `pc_signal_heartbeat_sec` | **30** | active_app / idle_signal / is_fullscreen_game 三字段最低频率 |
+| `idle_signal_thresholds_sec` | **`[60, 300, 1800]`**（active / idle_1min / idle_5min / idle_30min+） | 跨级时触发状态变化上报 |
+| `push_dedup_window_sec` | **30** | 同 `resource_ref` 在 30 秒内只 push 一次 |
+| `offline_buffer_max_hours` | **24** | 超出丢弃并记录 `offline_dropped_count` |
+| `offline_buffer_max_records` | **5000** | 防止低端机内存爆炸 |
+| `mutation_ack_timeout_sec` | **5** | 超时客户端提示"处理中"并轮询 |
+| `pull_query_p99_ms` | **200** | 实时 query（startup_context / conversation_context） |
+| `pull_query_batch_p99_ms` | **2000** | 详情类（highlight_detail / episode_detail / assessment_result） |
+| `vlm_weak_sensing_cooldown_sec` | **300** | 弱感知两次截图间最小间隔 |
+| `mcp_pull_interval_sec` | **300** | 客户端主动从 MCP app 拉取的最小间隔（每 app 独立） |
+| `consent_revoke_cleanup_max_hours` | **24** | 撤回授权后受影响 `derived_memory` 失效完成时限 |
+
+---
+
+## 3. Client → Memory 上报
+
+### 3.0 章节地图
+
+| 子节 | 内容 | 优先级 |
+| --- | --- | --- |
+| §3.1 | 事实源记录（`source_record`），按 5 大类细分 | P0 / P1 |
+| §3.2 | 用户控制 mutation（保存 / 删除 / 纠错 / 授权 / 重新总结 / 反馈） | P0 |
+| §3.3 | 批量补传规则 | P1 |
+
+### 3.1 事实源记录 source_record
+
+#### 3.1.1 聊天与桌宠运行事件
+
+| `record_type` | 含义 | 触发时机 | 关键 payload 字段 | 优先级 |
+| --- | --- | --- | --- | --- |
+| `chat_message` | 用户与桌宠的首方对话 | 用户发送 / 桌宠输出每条消息后立即 | `conversation_id` / `speaker`（user/pet）/ `message_type`（text/voice_transcribed）/ `content` / `client_scene` | P0 |
+| `pet_runtime_event` | 桌宠运行事件（消息送达、忽略、桌宠主动表达） | 桌宠产生主动行为时 | `event_type` / `client_scene` / `related_record_ids[]` / `message_template_id` / `user_interruption_level` | P0 |
+
+> **来源边界**：`chat_message.content` 一律视为"干净文本"，不带 input_modality（键盘 / STT 都不区分）。voice-interaction 分支输出的 STT 文本进入这里时也一样。
+
+**示例**：
+
+```json
+{
+  "record_type": "chat_message",
+  "payload_schema_version": "chat_message.v1",
+  "payload": {
+    "conversation_id": "conv_001",
+    "speaker": "user",
+    "message_type": "text",
+    "content": "刚才那把翻盘了！",
+    "client_scene": "post_game_chat"
+  }
+}
+```
+
+#### 3.1.2 游戏数据
+
+> **核心契约**：所有游戏数据 envelope 必带 6 个键 —— `game_id` / `game_user_id_pseudonym` / `occurred_at` / `event_type` / `common_fields` / `custom_fields`。前两个在 envelope 通用字段里已带，后四个在 payload 里。
+
+##### 3.1.2.1 通用事件清单（所有接入游戏都必须提供）
+
+| `event_type` | `event_mode` | 触发时机 | 必含 `common_fields` | 优先级 |
+| --- | --- | --- | --- | --- |
+| `game_launch` | `lifecycle` | 游戏进程拉起 / 桌宠绑定游戏 | `client_version` / `game_version` / `launch_id` / `initial_idip_snapshot` | P0 |
+| `game_close` | `lifecycle` | 游戏退出 / 用户终止 | `launch_id` / `session_ids[]` / `close_reason` / `final_idip_snapshot` | P0 |
+| `session_start` | `lifecycle` | 一局 / 一段游戏开始 | `session_id` / `session_type` / `map_id`?/ `team_size`? / `idip_snapshot` | P0 |
+| `session_end` | `lifecycle` | 一局 / 一段游戏结束 | `session_id` / `session_type` / `session_result`（win/lose/draw/quit）/ `duration_sec` / `idip_snapshot` | P0 |
+| `settlement` | `lifecycle` | 结算页打开 | `session_id` / `score`? / `rewards`? | P0 |
+| `objective_progress` | `realtime_push` | 目标进度变化 | `session_id` / `objective_id` / `progress_value` | P0 |
+| `success` | `realtime_push` | 通用成功事件（通关 / 杀敌 / 任务完成等业务集合） | `session_id` / `success_category` | P0 |
+| `fail` | `realtime_push` | 通用失败事件（死亡 / 卡关 / 任务失败等） | `session_id` / `fail_category` | P0 |
+
+##### 3.1.2.2 IDIP 心跳与服务端 diff（无 SDK 实时事件的游戏方案）
+
+不是所有游戏都有 SDK 实时事件流。**统一方案**：客户端按 §2.4 推荐 60s 间隔上报完整 `idip_snapshot`，记忆系统服务端做相邻快照 diff，生成 `idip_delta` 推回客户端。客户端不做本地 diff，避免双端状态不一致。
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant M as Memory
+    C->>M: game_launch + initial_idip_snapshot
+    loop 每 60s
+        C->>M: idip_snapshot (full_snapshot=true, snapshot_type=heartbeat)
+    end
+    M-->>M: 服务端对比相邻快照
+    alt 有显著差异
+        M->>C: push: { push_type: idip_delta_ready, resource_refs }
+        C->>M: pull idip_delta detail
+        M->>C: idip_delta + idip_anomaly? + idip_milestone?
+    end
+    C->>M: game_close + final_idip_snapshot
+```
+
+**心跳 envelope**：
+
+```json
+{
+  "record_type": "idip_snapshot",
+  "payload_schema_version": "idip_snapshot.v1",
+  "payload": {
+    "snapshot_type": "heartbeat",
+    "full_snapshot": true,
+    "heartbeat_interval_sec": 60,
+    "session_id": "sess_001",
+    "fields": {
+      "level": 36, "rank": "gold",
+      "current_mode": "ranked_match",
+      "current_chapter": "chapter_02",
+      "gold": 1280
+    }
+  }
+}
+```
+
+##### 3.1.2.3 游戏自定义事件
+
+游戏有 SDK 的，可在通用事件之外追加自定义 `event_type`（`event_mode=realtime_push`），通过 `custom_fields` 携带特定字段。`custom_fields` schema 由游戏接入方与 PM 共同 review，**白名单制**，禁止承载真实账号、付费记录、实名信息。
+
+**示例**：
+
+```json
+{
+  "record_type": "game_event",
   "payload_schema_version": "game_event.v1",
   "payload": {
-    "source": "game_sdk",
     "event_mode": "realtime_push",
     "event_type": "boss_defeated",
     "session_id": "sess_001",
@@ -183,384 +326,219 @@ flowchart LR
 }
 ```
 
-**实时事实源上报：普通用户行为**
+##### 3.1.2.4 `event_mode` 取值
+
+| `event_mode` | 含义 | 来源 |
+| --- | --- | --- |
+| `lifecycle` | 生命周期事件 | Game SDK / 客户端推断进程边界 |
+| `realtime_push` | 游戏 SDK 实时推送 | Game SDK |
+| `snapshot` | 客户端心跳上报的 idip 快照 | 客户端定时器 |
+| `derived_by_memory` | 服务端 diff 生成（仅用于 `idip_delta` / `idip_milestone` 等 derived_memory，不出现在 source_record） | Memory |
+
+#### 3.1.3 PC 环境信号
+
+> 设计取舍（v2 决策）：原 v1 中"行为数据 - PC 进程"、"行为数据 - mac/win API"、"游戏外 PC 数据（音频/Now Playing/浏览器 tab/OSA Bridge）"合并为一节 **PC 环境信号**，按子表分四类。
+
+##### 3.1.3.1 active_app 与 idle 信号
+
+| 字段 | 数据对象 | 触发时机 | 上报方式 | 优先级 |
+| --- | --- | --- | --- | --- |
+| `active_app.name` | source_record | 前台 app 切换 | `pc_signal` 状态变化上报 + 30s 心跳 | P0 |
+| `active_app.bundle_id` | source_record | 同上 | 同上 | P0 |
+| `active_app.is_fullscreen` | source_record | 全屏状态变化 | 状态变化上报 | P0 |
+| `idle_signal` | source_record | 用户闲置状态跨级（active / idle_1min / idle_5min / idle_30min+） | 跨级时上报 | P0 |
+| `is_fullscreen_game` | source_record | 游戏窗口全屏状态变化 | 状态变化上报 | P0 |
+| `app_switch_burst` | source_record | 60s 内切 app ≥5 次 | 二阶统计上报 | P1 |
+| `recent_apps_top3` | source_record | digest 周期（10 min） | 周期聚合上报 | P1 |
+
+##### 3.1.3.2 输入与 UI 派生
+
+| 字段 | 数据对象 | 触发时机 | 上报方式 | 优先级 |
+| --- | --- | --- | --- | --- |
+| `window_title_redacted` | source_record | 窗口标题变化且通过脱敏规则 | `pc_signal` 状态变化 | P0 |
+| `input_intensity_level` | source_record | 桶化等级变化（low/mid/high） | 状态变化上报 | P0 |
+| `ime_state` | source_record | 输入法状态切换（zh/en/off） | 状态变化上报 | P1 |
+| `typing_rhythm_signal` | source_record | digest 周期 | 周期聚合 | P1 |
+| `text_edit_action_burst` | source_record | 60s 内编辑动作 ≥10 次 | 二阶统计上报 | P1 |
+| `undo_redo_rate_per_min` | source_record | digest 周期 | 周期聚合 | P1 |
+| `mouse_region_heatmap_top3` | source_record | digest 周期 | 周期聚合 | P1 |
+| `scroll_intensity_signal` | source_record | 状态变化 | 状态变化上报 | P1 |
+| `ui_semantic_tags[]` | source_record | 授权窗口出现 UI 元素（如 error_dialog） | `semantic_observation` 触发上报 | P1 |
+| `focused_element_role` | source_record | 焦点控件类型变化 | 状态变化上报 | P1 |
+| `semantic_events[]` | source_record | OS 级语义事件（save / undo / paste / app_switch 等白名单事件） | 事件触发上报 | P1 |
+
+> **永禁**：原始按键字符、窗口全文、文件路径、URL、第三方 app 正文。
+
+##### 3.1.3.3 音频派生与 Now Playing
+
+| 字段 | 数据对象 | 触发时机 | 上报方式 | 优先级 |
+| --- | --- | --- | --- | --- |
+| `audio_mood_tag` | source_record | 系统音频派生（节拍 / 能量 / 调式）—— 仅在 `privacy_grants.system_audio_music_context.granted=true` | digest 周期 / 状态变化（mood 跨档） | 扩展 |
+| `audio_bpm_signal` | source_record | 音频派生 | digest 周期 | 扩展 |
+| `now_playing.app` | source_record | macOS MediaRemote / Windows SMTC API 上报 | 状态变化（曲目切换） | P1 |
+| `now_playing.track_title` | source_record | 同上 | 同上 | P1 |
+| `now_playing.artist` | source_record | 同上 | 同上 | P1 |
+| `now_playing.platform_category` | source_record | 来源平台归类（music / podcast / video）| 状态变化 | P1 |
+
+##### 3.1.3.4 浏览器 tab 与 OS Scripting Bridge
+
+| 字段 | 数据对象 | 触发时机 | 上报方式 | 优先级 |
+| --- | --- | --- | --- | --- |
+| `active_tab_signal.category` | source_record | 浏览器扩展上报 tab 切换；仅 6 类 category（video/social/dev/news/shopping/other），不读 URL 与正文 | 状态变化 | P1 |
+| `recent_tab_categories_top3` | source_record | digest 周期 | 周期聚合 | P1 |
+| `osa_bridge.app_id` | source_record | 用户授权范围内的桌面 app（Spotify/Music/VLC/IINA/Notes/Bear/Office 等） | 状态变化 | P1 |
+| `osa_bridge.app_metadata_summary` | source_record | OSA / COM 拉取的元数据摘要（不含正文） | 状态变化 / digest | P1 |
+| `osa_bridge.ui_indicator_shown_per_app` | source_record | 是否对用户显示采集状态 | 状态变化 | P1 |
+
+##### 3.1.3.5 PC 信号统一示例
 
 ```json
 {
-  "envelope_version": "1.0",
-  "record_id": "rec_user_action_001",
-  "record_type": "user_action",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:12:00Z",
-  "sent_at": "2026-05-18T21:12:01Z",
-  "consent_snapshot_id": "consent_20260518_001",
-  "payload_schema_version": "user_action.v1",
-  "payload": {
-    "source": "client",
-    "action_category": "client_ui",
-    "action_type": "open_memory_panel",
-    "target": "highlight_tab",
-    "mutation": false
-  }
-}
-```
-
-**实时事实源上报：用户与桌宠对话**
-
-```json
-{
-  "envelope_version": "1.0",
-  "record_id": "rec_chat_message_001",
-  "record_type": "chat_message",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:13:00Z",
-  "sent_at": "2026-05-18T21:13:01Z",
-  "consent_snapshot_id": "consent_20260518_001",
-  "payload_schema_version": "chat_message.v1",
-  "payload": {
-    "conversation_id": "conv_001",
-    "speaker": "user",
-    "message_type": "text",
-    "content": "刚才那局打得不错，帮我记一下",
-    "client_scene": "post_game_chat"
-  }
-}
-```
-
-**实时事实源上报：桌宠运行事件**
-
-```json
-{
-  "envelope_version": "1.0",
-  "record_id": "rec_pet_runtime_event_001",
-  "record_type": "pet_runtime_event",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:14:00Z",
-  "sent_at": "2026-05-18T21:14:01Z",
-  "consent_snapshot_id": "consent_20260518_001",
-  "payload_schema_version": "pet_runtime_event.v1",
-  "payload": {
-    "source": "client",
-    "event_type": "pet_message_delivered",
-    "client_scene": "post_game_chat",
-    "related_record_ids": ["rec_session_end_001"],
-    "message_template_id": "tmpl_post_game_praise_001",
-    "user_interruption_level": "low"
-  }
-}
-```
-
-**生命周期快照：游戏启动**
-
-```json
-{
-  "envelope_version": "1.0",
-  "record_id": "rec_game_launch_001",
-  "record_type": "game_launch",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:00:00Z",
-  "sent_at": "2026-05-18T21:00:02Z",
-  "consent_snapshot_id": "consent_20260518_001",
-  "payload_schema_version": "game_lifecycle.v1",
-  "payload": {
-    "source": "game_sdk",
-    "lifecycle_event": "game_launch",
-    "launch_id": "launch_001",
-    "client_version": "1.4.0",
-    "game_version": "2.8.1",
-    "initial_idip_snapshot": {
-      "snapshot_id": "idip_001",
-      "full_snapshot": true,
-      "level": 36,
-      "rank": "gold",
-      "current_chapter": "chapter_02",
-      "inventory_summary": {
-        "gold": 1200,
-        "key_item_count": 3
-      }
-    }
-  }
-}
-```
-
-**生命周期快照：游戏关闭 / 退出前 flush**
-
-```json
-{
-  "envelope_version": "1.0",
-  "record_id": "rec_game_close_001",
-  "record_type": "game_close",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T22:05:00Z",
-  "sent_at": "2026-05-18T22:05:01Z",
-  "consent_snapshot_id": "consent_20260518_001",
-  "payload_schema_version": "game_lifecycle.v1",
-  "payload": {
-    "source": "game_sdk",
-    "lifecycle_event": "game_close",
-    "launch_id": "launch_001",
-    "session_ids": ["sess_001", "sess_002"],
-    "close_reason": "user_exit",
-    "final_idip_snapshot": {
-      "snapshot_id": "idip_099",
-      "full_snapshot": true,
-      "level": 37,
-      "rank": "gold",
-      "current_chapter": "chapter_03",
-      "inventory_summary": {
-        "gold": 1510,
-        "key_item_count": 4
-      }
-    }
-  }
-}
-```
-
-**生命周期快照：一局开始**
-
-```json
-{
-  "envelope_version": "1.0",
-  "record_id": "rec_session_start_001",
-  "record_type": "session_start",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:10:00Z",
-  "sent_at": "2026-05-18T21:10:01Z",
-  "consent_snapshot_id": "consent_20260518_001",
-  "payload_schema_version": "game_session.v1",
-  "payload": {
-    "source": "game_sdk",
-    "session_id": "sess_001",
-    "session_type": "ranked_match",
-    "map_id": "map_02",
-    "team_size": 4,
-    "idip_snapshot": {
-      "snapshot_id": "idip_020",
-      "full_snapshot": true,
-      "level": 36,
-      "rank": "gold",
-      "selected_role": "support"
-    }
-  }
-}
-```
-
-**生命周期快照：一局结束**
-
-```json
-{
-  "envelope_version": "1.0",
-  "record_id": "rec_session_end_001",
-  "record_type": "session_end",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:35:00Z",
-  "sent_at": "2026-05-18T21:35:02Z",
-  "consent_snapshot_id": "consent_20260518_001",
-  "payload_schema_version": "game_session.v1",
-  "payload": {
-    "source": "game_sdk",
-    "session_id": "sess_001",
-    "session_type": "ranked_match",
-    "session_result": "win",
-    "duration_sec": 1500,
-    "idip_snapshot": {
-      "snapshot_id": "idip_030",
-      "full_snapshot": true,
-      "level": 36,
-      "rank": "gold",
-      "match_score": 9200
-    }
-  }
-}
-```
-
-**周期心跳：完整 IDIP 快照**
-
-```json
-{
-  "envelope_version": "1.0",
-  "record_id": "rec_idip_heartbeat_001",
-  "record_type": "idip_snapshot",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:20:00Z",
-  "sent_at": "2026-05-18T21:20:01Z",
-  "consent_snapshot_id": "consent_20260518_001",
-  "payload_schema_version": "idip_snapshot.v1",
-  "payload": {
-    "source": "game_sdk",
-    "snapshot_type": "heartbeat",
-    "full_snapshot": true,
-    "heartbeat_interval_sec": 300,
-    "session_id": "sess_001",
-    "fields": {
-      "level": 36,
-      "rank": "gold",
-      "current_mode": "ranked_match",
-      "current_chapter": "chapter_02",
-      "active_party_size": 4,
-      "gold": 1280
-    }
-  }
-}
-```
-
-**周期心跳：PC 低敏状态**
-
-```json
-{
-  "envelope_version": "1.0",
-  "record_id": "rec_pc_signal_001",
   "record_type": "pc_signal",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:20:00Z",
-  "sent_at": "2026-05-18T21:20:01Z",
-  "consent_snapshot_id": "consent_20260518_001",
   "payload_schema_version": "pc_signal.v1",
   "payload": {
-    "source": "client_os",
-    "signal_type": "activity_state",
-    "activity_state": "active",
-    "active_app_category": "game",
-    "active_app_id_hash": "app_hash_abc",
-    "window_title_uploaded": false,
-    "raw_keystrokes_uploaded": false
+    "signal_kind": "active_app_change",
+    "active_app": {
+      "name": "Steam",
+      "bundle_id": "com.valvesoftware.steam",
+      "is_fullscreen": false
+    },
+    "idle_signal": "active",
+    "ime_state": "zh",
+    "window_title_redacted": "Steam - Library"
   }
 }
 ```
 
-**VLM 语义观察：强感知**
+#### 3.1.4 MCP 通道（经客户端中转）
+
+> **架构决策**：MCP app → 客户端 → 记忆系统。客户端是唯一网络出口，负责：①MCP 协议握手；②白名单字段过滤；③脱敏；④统一按 envelope 上报。MCP 永禁直连记忆系统。
+
+```mermaid
+sequenceDiagram
+    participant MCP as MCP app
+    participant C as Client
+    participant M as Memory
+    C->>MCP: 协议握手 + 授权 token
+    MCP->>C: 白名单字段（task_titles / metadata / app_generated_summary）
+    C->>C: 字段白名单过滤 + 脱敏
+    C->>M: record_type=mcp_observation envelope
+    M-->>C: ack
+```
+
+| `record_type` | 关键 payload 字段 | 触发时机 | 优先级 |
+| --- | --- | --- | --- |
+| `mcp_observation` | `mcp_app_id` / `metadata_summary` / `task_titles[]` / `app_generated_summary` / `summary_source_type` | 客户端按 `mcp_pull_interval_sec` 拉取 + app 主动通知（如支持） | P1 |
+
+**MVP 接入清单**：`dida` / `feishu` / `steam`（P0 后半段）；`office` / `dingtalk`（P1）。
+
+**永禁字段**：第三方聊天正文 / 邮件正文 / 文档正文 / 会议正文 / 附件内容 / 未授权 app 数据。
+
+#### 3.1.5 VLM 语义观察
+
+> **核心约束**：原图永不进入跨系统；客户端本地 VLM 处理后**只**回写语义结果。强 / 弱感知字段集不同。
+
+##### 3.1.5.1 强感知（用户明确开启屏幕共享）
+
+| 字段 | 是否回写 | 优先级 |
+| --- | --- | --- |
+| `consent_mode = "strong_sensing"` | 是 | P1 |
+| `trigger_scene` | 是（如 `explicit_screen_share`） | P1 |
+| `raw_frame_uploaded = false` / `raw_frame_stored = false` | 是（恒值，审计用） | P0 |
+| `local_frame_ref` | 是（仅指向客户端本地短期 buffer，记忆系统不能反查） | P1 |
+| `source_record_ids[]` | 是（关联游戏事件 / pc_signal） | P1 |
+| `semantic_tags[]` | 是（业务必需时） | P1 |
+| `user_visible_summary` | 是（业务必需时） | P1 |
+| `confidence` | 是 | P1 |
+| `ui_indicator_shown = true` | 是（强感知必须有可见状态） | P0 |
+
+##### 3.1.5.2 弱感知（桌宠在用户长时无反馈等"特定时刻"截图）
+
+> **回写策略（v2 决策）**：只回写"脱敏摘要 + 业务原因"，**不回写** `semantic_tags`、**不回写** `user_visible_summary`、**不回写** 任何能反推画面内容的字段。目的：留下"为什么此时启用了弱感知"和"判断结果"的审计痕迹，但不让弱感知反复积累细节画像。
+
+| 字段 | 是否回写 | 说明 | 优先级 |
+| --- | --- | --- | --- |
+| `consent_mode = "weak_sensing"` | 是 | 必填 | P1 |
+| `trigger_scene` | 是 | 如 `long_no_feedback` / `interrupt_suitability_check` | P1 |
+| `business_reason` | **是** | 弱感知核心字段：用一句话说明此次判断目的（如"判断是否适合打扰"） | P1 |
+| `interrupt_decision` | 是 | 客户端最终决策（如 `delay_3min` / `interrupt_now` / `stay_silent`） | P1 |
+| `outcome` | 是 | 决策结果（如 `interrupted_succeeded` / `interrupted_user_dismissed` / `stayed_silent`） | P1 |
+| `source_record_ids[]` | 是 | 触发本次弱感知的相邻 pc_signal / chat_message | P1 |
+| `raw_frame_stored = false` | 是 | 恒值 | P0 |
+| `ui_indicator_shown` | 是 | 按用户授权说明记录 | P1 |
+| ~~`semantic_tags[]`~~ | **否** | 弱感知不携带 | — |
+| ~~`user_visible_summary`~~ | **否** | 弱感知不携带 | — |
+| ~~`confidence`~~ | **否** | 弱感知决策不需要细粒度 confidence | — |
+
+##### 3.1.5.3 示例
+
+**强感知**：
 
 ```json
 {
-  "envelope_version": "1.0",
-  "record_id": "rec_vlm_observation_strong_001",
   "record_type": "vlm_observation",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:36:00Z",
-  "sent_at": "2026-05-18T21:36:02Z",
-  "consent_snapshot_id": "consent_20260518_002",
-  "payload_schema_version": "vlm_observation.v1",
+  "payload_schema_version": "vlm_observation.strong.v1",
   "payload": {
-    "source": "local_vlm",
     "consent_mode": "strong_sensing",
     "trigger_scene": "explicit_screen_share",
     "raw_frame_uploaded": false,
     "raw_frame_stored": false,
     "local_frame_ref": "local_frame_001",
-    "source_record_ids": ["rec_session_end_001", "rec_pc_signal_001"],
+    "source_record_ids": ["rec_session_end_001"],
     "semantic_tags": ["game_result_screen", "victory", "high_score"],
     "user_visible_summary": "用户处于游戏结算界面，本局胜利且分数较高。",
-    "confidence": 0.86
+    "confidence": 0.86,
+    "ui_indicator_shown": true
   }
 }
 ```
 
-**VLM 语义观察：弱感知**
+**弱感知**：
 
 ```json
 {
-  "envelope_version": "1.0",
-  "record_id": "rec_vlm_observation_weak_001",
   "record_type": "vlm_observation",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:50:00Z",
-  "sent_at": "2026-05-18T21:50:02Z",
-  "consent_snapshot_id": "consent_20260518_003",
-  "payload_schema_version": "vlm_observation.v1",
+  "payload_schema_version": "vlm_observation.weak.v1",
   "payload": {
-    "source": "local_vlm",
     "consent_mode": "weak_sensing",
     "trigger_scene": "long_no_feedback",
-    "business_reason": "interrupt_suitability_check",
-    "raw_frame_uploaded": false,
-    "raw_frame_stored": false,
+    "business_reason": "判断用户是否在专注状态、当前是否适合主动打扰",
+    "interrupt_decision": "stay_silent",
+    "outcome": "stayed_silent",
     "source_record_ids": ["rec_pc_signal_001"],
-    "semantic_tags": ["possibly_busy", "non_game_focus"],
-    "user_visible_summary": "用户可能处于专注状态，当前不适合主动打扰。",
-    "confidence": 0.71,
-    "memory_write_policy": "write_only_if_user_confirmed_or_business_needed"
+    "raw_frame_stored": false,
+    "ui_indicator_shown": true
   }
 }
 ```
 
-**用户变更回写：保存高光**
+### 3.2 用户控制 mutation
+
+> 所有 mutation 必有 ack（详见 §5）。失败时客户端不进入本地"成功态"，UI 给用户明确反馈。
+
+| `mutation_type` | 触发场景 | 影响对象 | 优先级 |
+| --- | --- | --- | --- |
+| `save_highlight` | 用户保存高光候选 | `highlight_event` | P1 |
+| `update_highlight` | 编辑高光标题 / 摘要 / 标签 / 隐私级别 / 置顶 | `highlight_event` | P1 |
+| `delete_memory` | 删除 episode / profile 字段 / highlight / assessment | 任意可删除资源 | P0 |
+| `correct_memory` | 用户纠错画像 / 情节 / 高光 / 测定解释 | `profile.*` / `episode` / `highlight_event` / `assessment` | P0 |
+| `update_profile_field` | 用户直接编辑昵称 / 称呼 / 目标 / 偏好 / 玩法标签 | `profile_identity.*` / `pet_relationship.*` / `game_profile.*` 等 | P0 |
+| `update_preferences` | 修改日记风格 / 内容类型 / 打扰边界 | `user_preferences.*` / `companion_profile.*` | P1 |
+| `update_consent` | 开启 / 撤回任一类授权 | `privacy_grants.*` | P0 |
+| `request_resummarize` | 点击 / 说"重新总结我" | `profile.summary` / `memory_digest` | P0 |
+| `add_do_not_remember_rule` | 用户说"以后别这样记" | `memory_controls.do_not_remember_rules[]` | P0 |
+| `submit_feedback` | 点赞 / 点踩 / 忽略 / 表示像 / 不像 / 这不准 | `user_feedback[]` | P1 |
+| `request_character_similarity_assessment` | 用户主动发起测定 | `assessment` | P1 |
+| `set_assessment_use_for_companion` | 是否允许测定影响陪伴策略 | `assessment.use_for_companion` | P1 |
+| `reset_profile` | 用户清空画像 | `profile.*` / `deletion_policy.profile_reset_at` | P0 |
+
+**典型 mutation envelope（以 `correct_memory` 为例）**：
 
 ```json
 {
-  "envelope_version": "1.0",
-  "record_id": "rec_user_action_save_highlight_001",
   "record_type": "user_action",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:40:00Z",
-  "sent_at": "2026-05-18T21:40:01Z",
-  "consent_snapshot_id": "consent_20260518_001",
   "payload_schema_version": "user_action.mutation.v1",
   "payload": {
-    "source": "client",
-    "action_category": "memory_mutation",
-    "action_type": "save_highlight",
-    "mutation": true,
-    "mutation_id": "mut_save_highlight_001",
-    "target_resource_id": "highlight_candidate_001",
-    "source_record_ids": ["rec_game_event_001", "rec_session_end_001"],
-    "user_intent": "用户确认保存本局高光"
-  }
-}
-```
-
-**用户变更回写：删除记忆**
-
-```json
-{
-  "envelope_version": "1.0",
-  "record_id": "rec_user_action_delete_001",
-  "record_type": "user_action",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:42:00Z",
-  "sent_at": "2026-05-18T21:42:01Z",
-  "consent_snapshot_id": "consent_20260518_001",
-  "payload_schema_version": "user_action.mutation.v1",
-  "payload": {
-    "source": "client",
-    "action_category": "memory_mutation",
-    "action_type": "delete_memory",
-    "mutation": true,
-    "mutation_id": "mut_delete_001",
-    "target_resource_id": "memory_episode_001",
-    "delete_scope": "single_resource",
-    "user_intent": "用户要求删除这条记忆"
-  }
-}
-```
-
-**用户变更回写：纠错记忆**
-
-```json
-{
-  "envelope_version": "1.0",
-  "record_id": "rec_user_action_correct_001",
-  "record_type": "user_action",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:44:00Z",
-  "sent_at": "2026-05-18T21:44:01Z",
-  "consent_snapshot_id": "consent_20260518_001",
-  "payload_schema_version": "user_action.mutation.v1",
-  "payload": {
-    "source": "client",
     "action_category": "memory_mutation",
     "action_type": "correct_memory",
     "mutation": true,
@@ -573,79 +551,16 @@ flowchart LR
 }
 ```
 
-**用户变更回写：确认画像**
+### 3.3 批量补传
 
-```json
-{
-  "envelope_version": "1.0",
-  "record_id": "rec_user_action_confirm_profile_001",
-  "record_type": "user_action",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:46:00Z",
-  "sent_at": "2026-05-18T21:46:01Z",
-  "consent_snapshot_id": "consent_20260518_001",
-  "payload_schema_version": "user_action.mutation.v1",
-  "payload": {
-    "source": "client",
-    "action_category": "memory_mutation",
-    "action_type": "confirm_profile",
-    "mutation": true,
-    "mutation_id": "mut_confirm_profile_001",
-    "target_resource_id": "profile_fact_002",
-    "confirmed_value": "用户偏好团队协作玩法",
-    "source_record_ids": ["rec_game_event_001", "rec_chat_message_001"]
-  }
-}
-```
+| 场景 | 触发 | 规则 |
+| --- | --- | --- |
+| 网络恢复 | 客户端检测到联通后 30s 内启动 | 每条仍带独立 `record_id` / `occurred_at` / `consent_snapshot_id`（不是补传时刻）；按 `occurred_at` 时序上报 |
+| 客户端空闲 | 后台周期任务 | 同上 |
+| 退出前 flush | `before_quit` hook | 同上 |
+| 超时丢弃 | 离线超 `offline_buffer_max_hours=24` 或超 `offline_buffer_max_records=5000` | 客户端记录 `offline_dropped_count` 并在下次启动时上报一条 `pet_runtime_event.offline_drop_summary`（不补传内容） |
 
-**用户变更回写：授权变更**
-
-```json
-{
-  "envelope_version": "1.0",
-  "record_id": "rec_consent_update_001",
-  "record_type": "consent_update",
-  "game_id": "game_abc",
-  "game_user_id_pseudonym": "u_hash_123",
-  "occurred_at": "2026-05-18T21:48:00Z",
-  "sent_at": "2026-05-18T21:48:01Z",
-  "consent_snapshot_id": "consent_20260518_004",
-  "payload_schema_version": "consent_update.v1",
-  "payload": {
-    "source": "client",
-    "mutation": true,
-    "mutation_id": "mut_consent_001",
-    "changed_scopes": [
-      {
-        "scope": "weak_vlm_semantic_observation",
-        "status": "disabled"
-      },
-      {
-        "scope": "game_event_memory",
-        "status": "enabled"
-      }
-    ],
-    "effective_at": "2026-05-18T21:48:00Z"
-  }
-}
-```
-
-**Memory 处理回执：mutation ack**
-
-```json
-{
-  "ack_id": "ack_mut_delete_001",
-  "request_record_id": "rec_user_action_delete_001",
-  "mutation_id": "mut_delete_001",
-  "status": "applied",
-  "processed_at": "2026-05-18T21:42:03Z",
-  "updated_resource_refs": ["memory_episode_001"],
-  "client_action": "refresh_affected_resources"
-}
-```
-
-**批量补传：离线 source records**
+**批量 envelope**：
 
 ```json
 {
@@ -656,559 +571,583 @@ flowchart LR
   "sent_at": "2026-05-18T22:10:00Z",
   "retry_count": 1,
   "items": [
-    {
-      "envelope_version": "1.0",
-      "record_id": "rec_offline_game_event_001",
-      "record_type": "game_event",
-      "occurred_at": "2026-05-18T21:30:00Z",
-      "sent_at": "2026-05-18T22:10:00Z",
-      "consent_snapshot_id": "consent_20260518_001",
-      "payload_schema_version": "game_event.v1",
-      "payload": {
-        "source": "game_sdk",
-        "event_type": "item_obtained",
-        "session_id": "sess_001",
-        "custom_fields": {
-          "item_id": "rare_sword_001",
-          "item_rarity": "rare"
-        }
-      }
-    },
-    {
-      "envelope_version": "1.0",
-      "record_id": "rec_offline_user_action_001",
-      "record_type": "user_action",
-      "occurred_at": "2026-05-18T21:31:00Z",
-      "sent_at": "2026-05-18T22:10:00Z",
-      "consent_snapshot_id": "consent_20260518_001",
-      "payload_schema_version": "user_action.v1",
-      "payload": {
-        "source": "client",
-        "action_category": "client_ui",
-        "action_type": "ignore_memory_suggestion",
-        "target": "highlight_candidate_001",
-        "mutation": false
-      }
-    }
+    { "envelope_version": "1.0", "record_id": "rec_offline_game_event_001", "...": "..." }
   ]
 }
 ```
 
-**Memory 处理回执：批量补传 ack**
+**Memory 批量 ack**：
 
 ```json
 {
   "batch_ack_id": "batch_ack_offline_001",
   "batch_id": "batch_offline_001",
   "status": "partial_success",
-  "processed_at": "2026-05-18T22:10:03Z",
   "accepted_record_ids": ["rec_offline_game_event_001"],
   "rejected_records": [
-    {
-      "record_id": "rec_offline_user_action_001",
-      "reason": "duplicate_record_id"
-    }
+    { "record_id": "rec_offline_user_action_001", "reason": "duplicate_record_id" }
   ]
 }
 ```
 
-### 3.3 Memory Push Envelope
+---
 
-Memory Push 只推“有变化通知 + 轻摘要 + 可拉取引用”，不推大对象。客户端真正使用时再 pull 详情。Push 的作用是提醒客户端“有新的可消费结果或状态变化”，不是替代 query response。
+## 4. Memory → Client 返回
 
-| 数据 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 消费侧获取的时机 / 场景 | 消费侧回写的时机 / 场景 | 优先级 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `push_id` | 推送 ID | string | `"push_001"` | Memory → Client | push | 客户端去重 / 展示轻提示 | 客户端 ack push 状态 | P0 |
-| `push_type` | 推送类型 | enum | `highlight_ready` | Memory → Client | push | 判断是否需要 pull 详情 | 不直接回写 | P0 |
-| `summary` | 轻摘要 | string | `"本局游戏已生成 1 条高光候选"` | Memory → Client | push | 低打扰提示、状态更新 | 不直接回写 | P0 |
-| `resource_refs[]` | 可拉取详情的资源引用 | string[] | `["highlight_candidate_001"]` | Memory → Client | push | 客户端按场景 pull 详情 | 用户保存 / 忽略后回写动作 | P0 |
-| `suggested_action` | 建议客户端动作 | enum | `pull_detail` | Memory → Client | push | 决定是否查询详情 | 不直接回写 | P1 |
-| `created_at` | 推送创建时间 | ISO 8601 | `"2026-05-18T21:30:00Z"` | Memory → Client | push | 排序和过期 | 不直接回写 | P0 |
+### 4.0 章节地图
 
-典型 `push_type`：
+| 子节 | 内容 |
+| --- | --- |
+| §4.1 | 加工记忆 pull response（按 `query_type` 列） |
+| §4.2 | 用户控制状态 pull response（preferences / consent / deletion_policy） |
+| §4.3 | 轻量 push 通知 |
 
-| push_type | 触发 | 客户端下一步 |
-|---|---|---|
-| `memory_digest_ready` | 低频摘要生成或刷新 | 低打扰展示，必要时 pull `memory_digest` |
-| `episode_ready` | 新情节摘要可用 | 在对话、日记、复盘场景 pull `episode` |
-| `profile_updated` | `profile` 或 `profile_meta` 有变化 | 画像页刷新，或对话前 pull profile detail |
-| `highlight_ready` | 新高光候选 / 高光详情可用 | 结算页或高光页 pull `highlight_event` |
-| `preferences_changed` | `user_preferences` / `privacy_grants` 被更新 | 设置页刷新，并更新本地能力开关 |
-| `mcp_summary_ready` | 授权 MCP app 有新的白名单摘要 | 客户端按场景 pull MCP 摘要详情 |
-| `assessment_ready` | 角色相似度测定完成或状态变化 | 结果页 pull `game_character_similarity_assessment` |
-| `resource_invalidated` | 记忆被删除、纠错、过期或替换 | 客户端刷新受影响页面和本地缓存 |
+### 4.1 加工记忆 pull response（derived_memory）
+
+#### 4.1.1 Pull Query 请求字段
+
+| 字段 | 含义 | 必填 | 优先级 |
+| --- | --- | --- | --- |
+| `query_id` | 查询 ID | 是 | P0 |
+| `query_type` | 查询类型，见 §4.1.2 | 是 | P0 |
+| `game_id` / `game_user_id_pseudonym` | 数据隔离 | 是 | P0 |
+| `scene` | 客户端业务场景（用于 Memory 裁剪结果） | 是 | P0 |
+| `time_window` | 查询时间窗 `{from, to}` | 否 | P1 |
+| `resource_refs[]` | 从 push 拿到的资源引用 | 取决于 `query_type` | P0 |
+
+#### 4.1.2 `query_type` 与返回结构
+
+| `query_type` | 客户端场景 | 返回内容（derived_memory） |
+| --- | --- | --- |
+| `startup_context` | 游戏 / 客户端启动 | 当前游戏下近期 `memory_digest` + 关键 `profile.summary` + 未处理提醒清单 + `consent_snapshot` |
+| `conversation_context` | 桌宠准备回应前 | 当前 `profile` 关键字段 + 近期 `atomic_facts[]` + `episode` refs + `disturbance_boundaries` |
+| `session_memory` | 一局结束 / 结算页 | 本 session 的 `episode` + `idip_delta` + `highlight_event` refs + 事件摘要 |
+| `profile_detail` | 画像页 / 对话前 | `profile.*` 全量 + `profile_meta`（含 evidence_ids） |
+| `episode_detail` | 跨日召回 / 日记 / 复盘 | `episode` 详情 + evidence_ids |
+| `highlight_detail` | 高光页 / 日记 / 分享 | `highlight_event` 详情 + evidence_ids |
+| `preferences_state` | 设置页 / 能力调用前 | `user_preferences` + `privacy_grants` + `deletion_policy` |
+| `mcp_context` | 外部 app 轻量提醒 | 已授权 MCP app 的 `metadata_summary` + `task_titles[]` + `app_generated_summary` |
+| `assessment_result` | 角色相似度结果页 | `game_character_similarity_assessment` 详情 |
+| `resource_detail` | 收到 push 后按 `resource_refs[]` 拉详情 | 与 refs 对应的具体资源 |
+
+#### 4.1.3 加工记忆主要资源族（Memory → Client 字段映射）
+
+> **本表只列资源族的核心字段。字段语义、隐私边界、用户控制状态详见 DRS §3。**
+
+| 资源族 | 主要字段 | 来源 query_type | 优先级 |
+| --- | --- | --- | --- |
+| `atomic_facts[]` | `fact` / `quote_eligible` / `meta(confidence, source_category, generation_method, evidence_ids)` | conversation_context / profile_detail / episode_detail | P0 |
+| `episode` | `title` / `content` / `time_range` / `participants` / `highlight_score` / `evidence_ids[]` | session_memory / episode_detail | P0 |
+| `profile.summary` | `value` / `evidence_summary` / `last_confirmed_at` | startup_context / profile_detail | P0 |
+| `profile_identity.*` | `display_name` / `preferred_call_name` —— **derived 版本**：由 chat 推断的称呼候选，标 `generation_method=inferred` | profile_detail | P0 |
+| `pet_relationship.*` | `relationship_mode` —— **derived 版本**：根据互动推断；用户在 mutation 中设 `user_set` 后不可被覆盖 | profile_detail | P0 |
+| `game_profile.*` | `favorite_roles_inferred[]` / `favorite_modes_inferred[]` / `game_goals_inferred[]` | profile_detail | P0 |
+| `playstyle_profile.*` | `playstyle_tags_inferred[]` / `risk_preference_inferred` / `learning_stage_inferred` | profile_detail | P0 |
+| `companion_profile.*` | `emotion_support_preference_inferred` / `preferred_conversation_topics_inferred[]` | profile_detail | P0 |
+| `progress_profile.*` | `current_goal_inferred` / `stuck_points_inferred[]` / `recent_achievements_inferred[]` / `long_term_milestones[]` | session_memory / profile_detail | P1 |
+| `idip_delta` | `changed_fields` / `from_snapshot_id` / `to_snapshot_id` | session_memory | P1 |
+| `idip_anomaly` | `type`（卡关 / 异常掉段 / ...） / `evidence_ids[]` | session_memory | P1 |
+| `idip_milestone[]` | `name` / `achieved_at` / `evidence_ids[]` | session_memory / profile_detail | P1 |
+| `highlight_event` | `highlight_id` / `title` / `time` / `scene` / `event_summary` / `category` / `tags[]` / `source` / `privacy_level` / `pinned` / `evidence_ids[]` / `is_active` / `inactive_reason` / `inactive_at` | highlight_detail | P1 |
+| `memory_digest` | `digest_id` / `period` / `summary` / `top_events` / `top_emotions` | startup_context / profile_detail | P1 |
+| `emotion_signal_derived` | 记忆系统基于 chat + game_event 聚合的情绪结论（**不同于客户端推导的 `emotion_signal_observed`**） | session_memory | P0 |
+| `game_character_similarity_assessment` | `assessment_id` / `matched_character_*` / `matched_traits[]` / `unmatched_traits[]` / `not_evaluable_traits[]` / `data_window` / `consent_snapshot` / `assessment_at` / `is_active` / `inactive_reason` | assessment_result | P1 |
+| `profile_meta`（每条 derived 必带） | `confidence` / `source_category[]` / `generation_method` / `evidence_ids[]` / `evidence_summary` / `first_seen_at` / `last_confirmed_at` / `decay_score` / `is_active` / `inactive_reason` / `inactive_at` | 随每条 derived | P0 |
+
+> **关键命名约定（实施 §1.4 D3）**：所有"既可能由客户端推导也可能由记忆系统加工"的概念字段都拆名。客户端上报版本以 `_observed` 结尾，记忆系统返回版本以 `_derived` 或 `_inferred` 结尾；用户显式设置版本以 `_user_set` 结尾。
+
+#### 4.1.4 Pull Response 示例（`session_memory`）
+
+```json
+{
+  "query_id": "qry_001",
+  "query_type": "session_memory",
+  "result": {
+    "session_id": "sess_001",
+    "episode": {
+      "title": "首杀 chapter_02 BOSS",
+      "content": "用户操控法师...",
+      "time_range": { "start": "...", "end": "..." },
+      "highlight_score": 0.82,
+      "evidence_ids": ["rec_game_event_001", "rec_session_end_001"]
+    },
+    "idip_delta": {
+      "changed_fields": { "level": "+1", "gold": "+310" },
+      "from_snapshot_id": "idip_020",
+      "to_snapshot_id": "idip_030"
+    },
+    "highlight_candidates": [
+      { "highlight_id": "hl_001", "title": "首杀 BOSS", "evidence_ids": [...] }
+    ],
+    "emotion_signal_derived": "excitement"
+  }
+}
+```
+
+### 4.2 用户控制状态 pull response（user_control_state）
+
+记忆系统对 `user_control_state` 是**只持久化、不加工**。客户端通过 `preferences_state` query 一次性拿到全套。
+
+| 字段族 | 主要字段 | 优先级 |
+| --- | --- | --- |
+| `profile_identity_user_set` | `display_name` / `preferred_call_name` | P0 |
+| `pet_relationship_user_set` | `relationship_mode` | P0 |
+| `companion_profile_user_set` | `emotion_support_preference` / `disturbance_boundaries` / `preferred_conversation_topics[]` / `avoided_conversation_topics[]` | P0 |
+| `progress_profile_user_set` | `current_goal` / `stuck_points_user_marked[]` | P0 |
+| `game_profile_user_set` | `favorite_roles[]` / `favorite_modes[]` / `game_goals[]` | P0 |
+| `content_type` | `enabled[]` / `priority[]` / `user_feedback[]` | P1 |
+| `diary_style` | `frequency` / `length` / `focus` / `quote_user_original` | P1 |
+| `privacy_grants` | `chat_content` / `game_event_memory` / `behavior_data` / `vlm_visual` / `ui_text_reading` / `system_audio_music_context` / `mcp_sources[]` / `profile_inference` / `character_similarity_assessment` / `diary_quote` | P0 |
+| `deletion_policy` | `delete_on_revoke` / `profile_reset_at` | P0 |
+| `memory_controls` | `resummarize_requested_at` / `do_not_remember_rules[]` | P0 |
+
+### 4.3 轻量 push 通知
+
+> **核心约束**：push 只带 `summary` 和 `resource_refs[]`，**不**推大对象。客户端按需 pull 详情。Push 的作用是"提醒"，不是替代 query response。
+
+#### 4.3.1 Push envelope
+
+| 字段 | 含义 | 优先级 |
+| --- | --- | --- |
+| `push_id` | 推送 ID | P0 |
+| `push_type` | 推送类型，见 §4.3.2 | P0 |
+| `summary` | 一句话摘要（UI 可直接显示） | P0 |
+| `resource_refs[]` | 可拉详情的资源引用 | P0 |
+| `suggested_action` | 建议客户端动作（如 `pull_detail` / `show_light_tip` / `refresh_settings`） | P1 |
+| `created_at` | 推送创建时间 | P0 |
+
+#### 4.3.2 `push_type` 清单
+
+| `push_type` | 触发 | 客户端典型反应 | 优先级 |
+| --- | --- | --- | --- |
+| `memory_digest_ready` | 低频摘要生成或刷新 | 低打扰提示 + 必要时 pull `memory_digest` | P1 |
+| `episode_ready` | 新情节摘要可用 | 在对话 / 日记 / 复盘场景 pull `episode_detail` | P0 |
+| `profile_updated` | `profile` / `profile_meta` 有变化 | 画像页刷新 / 对话前 pull `profile_detail` | P0 |
+| `highlight_ready` | 新高光候选 / 高光详情可用 | 结算页 / 高光页 pull `highlight_detail` | P1 |
+| `idip_delta_ready` | 服务端 diff 生成新 delta | session 中 / 结算页 pull `session_memory` | P1 |
+| `preferences_changed` | `user_preferences` / `privacy_grants` 被多端修改 | 设置页刷新 + 更新本地能力开关 | P0 |
+| `mcp_summary_ready` | MCP app 有新的白名单摘要 | 按场景 pull `mcp_context` | P1 |
+| `assessment_ready` | 角色相似度测定完成或状态变化 | 结果页 pull `assessment_result` | P1 |
+| `resource_invalidated` | 记忆被删除 / 纠错 / 过期 / 替换 / 授权撤回 | 刷新受影响页面和本地缓存 | P0 |
+
+#### 4.3.3 Push 去重规则
+
+- 同 `resource_ref` 在 `push_dedup_window_sec=30` 秒内只推送一次。
+- `resource_invalidated` 不去重（强一致优先）。
+- 离线期间堆积的 push 在客户端上线后按 `created_at` 时序 replay，过期（>1h）的 `memory_digest_ready` 与 `mcp_summary_ready` 可丢弃。
+
+**Push 示例**：
 
 ```json
 {
   "push_id": "push_001",
   "push_type": "highlight_ready",
-  "summary": "本局游戏已生成 1 条高光候选",
+  "summary": "本局生成 1 条高光候选",
   "resource_refs": ["highlight_candidate_001"],
   "suggested_action": "pull_detail",
   "created_at": "2026-05-18T21:30:00Z"
 }
 ```
 
-### 3.4 Client Pull Query
+---
 
-客户端进入具体业务场景时主动查询，不依赖 Memory 把所有数据都推过来。
+## 5. Mutation / Ack 双向闭环
 
-| data_field | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 消费侧获取的时机 / 场景 | 消费侧回写的时机 / 场景 | 优先级 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `query_id` | 查询 ID | string | `"qry_001"` | Client → Memory | pull request | 对话前、开局、结算、画像页、日记页、复盘页 | 不直接回写 | P0 |
-| `query_type` | 查询类型 | enum | `session_memory` | Client → Memory | pull request | 决定返回结构 | 不直接回写 | P0 |
-| `game_id` | 游戏标识 | string | `"game_abc"` | Client → Memory | pull request | 限定当前游戏数据 | 游戏切换时更新 | P0 |
-| `game_user_id_pseudonym` | 用户账号脱敏 ID | string | `"u_hash_123"` | Client → Memory | pull request | 限定当前用户数据 | 账号切换时更新 | P0 |
-| `scene` | 客户端业务场景 | enum | `post_game_review` | Client → Memory | pull request | Memory 按场景裁剪结果 | 不直接回写 | P0 |
-| `time_window` | 查询时间窗 | object | `{from:"...",to:"..."}` | Client → Memory | pull request | 复盘 / 日记 / 高光页使用 | 不直接回写 | P1 |
-| `resource_refs[]` | 从 push 里拿到的引用 | string[] | `["highlight_candidate_001"]` | Client → Memory | pull request | 拉取具体详情 | 用户保存 / 删除后回写 | P0 |
+### 5.1 Mutation 契约
 
-典型 `query_type`：
+mutation 复用 §2.2 通用 envelope，但 `payload.mutation = true`，且必含 `mutation_id`、`target_resource_id`（或同义字段）、`user_intent`（可读说明）。详见 §3.2 类型清单。
 
-| query_type | 客户端场景 | 期望返回 |
-|---|---|---|
-| `startup_context` | 游戏启动 / 客户端启动 | 授权状态、基础 profile、近期 digest、未处理提醒 |
-| `conversation_context` | 桌宠准备回应前 | 可用 profile、recent facts、episode refs、打扰边界 |
-| `session_memory` | 一局结束 / 结算页 | 本 session 的 episode、idip_delta、highlight refs、event summary |
-| `profile_detail` | 画像页 / 对话前 | `profile` + `profile_meta` + evidence refs |
-| `highlight_detail` | 高光页 / 日记 / 分享 | `highlight_event` 详情和 `evidence_ids[]` |
-| `preferences_state` | 设置页 / 能力调用前 | `user_preferences`、`privacy_grants`、`deletion_policy` |
-| `mcp_context` | 外部 app 轻量提醒 | 授权 MCP app 的 `metadata_summary`、`task_titles[]`、`app_generated_summary` |
-| `assessment_result` | 角色相似度结果页 | `game_character_similarity_assessment` 详情 |
-| `resource_detail` | 收到 push 后按 `resource_refs[]` 拉详情 | 与 refs 对应的具体资源 |
+### 5.2 Ack 状态机
 
-### 3.5 Mutation / Ack
+```mermaid
+stateDiagram-v2
+    [*] --> 已发送
+    已发送 --> applied: Memory 处理成功
+    已发送 --> rejected: 权限/目标不存在/已失效
+    已发送 --> pending: 异步处理中
+    pending --> applied: 后台完成
+    pending --> rejected: 后台失败
+    已发送 --> partial_success: 批量中部分成功
+    applied --> [*]
+    rejected --> [*]
+    partial_success --> [*]
+```
 
-所有用户保存、删除、纠错、授权变更、偏好变更、结果反馈和重测请求都必须有明确处理回执（ack），避免客户端和记忆系统状态不一致。
+| `ack_status` | 含义 | 客户端处理 |
+| --- | --- | --- |
+| `applied` | 已完成变更 | 刷新 UI；按 `updated_resource_refs[]` 重新 pull |
+| `rejected` | 拒绝（无权限 / 目标不存在 / 资源已失效） | 展示失败原因；不进入本地成功态 |
+| `pending` | 已接收，异步处理 | 展示"处理中"；等待后续 push 或轮询 |
+| `partial_success` | 批量中只有部分成功 | 刷新成功部分；失败项提示或重试 |
 
-| data_field | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 消费侧获取的时机 / 场景 | 消费侧回写的时机 / 场景 | 优先级 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `mutation_id` | 变更请求 ID | string | `"mut_001"` | Client → Memory | mutation request | 用户操作后客户端跟踪状态 | 用户保存 / 删除 / 纠错 / 授权变更 | P0 |
-| `mutation_type` | 变更类型 | enum | `delete_memory` | Client → Memory | mutation request | 决定 Memory 执行路径 | 用户动作发生时 | P0 |
-| `target_resource_id` | 被操作对象 | string | `"profile_fact_001"` | Client → Memory | mutation request | 删除 / 纠错 / 保存具体对象 | 用户动作发生时 | P0 |
-| `user_intent` | 用户意图说明 | string | `"这条不准，以后别这样记"` | Client → Memory | mutation request | 解释与后续避免重复生成 | 用户明确表达时 | P0 |
-| `ack_status` | 执行结果 | enum | `applied` | Memory → Client | mutation response | 客户端刷新 UI / 状态 | Memory 完成后返回 | P0 |
-| `updated_resource_refs[]` | 受影响资源 | string[] | `["profile_fact_001"]` | Memory → Client | mutation response | 客户端按需重新 pull | 不直接回写 | P1 |
+**Ack envelope**：
 
-典型 `mutation_type`：
+```json
+{
+  "ack_id": "ack_mut_correct_001",
+  "request_record_id": "rec_user_action_correct_001",
+  "mutation_id": "mut_correct_001",
+  "status": "applied",
+  "processed_at": "2026-05-18T21:44:03Z",
+  "updated_resource_refs": ["profile_fact_001"],
+  "client_action": "refresh_affected_resources"
+}
+```
 
-| mutation_type | 触发场景 | 影响对象 |
-|---|---|---|
-| `save_highlight` | 用户保存高光候选 | `highlight_event` |
-| `update_highlight` | 用户编辑高光标题、摘要、标签、隐私级别、置顶状态 | `highlight_event` |
-| `delete_memory` | 用户删除 episode / profile fact / highlight / assessment | 任意可删除记忆资源 |
-| `correct_memory` | 用户纠错画像、情节、高光、测定解释 | `profile` / `episode` / `highlight_event` / `assessment` |
-| `update_profile_field` | 用户直接编辑昵称、称呼、目标、偏好、玩法标签等 | `profile.*` |
-| `update_preferences` | 用户修改日记风格、内容类型、打扰边界等 | `user_preferences` / `companion_profile` |
-| `update_consent` | 用户开启 / 撤回聊天、游戏事件、VLM、MCP、角色测定等授权 | `privacy_grants` |
-| `request_resummarize` | 用户点击或说“重新总结我” | `profile.summary` / `memory_digest` |
-| `add_do_not_remember_rule` | 用户说“以后别这样记” | `memory_controls.do_not_remember_rules[]` |
-| `submit_feedback` | 用户点赞、点踩、忽略、表示像 / 不像 / 这不准 | `user_feedback[]` |
-| `request_character_similarity_assessment` | 用户主动发起角色相似度测定 | `game_character_similarity_assessment` |
-| `set_assessment_use_for_companion` | 用户允许或禁止测定结果影响日常陪伴 | `game_character_similarity_assessment.use_for_companion` |
-| `reset_profile` | 用户清空画像 | `profile` / `deletion_policy.profile_reset_at` |
+### 5.3 证据链字段流转
 
-典型 `ack_status`：
+证据链不是单独的数据包，而是贯穿 source_record → derived_memory → mutation → ack 的引用关系。
 
-| ack_status | 含义 | 客户端处理 |
-|---|---|---|
-| `applied` | Memory 已完成变更 | 刷新 UI，并按 `updated_resource_refs[]` 重新 pull |
-| `rejected` | Memory 拒绝执行，通常因为无权限、目标不存在或资源已失效 | 展示失败原因，不做本地成功态 |
-| `pending` | Memory 已接收，但需要异步处理 | 展示处理中，等待 push 或轮询 query |
-| `partial_success` | 批量 mutation 中只有部分成功 | 刷新成功部分，对失败项提示或重试 |
+```mermaid
+flowchart LR
+    SR["source_record<br/>record_id"] -->|被加工时引用| DM["derived_memory<br/>source_record_ids[]<br/>evidence_ids[]"]
+    DM -->|用户操作时定位| MUT["mutation<br/>target_resource_id"]
+    MUT -->|执行后告知影响| ACK["ack<br/>updated_resource_refs[]"]
+    ACK -->|失效或重生成| INV["失效状态<br/>is_active=false<br/>inactive_reason<br/>inactive_at"]
+```
+
+| 阶段 | 字段 | 含义 | 谁写入 |
+| --- | --- | --- | --- |
+| 上报 | `record_id` | 每条 raw 事实源的唯一 ID | Client |
+| 上报 | `record_type` | 事实源类型 | Client |
+| 上报 | `consent_snapshot_id` | 事实发生时的授权快照 | Client |
+| 加工 | `source_record_ids[]` / `evidence_ids[]` | 这条加工结果引用了哪些事实源 | Memory |
+| 加工 | `evidence_summary` | 给用户看的证据短解释 | Memory |
+| Mutation | `target_resource_id` | 用户要操作的对象 | Client |
+| Ack | `updated_resource_refs[]` | 本次 mutation 影响了哪些结果 | Memory |
+| 失效 | `is_active` / `inactive_reason` / `inactive_at` | 加工结果是否还能用、为什么失效、何时失效 | Memory |
+
+### 5.4 授权撤回反向溅透清理（v2 新增）
+
+> **问题**：用户撤回某类授权后，记忆系统如何找出所有"依赖被撤回授权"的 derived_memory 并清理？
+
+#### 5.4.1 触发与流程
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant C as Client
+    participant M as Memory
+
+    U->>C: 设置页关闭某类授权<br/>（如 vlm_visual）
+    C->>M: mutation: consent_update<br/>{ changed_scopes: [...disabled], delete_on_revoke: ask/delete_now }
+    M-->>M: 1. 持久化新 consent_snapshot
+    M-->>M: 2. 反向索引：sweep 所有 source_record<br/>WHERE consent_snapshot.scope=disabled
+    M-->>M: 3. 找出引用这些 source_record 的 derived_memory
+    M-->>M: 4. 按 delete_on_revoke 策略处理：<br/>delete_now → 标 is_active=false, inactive_reason=consent_revoked<br/>ask → 暂保留但停止加工，标 pending_user_decision
+    M->>C: ack { status: applied, updated_resource_refs[] }
+    M->>C: push: resource_invalidated × N<br/>（按 dedup 合并）
+    C-->>C: 刷新受影响 UI / 缓存
+```
+
+#### 5.4.2 必备机制
+
+| 机制 | 说明 | 责任 |
+| --- | --- | --- |
+| **`consent_snapshot_id` 反向索引** | 每条 source_record 都有 `consent_snapshot_id`；记忆系统维护 `consent_snapshot → source_record_ids[]` 反向索引 | Memory |
+| **`derived_memory.source_record_ids[]` 强制非空** | 每条 derived_memory 必须挂证据 ID；没有证据链的 derived_memory 拒绝写入 | Memory |
+| **`delete_on_revoke` 用户偏好** | `delete_now` / `ask` / `keep_silent` 三档；记录在 `deletion_policy` 中 | Client → Memory |
+| **失效完成时限** | `consent_revoke_cleanup_max_hours=24`，超时记录 `consent_revoke_overdue` 告警 | Memory |
+| **审计日志** | 每次撤回清理生成审计记录，记录 `revoked_scope` / `affected_count` / `completed_at`，可在 Memory Center 查看 | Memory |
+
+#### 5.4.3 边界情况
+
+| 情况 | 处理 |
+| --- | --- |
+| derived_memory 同时引用了多类授权的 source_record，其中一类被撤回 | 默认整条标失效；若 derived_memory 可仅基于剩余授权重新加工，触发"重新加工"任务 |
+| 用户重新开启同类授权 | 不自动恢复已失效 derived_memory；用户可在 Memory Center 手动"恢复"或"重新生成" |
+| user_action mutation（如 save_highlight）已用户确认 | 即使依赖的 vlm_observation 因撤回失效，也保留 `is_active=true`（用户确认权重高于源失效）；但 evidence_summary 中标注"原画面证据已不可用" |
 
 ---
 
-### 3.6 证据链字段与流转
+## 6. 业务场景接力图
 
-本节承接 3.1 的上报 Envelope 和 3.5 的 Mutation / Ack，说明“证据链”具体靠哪些字段串起来。它不是单独的数据包，而是贯穿 source record、derived memory、mutation response 的引用关系。
+> 每个场景统一三道泳道：`Game SDK` / `Client` / `Memory`，MCP 场景多一道 `MCP app`。所有接力图都对应前面 §3 / §4 / §5 的具体字段。
 
-| 使用位置 | 字段 | 含义 | 谁写入 | 典型使用场景 |
+### 6.1 游戏启动
+
+```mermaid
+sequenceDiagram
+    participant SDK as Game SDK
+    participant C as Client
+    participant M as Memory
+    SDK->>C: lifecycle: game_launch + 初始 idip
+    C->>M: record_type=game_launch envelope
+    M-->>C: ack
+    C->>M: pull query: startup_context
+    M->>C: digest + profile.summary + open reminders + consent_snapshot
+    C-->>C: 本地合成 current_context
+```
+
+| 步骤 | 客户端 | 记忆系统 | 数据 / 回执 | 回写 |
 | --- | --- | --- | --- | --- |
-| 事实源上报 Envelope | `record_id` | 每条 raw 事实源的唯一 ID | Client | Memory 后续生成画像、高光、episode 时引用这条事实 |
-| 事实源上报 Envelope | `record_type` | 事实源类型，例如 `game_event`、`chat_message`、`pc_signal` | Client | Memory 判断这条事实应进入哪类加工流程 |
-| 事实源上报 Envelope | `occurred_at` | 事实实际发生时间 | Client | Memory 排序、生成时间线、判断新旧 |
-| 事实源上报 Envelope | `consent_snapshot_id` | 事实发生 / 上报时对应的授权快照 | Client | 用户撤回授权后，Memory 判断哪些数据还能继续使用 |
-| 加工结果返回 | `source_record_ids[]` / `evidence_ids[]` | 这条加工结果引用了哪些事实源 | Memory | 客户端展示“为什么这么记”、用户纠错时定位证据 |
-| 加工结果返回 | `evidence_summary` | 给用户看的证据短解释 | Memory | 画像页、高光页、角色测定页解释来源 |
-| Mutation 请求 | `target_resource_id` | 用户要保存、删除、纠错、反馈的对象 | Client | 用户点删除 / 纠错 / 不准时，Memory 知道要改哪条记忆 |
-| Mutation 响应 | `updated_resource_refs[]` | 本次 mutation 影响了哪些结果 | Memory | 客户端按引用重新 pull 最新详情，刷新 UI |
-| 加工结果状态 | `is_active` / `inactive_reason` / `inactive_at` | 加工结果是否还能被客户端使用，以及为什么失效 | Memory | 删除、纠错、授权撤回后，客户端过滤不可用记忆 |
+| 1 | 接收 SDK `game_launch` | 存 source_record | envelope ack | 是（事实源） |
+| 2 | 上报 `idip_snapshot.initial` | 存初始状态 | ack | 是 |
+| 3 | pull `startup_context` | 返回 digest + profile + consent | query response | 否 |
+| 4 | 本地合成 `current_context` | 不参与 | — | 否（不回写完整对象） |
 
-例子：客户端用上报 Envelope 发送一条 `game_event`，它有自己的 `record_id`。Memory 后来生成一个 `highlight_event`，返回时带上 `evidence_ids[]` 指向这条 `game_event`。用户觉得这个高光不准时，客户端发 `correct_memory` mutation，并带上 `target_resource_id`；Memory 处理后返回 ack 和 `updated_resource_refs[]`，客户端再按引用拉取最新结果。
+### 6.2 对局中
 
-## 4. 数据需求详解
+#### 6.2.1 有 SDK 实时事件（A 类游戏）
 
-### 4.1 聊天数据 chat
+```mermaid
+sequenceDiagram
+    participant SDK as Game SDK
+    participant C as Client
+    participant M as Memory
+    loop 每个事件
+        SDK->>C: game_event (realtime_push)
+        C->>M: record_type=game_event envelope
+        M-->>C: ack
+    end
+    M-->>M: 后台加工：episode / highlight 候选 / profile 更新
+    M->>C: push: episode_ready / highlight_ready
+```
 
-| 数据 | 数据对象分类 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `chat_text` | `source_record` | 用户与桌宠对话原文 | string | `"刚才那把翻盘了！"` | Client → Memory | `chat_message` 实时上报 / 批量补传 | Memory 生成摘要或画像后，客户端在对话、日记、高光中消费加工结果 | 用户发送消息、会话结束、用户说“记住这把”时上报 | P0 |
-| `chat_session_id` | `source_record` | 对话会话 ID | string | `"chat_001"` | Client ↔ Memory | envelope / query / response | 客户端按会话查看历史或拉取摘要 | 会话开始、结束、离线补传时带 | P0 |
-| `atomic_facts[]` | `derived_memory` | Memory 从聊天中抽取的原子事实 | array | `[{fact:"用户喜欢稳定策略"}]` | Memory → Client | push refs + pull detail | 对话前、画像页、日记 / 高光生成前 | 用户否定、删除、纠错事实时回写 mutation | P0 |
-| `atomic_facts.quote_eligible` | `derived_memory` | 原话是否允许引用 | boolean | `true` | Memory → Client | pull detail | 日记、高光、分享文案准备引用原话前检查 | 用户关闭引用授权或删除相关对话时回写 | P0 |
-| `episode.title` | `derived_memory` | 聊天情节标题 | string | `"讨论刺客职业天赋树调整"` | Memory → Client | push refs + pull detail | 跨日召回、对话延续、Memory Center 展示 | 用户编辑标题、删除 episode 时回写 | P0 |
-| `episode.content` | `derived_memory` | 聊天情节摘要内容 | string | `"用户和桌宠讨论了刺客天赋..."` | Memory → Client | pull detail | 日记、复盘、长期对话上下文 | 用户纠错、删除、要求重新总结时回写 | P0 |
-| `episode.time_range` | `derived_memory` | 情节时间范围 | object | `{start:"...",end:"..."}` | Memory → Client | pull detail | 客户端按时间排序、筛选 | 不直接回写；由源消息时间决定 | P0 |
-| `episode.participants` | `derived_memory` | 会话参与方 | string[] | `["pet","user"]` | Memory → Client | pull detail | 展示对话来源、解释 episode | 不直接回写 | P0 |
-| `emotion_signal` | `source_record` / `derived_memory` | 对话片段情绪信号 | enum | `兴奋` / `沮丧` | Client → Memory / Memory → Client | source record / pull detail | 客户端决定回应语气、日记情绪锚点 | 实时对话判断或用户明确表达情绪时上报 | P0 |
+#### 6.2.2 无 SDK 实时事件（B 类游戏，靠 idip 心跳 diff）
 
-### 4.2 行为数据 - PC 进程
+```mermaid
+sequenceDiagram
+    participant SDK as Game SDK
+    participant C as Client
+    participant M as Memory
+    SDK->>C: lifecycle: session_start + idip
+    C->>M: session_start envelope
+    loop 每 60s
+        C->>M: idip_snapshot (snapshot_type=heartbeat, full_snapshot=true)
+    end
+    M-->>M: 服务端 diff 相邻快照
+    alt 发现显著变化
+        M->>C: push: idip_delta_ready
+        C->>M: pull session_memory
+        M->>C: idip_delta + idip_milestone? + idip_anomaly?
+    end
+```
 
-PC 进程数据主要服务客户端 `current_context` 和打扰判断。只有低敏标准化事实可进入 Memory；P0 默认偏实时，P1 进入画像或长期分析必须依赖授权。
+| 步骤 | 客户端 | 记忆系统 | 回写 |
+| --- | --- | --- | --- |
+| 1 | session_start + idip 上报 | 存初始 | 是 |
+| 2 | 60s 心跳 idip_snapshot | 累积快照 | 是 |
+| 3 | — | 服务端对比相邻快照，差异显著时生成 derived_memory | 否 |
+| 4 | 收到 push 后 pull session_memory | 返回 delta / milestone / anomaly | 否 |
 
-| 数据 | 数据对象分类 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-|---|---|---|---|---|---|---|---|---|---|
-| `active_app.name` | `source_record` | 当前前台 app 名 | string | `"Steam"` | Client → Memory / Client local | pc_signal 变化上报 / 心跳 | 判断用户是否在游戏、工作、离开 | app 切换、游戏启动、复盘需要证据时上报 | P0 |
-| `active_app.bundle_id` | `source_record` | 当前 app bundle ID | string | `"com.valvesoftware.steam"` | Client → Memory / Client local | pc_signal | app 分类、白名单匹配 | app 切换时上报，需脱敏或 hash 时按策略处理 | P0 |
-| `active_app.is_fullscreen` | `source_record` | 当前 app 是否全屏 | boolean | `true` | Client → Memory / Client local | pc_signal | 打扰判断、游戏沉浸状态判断 | 状态变化或心跳时上报 | P0 |
-| `idle_signal` | `source_record` | 用户闲置状态分级 | enum | `active` / `idle_5min` | Client → Memory / Client local | pc_signal 心跳 / 变化上报 | 判断用户是否离开、是否适合主动说话 | 状态跨级变化时上报 | P0 |
-| `app_switch_burst` | `source_record` | 频繁切 app 信号 | boolean | `true` | Client → Memory / Client local | pc_signal / batch | 判断用户是否忙乱、是否不适合打扰 | 行为数据授权开启后，窗口统计命中时上报 | P1 |
-| `recent_apps_top3` | `source_record` | 近期前台 app top3 聚合 | string[] | `["Game","Chrome","Steam"]` | Client → Memory / Client local | digest / query | 画像页、打扰策略、近期活动解释 | 行为数据授权开启且需要长期证据时上报 | P1 |
+### 6.3 结算与复盘
 
-### 4.3 行为数据 - mac / win API & 用户操作
+```mermaid
+sequenceDiagram
+    participant SDK as Game SDK
+    participant C as Client
+    participant M as Memory
+    SDK->>C: session_end + 最终 idip
+    C->>M: session_end + idip_snapshot envelope
+    C->>M: pull session_memory
+    M->>C: episode + idip_delta + highlight refs
+    C-->>C: 展示结算页
+    alt 用户保存高光
+        C->>M: mutation: save_highlight
+        M-->>C: ack applied + updated_resource_refs
+    end
+    alt 用户纠错
+        C->>M: mutation: correct_memory
+        M-->>C: ack applied
+        M->>C: push: profile_updated / resource_invalidated
+    end
+```
 
-该模块只允许低敏状态、桶化统计和语义事件进入 Memory；不记录按键字符、窗口全文、文件路径、URL、第三方内容正文。
+### 6.4 日记 / 高光生成与保存
 
-| 数据 | 数据对象分类 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-|---|---|---|---|---|---|---|---|---|---|
-| `window_title_redacted` | `source_record` | 脱敏窗口标题 | string | `"在 IDE 编辑代码文件"` | Client → Memory / Client local | pc_signal / semantic observation | 打扰判断、当前活动解释 | 标题变化且已脱敏、在允许范围内时上报 | P0 |
-| `is_fullscreen_game` | `source_record` | 游戏是否全屏 | boolean | `false` | Client → Memory / Client local | pc_signal | 游戏中闭嘴、结算后再说 | 状态变化或游戏 session 心跳时上报 | P0 |
-| `input_intensity_level` | `source_record` | 输入强度桶 | enum | `low` / `mid` / `high` | Client → Memory / Client local | pc_signal | 判断用户是否高频输出、是否该打扰 | 只上传桶化结果，不上传按键内容 | P0 |
-| `ui_semantic_tags[]` | `source_record` | 授权窗口 UI 语义标签 | string[] | `["error_dialog_visible"]` | Client → Memory / Client local | semantic observation | 游戏 HUD、弹窗、错误状态理解 | 用户 opt-in 且业务需要证据时上报 | P1 |
-| `focused_element_role` | `source_record` | 当前焦点控件类型 | enum | `button` / `text_field` | Client → Memory / Client local | pc_signal | 正在输入时降低打扰 | 焦点变化且授权允许时上报 | P1 |
-| `typing_rhythm_signal` | `source_record` | 打字节奏桶 | enum | `steady` / `bursty` | Client → Memory / Client local | pc_signal / digest | 专注状态、疲劳提示候选 | 行为数据授权开启后上报桶化结果 | P1 |
-| `mouse_activity_burst` | `source_record` | 鼠标活动 burst | boolean | `true` | Client → Memory / Client local | pc_signal | 判断是否忙于操作 | 行为数据授权开启后上报 | P1 |
-| `mouse_region_heatmap_top3` | `source_record` | 鼠标热区 top3 | string[] | `["center","top-right"]` | Client → Memory / Client local | digest | 当前操作区域推断 | 行为数据授权开启且仅上传区域枚举时上报 | P1 |
-| `scroll_intensity_signal` | `source_record` | 滚动强度桶 | enum | `none` / `high` | Client → Memory / Client local | pc_signal | 判断浏览 / 检索状态 | 行为数据授权开启后上报 | P1 |
-| `semantic_events[]` | `source_record` | 系统级语义事件 | array | `[{type:"save",at:"..."}]` | Client → Memory | user_action / pc_signal | 复盘工作流、解释用户刚保存 / 切换 | 仅白名单语义事件发生时上报 | P1 |
-| `text_edit_action_burst` | `source_record` | 文本编辑动作 burst | boolean | `true` | Client → Memory / Client local | digest | 判断用户是否处于密集编辑状态 | 行为数据授权开启后上报二阶统计 | P1 |
-| `undo_redo_rate_per_min` | `source_record` | undo/redo 频率 | number | `5` | Client → Memory / Client local | digest | 判断高频修改状态 | 只上传频率，不上传编辑内容 | P1 |
-| `ime_state` | `source_record` | 输入法状态 | enum | `zh` / `en` / `off` | Client → Memory / Client local | pc_signal | 判断输入状态、减少打扰 | 授权允许时上报枚举 | P1 |
-| `editing_session_duration_min` | `source_record` | 编辑会话时长 | number | `45` | Client → Memory / Client local | digest | 长 session 提醒、低打扰策略 | 行为数据授权开启后上报 | P1 |
-| `text_edit_burst_frequency` | `source_record` | 编辑突发频率 | number | `2.3` | Client → Memory / Client local | digest | 判断高频产出 / 深度思考 | 行为数据授权开启后上报 | P1 |
+| 步骤 | 客户端 | 记忆系统 | 数据 / 回执 |
+| --- | --- | --- | --- |
+| 1 | 用户进入日记页 | — | — |
+| 2 | pull `episode_detail` + `highlight_detail` | 返回候选 | query response |
+| 3 | 客户端本地大模型生成日记草稿（不入 Memory） | — | — |
+| 4 | 用户编辑并保存 | — | — |
+| 5 | mutation: `save_highlight` 或 `update_profile_field` | 持久化 + 加工 | ack applied |
+| 6 | 若引用原话：检查 `atomic_facts.quote_eligible=true` 且 `privacy_grants.diary_quote.granted=true` | 仅当两个条件都成立才允许引用 | — |
 
-### 4.4 APP 信号源 - MCP 通道
+### 6.5 用户主动纠错 / 删除 / 重新总结
 
-MCP 信号只接受用户授权 app 的白名单字段。客户端消费的是 Memory 返回的 app 元数据 / 摘要，不读取第三方聊天、邮件、文档、会议正文。
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant C as Client
+    participant M as Memory
+    U->>C: "这个画像不准，重新总结一下"
+    C->>M: mutation: correct_memory<br/>{ target_resource_id, original_value, corrected_value, user_intent }
+    M-->>C: ack applied + updated_resource_refs[]
+    U->>C: "重新总结我"
+    C->>M: mutation: request_resummarize
+    M-->>C: ack pending
+    M-->>M: 后台重新加工 profile.summary
+    M->>C: push: profile_updated
+    C->>M: pull profile_detail
+    M->>C: 新 summary + profile_meta
+```
 
-| 数据 | 数据对象分类 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `mcp_app_id` | `source_record` | MCP app 标识 | string | `"steam"` | Memory → Client / Client → Memory | pull response / consent mutation | 客户端展示数据来源和授权 app | 用户开启 / 关闭某 app 授权时回写 | P1 |
-| `metadata_summary` | `source_record` | app 元数据摘要 | string | `"今天有 3 个待办"` | Memory → Client | pull detail / digest | 桌宠轻量提醒、当前上下文补充 | 不直接回写 | P1 |
-| `task_titles[]` | `source_record` | 任务标题列表 | string[] | `["周报","游戏日常任务"]` | Memory → Client | pull detail | 提醒用户具体事项 | 用户关闭该 app 授权或删除相关引用时回写 | P1 |
-| `app_generated_summary` | `source_record` | app 自生成摘要 | string | `"今天主要是日常任务和一项周报"` | Memory → Client | pull detail / digest | 桌宠自然语言引用 | 用户反馈“不准引用这个来源”时回写 | P1 |
-| `summary_source_type` | `source_record` | 摘要来源类型 | enum | `task_status_summary` | Memory → Client | pull detail | 客户端判断能否展示 / 引用 | app 接入或授权变化时更新 | P1 |
-| `authorized_sources[]` | `user_control_state` | 已授权 app 列表 | array | `[{source:"steam",granted:true}]` | Client ↔ Memory | consent query / mutation | 设置页展示当前授权 | 用户单 app 勾选 / 撤回时回写 | P1 |
+### 6.6 授权变更（含撤回反向清理）
 
-### 4.5 游戏状态 / 进度数据 idip
+详见 §5.4 流程图。补充表格：
 
-游戏链路固定为 `Game SDK → Client → Memory`。客户端可以全量上报 `idip_snapshot`；差异、异常、里程碑由 Memory 或游戏侧整理后返回给客户端消费。
+| 步骤 | 客户端 | 记忆系统 | 是否对用户可见 |
+| --- | --- | --- | --- |
+| 1 | 用户在设置页关闭某类授权（如 VLM） | — | 是 |
+| 2 | 弹窗询问 `delete_on_revoke` 偏好（若用户未设默认值） | — | 是 |
+| 3 | mutation: `update_consent` + `delete_on_revoke` | — | — |
+| 4 | — | 持久化新 consent_snapshot | — |
+| 5 | — | 沿反向索引找出受影响 source_record + derived_memory | 后台 |
+| 6 | — | 按策略标 `is_active=false, inactive_reason=consent_revoked` 或 `pending_user_decision` | 后台 |
+| 7 | 收到 ack + push: `resource_invalidated` × N | — | 否（合并后只一次提示） |
+| 8 | 刷新设置页 + 受影响页面 | — | 是 |
+| 9 | （可选）Memory Center 审计页显示清理记录 | 提供 audit log | 是 |
 
-| 数据 | 数据对象分类 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `idip_snapshot` | `source_record` | 游戏状态完整快照 | object | `{level:88,rank:"钻石二"}` | Client → Memory | 生命周期快照 / 周期心跳 / 批量补传 | Memory 加工后客户端在开局、复盘、日记、高光中消费 | 启动、关闭、session 结束、心跳时完整上报 | P0 |
-| `idip_field_metadata` | `source_record` | IDIP 字段语义配置 | object | `{level:{type:"int"}}` | Client → Memory / Memory → Client | 游戏接入配置 / query response | 客户端解释进度字段、复盘展示 | 游戏接入或字段 schema 变化时上报 | P0 |
-| `idip_delta` | `derived_memory` | 状态变化 | object | `{level:"+1"}` | Memory → Client / Client → Memory | push refs + pull detail / game event | 结算页、复盘、日记、祝贺 | 游戏侧直接提供 delta 时可上报；否则 Memory 由快照对比生成 | P1 |
-| `idip_anomaly` | `derived_memory` | 状态异常 / 卡点 | array | `[{type:"卡关"}]` | Memory → Client | push refs + pull detail | 安慰、复盘、卡点提醒 | 用户纠错“不是卡关”时回写 | P1 |
-| `idip_milestone[]` | `derived_memory` | 状态突破点 | array | `[{name:"首次到达钻石"}]` | Memory → Client / Client → Memory | push refs + pull detail / game event | 祝贺、高光候选、长期里程碑 | 游戏侧直接推 milestone 或用户保存里程碑时回写 | P1 |
+### 6.7 VLM 强 / 弱感知
 
-### 4.6 游戏数据 - 实时事件
+#### 6.7.1 强感知
 
-实时事件包括通用事件和游戏自定义事件。基本事件至少包含 `game_launch`、`game_close`、`session_start`、`session_end`、`settlement`、`objective_progress`、`fail`、`success`。
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant C as Client (含本地 VLM)
+    participant M as Memory
+    U->>C: 主动开启"桌宠看屏幕"
+    C->>M: mutation: update_consent<br/>{ vlm_visual.granted=true, app_scope=[...] }
+    M-->>C: ack
+    loop 每隔短暂周期
+        C->>C: 本地 VLM 处理屏幕帧（原图永不出本地）
+    end
+    alt 业务触发（高光 / 复盘 / 日记 / 用户保存）
+        C->>M: vlm_observation (strong_sensing) + 全量字段
+        M-->>C: ack
+    end
+```
 
-| 数据 | 数据对象分类 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| `game_session.start` | `source_record` | 一局 / 一段游戏开始 | ISO 8601 | `"2026-05-12T20:00Z"` | Client → Memory | `session_start` | session 复盘、时长统计起点 | Game SDK 推送后立即上报 | P0 |
-| `game_session.end` | `source_record` | 一局 / 一段游戏结束 | ISO 8601 | `"2026-05-12T20:30Z"` | Client → Memory | `session_end` | 结算、复盘、日记触发 | Game SDK 推送后立即上报 | P0 |
-| `game_session.in_game_time` | `source_record` | 游戏内时间 | string | `"游戏内第 5 日"` | Client → Memory | game_event / heartbeat | 剧情同步、复盘时间线 | 游戏提供时随事件或心跳上报 | P0 |
-| `game_event.stream` | `source_record` | 游戏事件流 | array | `[{type:"death",at:"..."}]` | Client → Memory | 实时事件上报 / 批量补传 | 客户端可 pull 事件整理结果用于即时反应、复盘、高光 | Game SDK 推送后立即上报 | P0 |
-| `game_event.common_fields` | `source_record` | 通用事件字段 | object | `{result:"win"}` | Client → Memory | game_event payload | 多游戏通用复盘和摘要 | 通用事件发生时上报 | P0 |
-| `game_event.custom_fields` | `source_record` | 游戏自定义字段 | object | `{boss_phase:"phase_3"}` | Client → Memory | game_event payload | 特定游戏复盘 / 高光 | 游戏主动推送特定事件时上报 | P1 |
-| `game_session.duration_signal` | `derived_memory` | session 时长分级 | enum | `long_session` | Memory → Client / Client local | pull detail / current_context input | 健康提示、低打扰策略 | 不回写完整 current_context；必要时回写用户偏好 | P0 |
-| `event_emotion_signal` | `source_record` / `derived_memory` | 游戏事件情绪线索 | enum | `frustration` | Memory → Client / Client → Memory | pull detail / source record | 当下回应、日记、高光情绪锚点 | 用户明确表达情绪或事件级判断需要证据时上报 | P0 |
-| `event_response_hint` | `derived_memory` | 桌宠回应策略建议 | enum | `comfort` | Memory → Client | pull detail / scenario query | 游戏失败、成功、结算后的回应决策 | 用户反馈“不想这样回应”时回写偏好 / 反馈 | P0 |
-| `episode.highlight_score` | `derived_memory` | 情节高光排序分 | number | `0.82` | Memory → Client | pull detail | 高光候选排序、日记素材推荐 | 用户保存 / 忽略高光后回写反馈 | P1 |
+#### 6.7.2 弱感知
 
-### 4.7 当前窗口画面理解 VLM
+```mermaid
+sequenceDiagram
+    participant C as Client (含本地 VLM)
+    participant M as Memory
+    Note over C: 检测到长时无反馈
+    C->>C: 本地一次性截图 → 本地 VLM 推理
+    C->>C: 决策：interrupt_now / delay / stay_silent
+    C->>M: vlm_observation (weak_sensing) - 最小字段集<br/>{ trigger_scene, business_reason, interrupt_decision, outcome, source_record_ids[] }
+    M-->>C: ack
+    Note over C,M: 不携带 semantic_tags / user_visible_summary / 画面内容
+```
 
-VLM 原始帧 / 截图不进入 Memory。客户端本地处理画面，只在强感知或业务确认场景下回写语义结果。
+### 6.8 离线 → 网络恢复 → 批量补传
 
-| 数据 | 数据对象分类 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-|---|---|---|---|---|---|---|---|---|---|
-| `vlm_enabled_for_this_app_instance` | `user_control_state` | 单 app VLM 开关 | boolean | `true` | Client ↔ Memory | consent query / mutation | 客户端决定是否允许本地 VLM | 用户按 app 开启 / 关闭时回写 | P1 |
-| `app_category` | `source_record` / `user_control_state` | 授权 app 类别 | enum | `game` | Client ↔ Memory | consent / config | 判断能力范围和 UI 提示 | 用户加入白名单或授权变化时回写 | P1 |
-| `semantic_tags[]` | `source_record` | 画面语义标签 | string[] | `["boss_fight","low_hp"]` | Client → Memory / Client local | `vlm_observation` | 本地 current_context、高光解释、复盘 | 强感知可回写；弱感知仅在用户保存 / 高光 / 复盘 / 日记确认场景回写 | P1 |
-| `user_visible_summary` | `source_record` | 用户可见画面摘要 | string | `"BOSS 战残血，紧张时刻"` | Client → Memory / Client local | `vlm_observation` | 高光说明、复盘证据、Memory Center 来源解释 | 用户保存、高光、复盘、日记需要证据时回写 | P1 |
-| `source_record_ids[]` | `source_record` | VLM 语义结果关联事实源 | string[] | `["game_event_001"]` | Client → Memory | `vlm_observation` | Memory 避免孤立理解画面语义 | 回写 VLM 语义观察时必须带 | P1 |
-| `raw_frame_stored` | `source_record` | 是否存储原图 | boolean | `false` | Client → Memory | `vlm_observation` | 审计隐私边界 | 恒为 `false`；不上传原图 | P0 |
-| `ui_indicator_shown` | `source_record` / `user_control_state` | 是否展示感知状态提示 | boolean | `true` | Client → Memory | `vlm_observation` / consent audit | Memory Center 审计、用户解释 | 强感知必须回写；弱感知按授权说明记录 | P1 |
-
-### 4.8 当前上下文 current_context
-
-`current_context` 是客户端本地的临时决策包，用来支持桌宠当前这一刻的互动判断。它不是一段对话内容，也不是一条长期记忆，而是客户端把 Memory 返回的记忆、刚发生的游戏事件、PC 状态、本地 VLM 结果等输入临时合并后得到的状态。
-
-Memory 只提供生成 `current_context` 所需的 profile、episode、facts、digest、consent、source refs；客户端不把完整 `current_context` 回写给 Memory，只在需要沉淀时回写 raw 的 `source_record`，或回写用户保存、纠错、确认后的业务结果。
-
-本节字段不是跨系统 payload，不使用“数据对象分类”。如果某个字段需要沉淀到 Memory，必须先拆成对应的 `source_record` / `user_control_state` / `derived_memory` 相关 mutation，再按第 3 章 Envelope 包装传输。
-
-| 数据 | 解释 | 格式 | 示例值 | 输入来源 | 客户端使用时机 / 场景 | 回写规则 | 优先级 |
-|---|---|---|---|---|---|---|---|
-| `activity_topic` | 当前活动主题 | string | `"在打游戏 BOSS 战"` | Memory 返回 + 游戏事件 + PC 状态 + 本地 VLM | 决定桌宠话题锚点 | 不完整回写；仅回写支撑它的 `source_record` 或用户确认记忆 | P0 |
-| `mood_estimate` | 当前情绪估计 | enum | `紧张` / `unknown` | 对话、游戏事件、Memory 近期情绪线索 | 决定语气和回应力度 | 用户明确反馈情绪时作为 chat / user_action source record 回写 | P0 |
-| `interrupt_suitability` | 打扰适宜度 | enum | `low` | 用户偏好、PC 忙碌状态、游戏阶段、VLM 语义 | 决定此刻说不说话 | 用户设置打扰边界或反馈“别打扰”时回写 `user_control_state` | P0 |
-| `attention_target` | 注意力目标 | enum | `游戏` / `IDE` | 前台 app、游戏状态、窗口语义 | 决定桌宠关注方向 | 只回写低敏 PC source record，不回写完整判断 | P0 |
-| `confidence` | 当前上下文置信度 | number | `0.85` | 本次使用来源的完整度和一致性 | 低置信时少说或先问 | 不回写；必要时回写“证据不足”的用户反馈 | P0 |
-| `trigger` | 本次上下文刷新原因 | enum | `mood_change` | 游戏事件、用户输入、PC 状态变化、Memory push | UI / 日志解释为什么触发 | 不回写完整 current_context | P0 |
-| `source_mask` | 本次上下文使用来源 | object | `{game_event:true,vlm:false}` | 本地计算 | 解释本次判断用了哪些来源 | 只在审计或用户确认场景回写摘要，不回写原始内容 | P0 |
-
-### 4.9 Profile 元字段 profile_meta
-
-`profile_meta` 是客户端解释“为什么这么懂我”、删除 / 纠错 / 重新总结的关键数据。每条 Memory 返回的 profile、highlight、assessment 等可消费对象都应有证据和可用状态。
-
-| 数据 | 数据对象分类 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-|---|---|---|---|---|---|---|---|---|---|
-| `confidence` | `derived_memory` | 记忆置信度 | number | `0.7` | Memory → Client | pull detail | 客户端决定自然引用、弱表达或先问 | 用户确认 / 否定后回写 feedback | P0 |
-| `source_category` | `derived_memory` | 证据来源域 | enum[] | `["chat","game_event"]` | Memory → Client | pull detail | 画像页解释来源 | 不直接回写；由 source records 决定 | P0 |
-| `generation_method` | `derived_memory` | 生成方式 | enum | `user_set` / `inferred` | Memory → Client | pull detail | 区分用户设置、系统记录、AI 推断 | 用户编辑后应变为 `user_set` mutation | P0 |
-| `evidence_ids[]` | `derived_memory` | 证据 ID | string[] | `["game_event_001"]` | Memory → Client | pull detail | 用户点“为什么”时反查证据 | 纠错 / 删除时作为 target 或证据引用 | P0 |
-| `evidence_summary` | `derived_memory` | 给用户看的证据短解释 | string | `"最近 5 局多次选择稳健路线"` | Memory → Client | pull detail | 画像页、Memory Center 解释 | 用户反馈“不准”时回写 | P1 |
-| `first_seen_at` | `derived_memory` | 首次见到时间 | ISO 8601 | `"2026-04-21T09:10:00Z"` | Memory → Client | pull detail | 排序、时效解释 | 不直接回写 | P0 |
-| `last_confirmed_at` | `derived_memory` | 末次确认时间 | ISO 8601 | `"2026-05-12T09:10:00Z"` | Memory → Client | pull detail | 判断记忆新鲜度 | 用户确认后由 Memory 更新 | P0 |
-| `is_active` | `derived_memory` | 是否可用 | boolean | `true` | Memory → Client | pull detail / push light | 客户端过滤不可用记忆 | 删除、否定、替换时回写 mutation | P0 |
-| `inactive_reason` | `derived_memory` | 不可用原因 | enum | `user_rejected` | Memory → Client | pull detail | 解释为什么不再使用 | 用户删除 / 否定 / 替换时触发 | P0 |
-| `inactive_at` | `derived_memory` | 失效时间 | ISO 8601 | `"2026-05-13T21:30:00Z"` | Memory → Client | pull detail | 审计、恢复入口 | 由 Memory 执行 mutation 后返回 | P0 |
-| `decay_score` | `derived_memory` | 时效衰减分 | number | `0.95` | Memory → Client | pull detail | 客户端决定是否自然引用 | 不直接回写 | P0 |
-| `user_feedback[]` | `source_record` / `derived_memory` | 用户反馈事件 | array | `[{value:0,source:"chat"}]` | Client → Memory / Memory → Client | mutation / pull detail | 客户端展示反馈历史或结果状态 | 用户点赞、点踩、纠错、删除、重新总结时回写 | P1 |
-
-### 4.10 用户画像 profile
-
-用户画像是客户端长期个性化体验的核心输入。Memory 返回可消费画像，客户端展示、对话、复盘、日记、高光、角色相似度使用；用户设置、纠错、删除、重新总结通过 mutation 回写。
-
-| 数据 | 数据对象分类 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-|---|---|---|---|---|---|---|---|---|---|
-| `profile.summary` | `derived_memory` | 用户画像摘要 | object | `{value:"偏好法师与稳健发育"}` | Memory → Client | pull detail / digest | 对话前、画像页、开局上下文 | 用户点击重新总结、删除摘要时回写 | P0 |
-| `profile_identity.display_name` | `user_control_state` | 展示昵称 | object | `{value:"uu"}` | Client ↔ Memory | preference mutation / pull detail | UI 展示 | 用户在画像页编辑时回写 | P0 |
-| `profile_identity.preferred_call_name` | `user_control_state` | 希望被桌宠称呼 | object | `{value:"队长"}` | Client ↔ Memory | preference mutation / pull detail | 桌宠称呼用户 | 用户编辑称呼时回写 | P0 |
-| `pet_relationship.relationship_mode` | `user_control_state` | 桌宠关系定位 | enum object | `teasing_partner` | Client ↔ Memory | preference mutation / pull detail | 决定关系定位，不改变 IP 固定语气 | 用户选择关系模式时回写 | P0 |
-| `game_profile.favorite_roles[]` | `derived_memory` / `user_control_state` | 偏好角色 / 职业 / 流派 | array | `["法师","控制流"]` | Memory → Client / Client → Memory | pull detail / mutation | 个性化话题、推荐语境 | 用户增删改或纠错 AI 推断时回写 | P0 |
-| `game_profile.favorite_modes[]` | `derived_memory` / `user_control_state` | 偏好模式 / 地图 / 难度 | array | `["排位","剧情困难"]` | Memory → Client / Client → Memory | pull detail / mutation | 复盘语境、推荐话题 | 用户编辑或纠错时回写 | P1 |
-| `game_profile.game_goals[]` | `derived_memory` / `user_control_state` | 游戏目标 | array | `["rank","practice_char"]` | Memory → Client / Client → Memory | pull detail / mutation | 鼓励方向、开局提醒、复盘重点 | 用户设置目标或纠错推断目标时回写 | P0 |
-| `playstyle_profile.playstyle_tags[]` | `derived_memory` / `user_control_state` | 玩法风格标签 | array | `["steady_growth"]` | Memory → Client / Client → Memory | pull detail / mutation | 复盘措辞、角色相似度、陪玩反馈 | 用户说“这不像 / 这不准”或编辑时回写 | P0 |
-| `playstyle_profile.risk_preference` | `derived_memory` / `user_control_state` | 游戏内风险偏好 | enum object | `mid` | Memory → Client / Client → Memory | pull detail / mutation | 建议颗粒度、复盘策略 | 用户纠错或编辑时回写 | P1 |
-| `playstyle_profile.learning_stage` | `derived_memory` / `user_control_state` | 熟练阶段 | enum object | `practicing` | Memory → Client / Client → Memory | pull detail / mutation | 提示深度、复盘难度 | 用户纠错或编辑时回写 | P1 |
-| `companion_profile.emotion_support_preference` | `user_control_state` | 情绪陪伴偏好 | enum object | `comfort_first` | Client ↔ Memory | preference mutation / pull detail | 失败、连败、压力场景回应方式 | 用户在设置或对话中明确偏好时回写 | P0 |
-| `companion_profile.disturbance_boundaries` | `user_control_state` | 打扰边界 | object | `{during_battle:"silent"}` | Client ↔ Memory | preference mutation / pull detail | `interrupt_suitability` 的主要输入 | 用户设置“某场景别说话”时回写 | P0 |
-| `companion_profile.preferred_conversation_topics[]` | `derived_memory` / `user_control_state` | 希望桌宠聊的话题 | array | `["刷副本"]` | Memory → Client / Client → Memory | pull detail / mutation | 主动话题选择 | 用户添加 / 删除 / 纠错时回写 | P0 |
-| `companion_profile.avoided_conversation_topics[]` | `derived_memory` / `user_control_state` | 不希望桌宠聊的话题 | array | `["剧透"]` | Memory → Client / Client → Memory | pull detail / mutation | 避免踩雷 | 用户设置或负反馈时回写 | P0 |
-| `progress_profile.current_goal` | `derived_memory` / `user_control_state` | 当前目标 | object | `{value:"练会新英雄"}` | Memory → Client / Client → Memory | pull detail / mutation | 开局提醒、复盘目标 | 用户设置 / 纠错目标时回写 | P0 |
-| `progress_profile.stuck_points[]` | `derived_memory` / `user_control_state` | 当前卡点 | array | `["第 7 章 Boss 二阶段"]` | Memory → Client / Client → Memory | push refs + pull detail / mutation | 安慰、复盘、攻略提醒 | 用户否定“不是卡关”或删除时回写 | P1 |
-| `progress_profile.recent_achievements[]` | `derived_memory` / `user_control_state` | 近期成就 | array | `["首次通关困难副本"]` | Memory → Client / Client → Memory | push refs + pull detail / mutation | 庆祝、日记、高光 | 用户标私密、删除、纠错时回写 | P1 |
-| `progress_profile.long_term_milestones[]` | `derived_memory` / `user_control_state` | 长期里程碑 | array | `["赛季上王者"]` | Memory → Client / Client → Memory | pull detail / mutation | 长期陪伴感、角色相似度证据 | 用户保存 / 删除 / 更正时回写 | P1 |
-| `social_profile.social_preference` | `derived_memory` / `user_control_state` | 游戏内社交偏好 | enum object | `mixed` | Memory → Client / Client → Memory | pull detail / mutation | 组队语气、角色相似度 | 用户编辑或纠错时回写 | P1 |
-
-禁止普通画像写入现实身份、年龄、性别、住址、职业、健康、心理诊断、政治宗教、性取向、消费能力、队友个人信息、羞辱性标签。
-
-### 4.11 高光事件 highlight_event
-
-高光由 Memory 生成候选并推轻通知，客户端按需 pull 详情。用户保存、编辑、删除、置顶、分享设置必须回写。
-
-| 数据 | 数据对象分类 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-|---|---|---|---|---|---|---|---|---|---|
-| `highlight_id` | `derived_memory` | 高光 ID | string | `"hl_001"` | Memory → Client | push refs + pull detail | 高光页、日记、分享卡片 | 用户保存 / 删除 / 编辑时作为 target | P1 |
-| `title` | `derived_memory` / `user_control_state` | 高光标题 | string | `"首次单杀王者打野"` | Memory → Client / Client → Memory | pull detail / mutation | 展示高光卡片 | 用户编辑标题时回写 | P1 |
-| `time` | `derived_memory` | 高光时间 | ISO 8601 | `"2026-04-20T22:15:33Z"` | Memory → Client | pull detail | 排序、时间线 | 不直接回写 | P1 |
-| `scene` | `derived_memory` / `user_control_state` | 高光场景描述 | string | `"王者荣耀 - 河道遭遇战"` | Memory → Client / Client → Memory | pull detail / mutation | 展示和分享说明 | 用户编辑或纠错时回写 | P1 |
-| `event_summary` | `derived_memory` / `user_control_state` | 高光摘要 | string | `"第 4 次反蹲成功完成单杀"` | Memory → Client / Client → Memory | pull detail / mutation | 日记素材、分享文案 | 用户编辑摘要时回写 | P1 |
-| `category` | `derived_memory` / `user_control_state` | 高光分类 | enum | `achievement` | Memory → Client / Client → Memory | pull detail / mutation | 高光筛选和展示 | 用户修改分类时回写 | P1 |
-| `tags[]` | `derived_memory` / `user_control_state` | 高光标签 | string[] | `["反蹲","单杀"]` | Memory → Client / Client → Memory | pull detail / mutation | 搜索、筛选、分享 | 用户编辑标签时回写 | P1 |
-| `source` | `derived_memory` | 触发源 | enum | `idip_milestone` | Memory → Client | pull detail | 解释高光为何生成 | 不直接回写 | P1 |
-| `privacy_level` | `derived_memory` / `user_control_state` | 隐私级别 | enum | `private` / `shareable` | Client ↔ Memory | mutation / pull detail | 分享前检查 | 用户设置私密 / 分享时回写 | P1 |
-| `pinned` | `derived_memory` / `user_control_state` | 是否置顶 | boolean | `true` | Client ↔ Memory | mutation / pull detail | 高光页排序 | 用户置顶 / 取消置顶时回写 | P1 |
-| `evidence_ids[]` | `derived_memory` | 高光证据 ID | string[] | `["game_event_001"]` | Memory → Client | pull detail | 反查证据、解释生成原因 | 用户纠错时作为证据引用 | P1 |
-| `is_active` | `derived_memory` | 是否可用 | boolean | `true` | Memory → Client | pull detail | 客户端过滤不可展示高光 | 用户删除 / 否定 / 替换时回写 | P1 |
-| `inactive_reason` | `derived_memory` | 不可用原因 | enum | `user_deleted` | Memory → Client | pull detail | 解释隐藏原因 | 删除 / 否定后由 Memory 返回 | P1 |
-| `inactive_at` | `derived_memory` | 失效时间 | ISO 8601 | `"2026-05-13T10:50:00Z"` | Memory → Client | pull detail | 审计 / 恢复入口 | 删除 / 否定后由 Memory 返回 | P1 |
-
-### 4.12 用户偏好与隐私控制 user_preferences
-
-本节字段只能由用户显式操作或用户反馈写入。Memory 持久化，客户端读取并严格执行。
-
-| 数据 | 数据对象分类 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-|---|---|---|---|---|---|---|---|---|---|
-| `content_type.enabled[]` | `user_control_state` | 启用的生成内容类型 | string[] | `["diary","light_reflection"]` | Client ↔ Memory | preference query / mutation | 内容生成入口、设置页 | 用户勾选启用项时回写 | P1 |
-| `content_type.priority[]` | `user_control_state` | 内容类型优先级 | string[] | `["diary","emotion_companion"]` | Client ↔ Memory | preference query / mutation | 多内容竞争排序 | 用户拖拽排序时回写 | P1 |
-| `content_type.user_feedback[]` | `user_control_state` | 内容反馈事件 | array | `[{target:"tactical_advice",value:0}]` | Client → Memory / Memory → Client | user_action / pull detail | 调整推荐权重、反馈历史 | 用户点赞 / 点踩 / 文本反馈时回写 | P1 |
-| `diary_style.frequency` | `user_control_state` | 日记频率 | enum | `event_driven` | Client ↔ Memory | preference query / mutation | 日记生成策略 | 用户设置日记偏好时回写 | P1 |
-| `diary_style.length` | `user_control_state` | 日记长度 | enum | `medium` | Client ↔ Memory | preference query / mutation | 日记生成策略 | 用户设置时回写 | P1 |
-| `diary_style.focus` | `user_control_state` | 日记重点 | enum | `emotion` | Client ↔ Memory | preference query / mutation | 日记内容侧重 | 用户设置时回写 | P1 |
-| `diary_style.quote_user_original` | `user_control_state` | 是否偏好引用用户原话 | boolean | `false` | Client ↔ Memory | preference query / mutation | 生成前检查引用策略 | 用户设置时回写；仍需 `diary_quote` 授权和 `quote_eligible=true` | P1 |
-| `privacy_grants.chat_content` | `user_control_state` | 首方聊天入长期记忆授权 | object | `{granted:true}` | Client ↔ Memory | consent query / mutation | 发送聊天入记忆前检查 | 用户开启 / 撤回时回写 | P0 |
-| `privacy_grants.game_event_memory` | `user_control_state` | 游戏事件入长期画像授权 | object | `{granted:true}` | Client ↔ Memory | consent query / mutation | 决定 game_event 是否可长期加工 | 用户开启 / 撤回时回写 | P0 |
-| `privacy_grants.behavior_data` | `user_control_state` | 行为数据画像授权 | object | `{granted:false}` | Client ↔ Memory | consent query / mutation | 决定 PC 低敏信号是否可长期画像 | 用户开启 / 撤回时回写 | P1 |
-| `privacy_grants.vlm_visual` | `user_control_state` | 当前窗口画面理解授权 | object | `{granted:false,app_scope:[]}` | Client ↔ Memory | consent query / mutation | 本地 VLM 开启前检查 | 用户按 app 开启 / 撤回时回写 | P1 |
-| `privacy_grants.ui_text_reading` | `user_control_state` | 当前窗口 UI 文字读取授权 | object | `{granted:false,app_scope:[]}` | Client ↔ Memory | consent query / mutation | UI semantic tags 生成前检查 | 用户按 app 开启 / 撤回时回写 | P1 |
-| `privacy_grants.system_audio_music_context` | `user_control_state` | 系统音频音乐 / 氛围感知授权 | object | `{granted:false}` | Client ↔ Memory | consent query / mutation | 扩展能力开启前检查 | 用户主动开启 / 撤回时回写 | 扩展 |
-| `privacy_grants.mcp_sources[]` | `user_control_state` | MCP app 授权列表 | array | `[{source:"steam",granted:true}]` | Client ↔ Memory | consent query / mutation | MCP 数据拉取前检查 | 用户单 app 勾选 / 撤回时回写 | P1 |
-| `privacy_grants.profile_inference` | `user_control_state` | AI 推断画像项授权 | object | `{granted:true}` | Client ↔ Memory | consent query / mutation | 判断是否允许 Memory 生成推断画像 | 用户开启 / 暂停时回写 | P0 |
-| `privacy_grants.character_similarity_assessment` | `user_control_state` | 角色相似度测定授权 | object | `{granted:false}` | Client ↔ Memory | consent query / mutation | 发起测定前检查 | 用户主动触发并同意本次测定时回写 | P1 |
-| `privacy_grants.diary_quote` | `user_control_state` | 日记 / 分享引用原话授权 | object | `{granted:false}` | Client ↔ Memory | consent query / mutation | 生成日记 / 分享文案前检查 | 用户开启 / 撤回时回写 | P1 |
-| `deletion_policy.delete_on_revoke` | `user_control_state` | 撤回授权时是否删除历史 | enum | `ask` / `delete_now` | Client ↔ Memory | preference query / mutation | 撤回授权弹窗和执行策略 | 用户选择策略时回写 | P0 |
-| `deletion_policy.profile_reset_at` | `user_control_state` | 画像清空时间 | ISO 8601 | `"2026-05-12T16:00:00Z"` | Client ↔ Memory | mutation response / pull detail | 设置页展示清空状态 | 用户点击清空画像时回写 | P0 |
-| `memory_controls.resummarize_requested_at` | `user_control_state` | 重新总结请求时间 | ISO 8601 | `"2026-05-12T16:05:00Z"` | Client → Memory / Memory → Client | mutation / ack | 画像页等待重新总结结果 | 用户点击或说“重新总结我”时回写 | P0 |
-| `memory_controls.do_not_remember_rules[]` | `user_control_state` | 以后别这样记 | string[] | `["不要根据一次连败总结我心态差"]` | Client ↔ Memory | mutation / pull detail | 后续加工约束、设置页展示 | 用户直接编辑或对桌宠表达时回写 | P0 |
-
-### 4.13 游戏角色相似度测定 game_character_similarity_assessment
-
-角色相似度测定由用户主动触发，Memory 返回结果给客户端展示。结果必须可解释、可反馈、可删除，默认不影响日常陪伴策略。
-
-| 数据 | 数据对象分类 | 解释 | 格式 | 示例值 | 数据移动方向 | 传送方式 | 客户端消费时机 / 场景 | 客户端回写时机 / 场景 | 优先级 |
-|---|---|---|---|---|---|---|---|---|---|
-| `assessment_id` | `derived_memory` | 测定 ID | string | `"char_sim_001"` | Memory → Client | pull detail | 结果页、反馈、删除 | 用户反馈 / 删除结果时作为 target | P1 |
-| `character_taxonomy_version` | `derived_memory` | 角色体系版本 | string | `"public_character_taxonomy_v1.2"` | Memory → Client | pull detail | 判断结果是否过期 | 角色体系变更后由 Memory 更新状态 | P1 |
-| `input_scope` | `derived_memory` | 本次使用的数据范围 | object | `{profile:true,game_event:true}` | Memory → Client | pull detail | 向用户解释用了哪些数据 | 用户调整授权后重新测定 | P1 |
-| `consent_snapshot` | `derived_memory` / `user_control_state` | 本次授权快照 | object | `{profile_inference:true}` | Memory → Client | pull detail | 审计和解释 | 用户撤回授权后不可新增测定 | P1 |
-| `allowed_evidence_types_used[]` | `derived_memory` | 实际使用证据类型 | string[] | `["playstyle_profile","game_event"]` | Memory → Client | pull detail | 解释结果来源 | 不直接回写 | P1 |
-| `assessment_status` | `derived_memory` | 测定流程状态 | enum | `completed` | Memory → Client | pull detail / push light | 结果页展示完成、证据不足、授权不足 | 用户补授权或重测时回写 | P1 |
-| `matched_character_id` | `derived_memory` | 最相似角色 ID | string | `"mage_mentor"` | Memory → Client | pull detail | 结果主展示 | 不直接回写 | P1 |
-| `matched_character_name` | `derived_memory` | 可展示角色名 | string | `"星轨导师"` | Memory → Client | pull detail | 结果主展示 | 不直接回写 | P1 |
-| `similarity_score` | `derived_memory` | 排序 / 稳定性分 | number | `0.75` | Memory → Client | pull detail | 内部排序或弱展示 | 不直接回写 | P1 |
-| `matched_traits[]` | `derived_memory` | 命中的角色特点 | array | `[{dimension:"playstyle"}]` | Memory → Client | pull detail | 解释“你像 TA 的地方” | 用户反馈“这不像”时回写 | P1 |
-| `unmatched_traits[]` | `derived_memory` | 未命中的角色特点 | array | `[{dimension:"social_style"}]` | Memory → Client | pull detail | 折叠展示差异 | 用户反馈不认可时回写 | P1 |
-| `not_evaluable_traits[]` | `derived_memory` | 不可判断特点 | array | `[{reason:"insufficient_evidence"}]` | Memory → Client | pull detail | 解释为什么没有测出来 | 用户补充授权 / 数据后重测 | P1 |
-| `data_window` | `derived_memory` | 本次数据窗口 | object | `{from:"...",to:"...",session_count:62}` | Memory → Client | pull detail | 解释测定基于哪段时间 | 不直接回写 | P1 |
-| `assessment_at` | `derived_memory` | 测定时间 | ISO 8601 | `"2026-05-13T10:40:00Z"` | Memory → Client | pull detail | 排序、重测提示 | 不直接回写 | P1 |
-| `user_feedback[]` | `source_record` / `derived_memory` | 用户对测定结果反馈 | array | `[{value:1,source:"button"}]` | Client → Memory / Memory → Client | mutation / pull detail | 反馈历史、结果可信度 | 用户点击像 / 不像 / 这不准时回写 | P1 |
-| `use_for_companion` | `derived_memory` / `user_control_state` | 是否允许结果影响陪伴策略 | boolean | `false` | Client ↔ Memory | mutation / pull detail | 客户端决定日常对话是否参考测定结果 | 用户接受结果并开启影响陪伴时回写 | P1 |
-| `is_active` | `derived_memory` | 测定结果是否可用 | boolean | `true` | Memory → Client | pull detail | 客户端过滤不可用结果 | 用户删除、否定、重测替换时回写 | P1 |
-| `inactive_reason` | `derived_memory` | 不可用原因 | enum | `user_deleted` | Memory → Client | pull detail | 解释结果为什么不可用 | 删除 / 过期 / 冲突后由 Memory 返回 | P1 |
-| `inactive_at` | `derived_memory` | 失效时间 | ISO 8601 | `"2026-05-20T10:40:00Z"` | Memory → Client | pull detail | 审计、重测提示 | 删除 / 过期后由 Memory 返回 | P1 |
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant M as Memory
+    Note over C: 离线期间
+    C->>C: 缓存所有 source_record / mutation 到本地 buffer<br/>（上限 24h / 5000 条）
+    Note over C: 网络恢复
+    C->>M: batch envelope (source_record_backfill) × 多批
+    M-->>C: batch ack {accepted, rejected}
+    alt 有丢弃
+        C->>M: pet_runtime_event.offline_drop_summary<br/>{ dropped_count, oldest_dropped_at }
+    end
+```
 
 ---
 
-## 5. 场景化数据流
-
-### 5.1 游戏启动
-
-| 步骤 | 客户端动作 | 记忆系统动作 | 返回 / 推送 | 是否回写 |
-|---|---|---|---|---|
-| 1 | 接收 Game SDK `game_launch` | 存 source record | 无或 ack | 是 |
-| 2 | 上报完整 `idip_snapshot` | 存快照，作为本次 session 初始状态 | 无或 ack | 是 |
-| 3 | 客户端 pull `startup_context` | 返回当前游戏下近期 profile / consent / open reminders | query response | 否 |
-| 4 | 客户端生成本地 `current_context` | 不参与 | 无 | 不回写完整对象 |
-
-### 5.2 游戏过程中有主动事件
-
-| 步骤 | 客户端动作 | 记忆系统动作 | 返回 / 推送 | 是否回写 |
-|---|---|---|---|---|
-| 1 | 接收 Game SDK `death` / `success` / `settlement` 等事件 | 存 source record，按需加工 | 通常不高频 push | 是 |
-| 2 | 客户端本地立即用于当前反应 | 不参与实时决策 | 无 | 不回写 `current_context` |
-| 3 | 加工结果发生变化 | 生成 episode / highlight candidate / profile update | push 轻通知 | 否 |
-| 4 | 客户端进入结算页或复盘页 | 按 resource ref pull 详情 | 返回详情 | 用户保存 / 忽略时回写 |
-
-### 5.3 游戏过程中没有主动事件
-
-| 步骤 | 客户端动作 | 记忆系统动作 | 返回 / 推送 | 是否回写 |
-|---|---|---|---|---|
-| 1 | 启动时上报完整 `idip_snapshot` | 存初始状态 | ack | 是 |
-| 2 | 运行中按配置上报完整 `idip_snapshot` 心跳 | 存快照并做差异整理 | 加工变化时 push | 是 |
-| 3 | 关闭时上报完整 `idip_snapshot` + `game_close` | 生成 session summary / delta / milestone | push 轻通知 | 是 |
-| 4 | 客户端 pull session detail | 返回整理后的变化 | query response | 用户保存 / 纠错时回写 |
-
-### 5.4 强感知 VLM
-
-| 步骤 | 客户端动作 | 记忆系统动作 | 返回 / 推送 | 是否回写 |
-|---|---|---|---|---|
-| 1 | 用户明确开启“桌宠看屏幕” | 记录授权状态 | consent ack / push | 是，授权变更 |
-| 2 | 客户端本地 VLM 处理短期帧 | 不接收原图 | 无 | 原图不回写 |
-| 3 | 客户端生成 `semantic_tags` / `user_visible_summary` | 仅在业务需要时接收语义结果 | ack | 可选择性回写 |
-| 4 | 高光 / 复盘 / 日记需要证据 | 存 `vlm_observation`，必须带 `source_record_ids[]` | 后续 push / pull | 是 |
-
-### 5.5 弱感知 VLM
-
-| 步骤 | 客户端动作 | 记忆系统动作 | 返回 / 推送 | 是否回写 |
-|---|---|---|---|---|
-| 1 | 在授权范围内触发本地弱感知 | 不参与 | 无 | 否 |
-| 2 | 客户端用于本地 `current_context` | 不接收完整对象 | 无 | 否 |
-| 3 | 未发生业务确认 | 不存 | 无 | 否 |
-| 4 | 用户保存 / 高光 / 复盘 / 日记触发 | 存语义观察结果，带 source refs | ack / 后续 push | 是 |
-
-### 5.6 记忆后台加工与客户端消费
-
-| 步骤 | 客户端动作 | 记忆系统动作 | 返回 / 推送 | 是否回写 |
-|---|---|---|---|---|
-| 1 | 客户端持续上报 source records | 接收并后台整理 | 无或 ack | 是 |
-| 2 | Memory 生成新 episode / profile / highlight | 存 derived memory | push 轻摘要 + refs | 否 |
-| 3 | 客户端进入业务场景 | pull 详情 | query response | 否 |
-| 4 | 用户确认 / 删除 / 纠错 | 执行 mutation | mutation ack | 是 |
-
----
-
-## 6. 优先级建议
+## 7. 优先级建议
 
 | 优先级 | 数据 / 能力 | 原因 |
-|---|---|---|
-| P0 | 统一 envelope | 没有统一外壳，后续数据源会散 |
-| P0 | `game_id + game_user_id_pseudonym` | 多游戏、多用户隔离的最低要求 |
-| P0 | 游戏生命周期事件 | `game_launch` / `game_close` 是所有游戏最小闭环 |
-| P0 | 完整 `idip_snapshot` 上报 | 即使游戏没有事件，也能靠快照对比形成记忆 |
-| P0 | 游戏实时事件 `game_event` | “游戏搭子”实时感的基础 |
-| P0 | 聊天与用户动作 | 用户主动表达、确认、纠错是最高质量记忆来源 |
-| P0 | Memory pull query | 客户端按业务场景获取详情的主路径 |
-| P0 | Memory push 轻通知 | 加工结果变化时通知客户端，但不推大对象 |
-| P0 | 删除 / 纠错 / 授权 mutation | 记忆系统信任底座 |
-| P0 | `profile_meta` / 核心 profile | 客户端解释、纠错、画像页和对话个性化的基础 |
-| P0 | `user_preferences` 基础授权与控制 | 用户控制哪些数据可用、可删、可重新总结 |
-| P1 | 本地 VLM 语义观察回写 | 高光、复盘、日记的增强证据 |
-| P1 | PC / UI 低敏标准化事实 | 支持打扰判断、场景理解和证据解释 |
-| P1 | MCP app 信号 | 外部 app 元数据、任务标题、app 摘要，需单 app 授权和白名单字段 |
-| P1 | episode / profile 扩展 / highlight_event 详情消费 | 支撑画像页、日记、复盘、高光 |
-| P1 | 角色相似度测定结果 | 用户主动触发，客户端展示、反馈、删除、重测 |
+| --- | --- | --- |
+| P0 | 统一 envelope 通用字段 | 没有统一外壳，后续数据源会散 |
+| P0 | `game_id` + `game_user_id_pseudonym` | 多游戏 / 多用户隔离的最低要求 |
+| P0 | 游戏通用事件 8 个（§3.1.2.1） | 所有接入游戏的最小闭环 |
+| P0 | `idip_snapshot` 心跳 + 服务端 diff | 无 SDK 实时事件的游戏靠这条链路成立 |
+| P0 | `chat_message` / `pet_runtime_event` 上报 | 用户主动表达 / 桌宠运行行为 |
+| P0 | 用户控制 mutation（保存 / 删除 / 纠错 / 授权 / 重新总结） | 记忆系统信任底座 |
+| P0 | `consent_snapshot_id` 反向索引 + 撤回清理 | 隐私合规底线 |
+| P0 | Memory pull query 5 类（startup / conversation / profile / session / preferences） | 客户端按场景获取详情主路径 |
+| P0 | Memory push 轻通知 + 去重 | 加工结果变化通知；不推大对象 |
+| P0 | `profile_meta` / `profile.*` 核心字段 | 客户端解释 / 纠错 / 画像页基础 |
+| P0 | `user_preferences` + `privacy_grants` 基础授权 | 用户控制根 |
+| P0 | 证据链字段（record_id ↔ source_record_ids ↔ target_resource_id ↔ updated_resource_refs） | 闭环的连接器 |
+| P1 | VLM 强感知 + 弱感知（最小字段集） | 高光 / 复盘 / 打扰判断的增强证据 |
+| P1 | PC 环境信号（§3.1.3 全部字段） | 打扰判断、场景理解、行为画像 |
+| P1 | MCP 通道（经客户端中转） | 外部 app 元数据 / 任务标题 / 自生成摘要 |
+| P1 | `episode` / `highlight_event` / `assessment` 详情消费 | 画像页 / 日记 / 复盘 / 高光 / 角色测定 |
+| P1 | 离线批量补传 | 弱网容错 |
+| 扩展 | 系统音频 mood / bpm 派生信号 | 听音乐跳舞场景；待 PRIVACY_BOUNDARY 修订提案通过 |
 
 ---
 
-## 7. 隐私与排除项
+## 8. 隐私与排除项
 
-| 数据 | 是否进入记忆系统 | 说明 |
-|---|---|---|
-| 游戏 SDK 结构化事件 | 是 | 标准化后作为事实源 |
-| 完整 idip snapshot | 是 | 启动 / 关闭 / 心跳均可完整上报 |
-| 用户首方聊天 | 授权后是 | 用户可删除 / 纠错 |
-| 用户显式操作 | 是 | 保存、删除、确认、纠错、授权变更 |
-| PC 低敏状态 | 可选是 | 标准化事实，不写完整时间线 |
-| MCP app 白名单字段 | 授权后是 | 只允许元数据、任务标题、app 自生成摘要和来源类型 |
-| VLM 语义结果 | 选择性是 | 必须带 source refs；原图不进 |
-| profile / profile_meta / highlight / assessment | 是 | Memory 加工结果返回客户端；用户可删除、纠错、反馈 |
-| user_preferences / privacy_grants | 是 | 用户显式设置，Memory 持久化，客户端读取执行 |
-| 完整 current_context | 否 | 客户端运行时判断，不是长期事实 |
-| 原始截图 / 屏幕帧 | 否 | 客户端本地处理后丢弃 |
-| 原始音频 | 否 | 不进入本文件的 memory 流通数据 |
-| 键盘字符流 | 否 | 不允许 |
-| 第三方 app 全文 UI | 否 | 不允许默认进入 |
-| 浏览器页面正文 / 邮件 / 文档正文 | 否 | 不在本文件默认范围 |
+| 数据 | 是否进入跨系统 | 说明 |
+| --- | --- | --- |
+| Game SDK 结构化事件 | 是 | 标准化后作为事实源 |
+| 完整 idip snapshot（含心跳） | 是 | 启动 / 关闭 / 心跳均可完整上报；服务端做 diff |
+| 用户首方聊天 | 授权后是 | `privacy_grants.chat_content=true`；可删除 / 纠错 |
+| 桌宠运行事件 | 是 | 桌宠消息送达 / 用户忽略 / 主动表达 |
+| 用户显式操作（mutation） | 是 | 保存 / 删除 / 确认 / 纠错 / 授权变更 / 重新总结 |
+| PC 低敏环境信号（§3.1.3） | 授权后是 | 标准化事实，不写完整时间线；窗口标题必须脱敏 |
+| MCP app 白名单字段（经客户端中转） | 授权后是 | 只允许元数据 / 任务标题 / app 自生成摘要 / 来源类型 |
+| VLM 强感知语义结果 | 选择性是 | 必须带 source_record_ids；原图永不进 |
+| VLM 弱感知最小字段（business_reason + decision + outcome） | 是 | **不**带 semantic_tags / summary / 画面内容 |
+| profile / profile_meta / highlight / assessment | 是 | Memory 加工结果返回客户端；用户可删除 / 纠错 / 反馈 |
+| user_preferences / privacy_grants | 是 | 用户显式设置，Memory 持久化 |
+| **`current_context` 完整对象** | **否** | 客户端运行时判断，不是长期事实 |
+| **原始截图 / 屏幕帧** | **否** | 客户端本地处理后丢弃 |
+| **原始音频 / 人声 / 通话内容 / 转写文本** | **否** | 不在本分支跨系统范围 |
+| **键盘字符流 / 输入法明文** | **否** | 永禁；只允许桶化统计 |
+| **第三方 app 正文 / 邮件 / 文档 / 会议正文** | **否** | 即使有 MCP 授权也不允许 |
+| **VLM 弱感知的 semantic_tags / summary / 画面内容** | **否** | 弱感知刻意不留细节 |
+| **真实账号 / 实名信息 / 付费记录** | **否** | 永禁；只用 `game_user_id_pseudonym` |
 
 ---
 
-## 8. 待确认问题
+## 9. 待确认问题
 
 | # | 问题 | 建议 |
-|---|---|---|
-| 1 | `idip_snapshot` 心跳默认间隔是多少？ | 先按游戏类型配置，PM 文档只要求允许完整心跳 |
-| 2 | 离线补传保留多久？ | Engineering 定；PM 建议不超过短期 buffer 策略 |
-| 3 | `game_custom_fields` 由谁审核字段边界？ | PM + Engineering + 游戏接入方共同维护 schema review |
-| 4 | Memory query SLA 如何定义？ | 先以实时查询 P99 ≤200ms、批量详情 ≤2s 作为讨论起点 |
-| 5 | 日记正文是否保存到 Memory？ | 默认不保存生成正文；用户保存成日记成品时再作为用户确认内容写入 |
+| --- | --- | --- |
+| 1 | `idip_snapshot` 心跳间隔默认 60s 是否需要按游戏类型差异化？ | 先用 60s 起步，按游戏接入实测调整，最终值锁在 game 接入配置 |
+| 2 | 离线 buffer 上限 24h / 5000 条是否合理？ | Engineering 压测后确认；超出按 §3.3 规则丢弃并审计上报 |
+| 3 | 游戏 `custom_fields` schema review 由谁拍板？ | 建议 PM + Engineering + 游戏接入方三方 review；首批游戏接入时建模板 |
+| 4 | Memory pull query SLA P99 ≤ 200ms / 详情类 ≤ 2s 是否可达？ | Engineering 服务架构选型后回填 |
+| 5 | 日记 / 复盘正文（客户端本地大模型生成）是否回写 Memory？ | 默认不回写生成正文；用户保存为日记 / 高光成品时才作为 user_action 写入 |
+| 6 | 弱感知 `outcome` 字段是否需要细化分类？ | 先列 5 档（stayed_silent / interrupted_succeeded / interrupted_user_dismissed / delayed_then_interrupted / canceled），不足再扩 |
+| 7 | `consent_revoke_overdue` 告警如何投递给用户？ | 建议 push: `consent_revoke_overdue_warning` + 设置页红点；待 Design 收口 |
+| 8 | MCP app 若客户端长期离线，是否允许 MCP server 端临时缓存？ | 默认不允许；客户端是数据流唯一节点 |
+| 9 | 服务端 idip diff 的"显著变化"阈值如何定义？ | 由 Memory 团队定可配置规则；建议起点：level / rank / chapter / gold > 阈值 |
+| 10 | 双向字段拆名（`_observed` / `_derived` / `_inferred` / `_user_set`）是否需要在 schema 检查工具中强制？ | 建议是；Engineering 实施时加 schema lint |
 
 ---
 
-## 9. 验收标准
+## 10. 验收标准
 
-| 标准 | 验收方式 |
-|---|---|
-| 只包含跨系统数据 | 检查所有字段是否有 Client ↔ Memory 方向 |
-| envelope 统一但不大包 | 每类数据都有独立触发时机和传输方式 |
-| 游戏最小闭环成立 | 无实时事件时仍能通过 launch / idip / close 形成记忆 |
-| VLM 边界清晰 | 原图不进 Memory；语义结果选择性回写且带 source refs |
-| current_context 边界清晰 | 不完整回写，只回写事实源或业务确认子结果 |
-| Memory push / pull 清晰 | push 轻摘要，pull 详情 |
-| 用户控制闭环完整 | 删除、纠错、授权变更都有 mutation + ack |
+| # | 标准 | 验收方式 |
+| --- | --- | --- |
+| 1 | **只包含跨系统数据** | 全文 grep `Client → Memory` / `Memory → Client` / `Client ↔ Memory`，无方向字段的 row 不应出现 |
+| 2 | **数据对象三分类完整** | 每条数据都标 source_record / derived_memory / user_control_state 之一 |
+| 3 | **双向字段全部拆名** | 全文不存在"方向同时是 Client→Memory 且 Memory→Client"的字段 |
+| 4 | **envelope 统一但不大包** | 每类数据有独立 record_type，按业务时机分别上报，没有"一个大 JSON 装所有" |
+| 5 | **游戏最小闭环成立** | 无 SDK 实时事件的游戏，靠 `game_launch` + 60s `idip_snapshot` 心跳 + `game_close` 能形成 episode / digest |
+| 6 | **VLM 边界清晰** | 原图永不进；强 / 弱感知字段集分明；弱感知不带 semantic_tags / summary |
+| 7 | **MCP 路径单一** | MCP app → 客户端 → 记忆系统；记忆系统不直连任何 MCP server |
+| 8 | **current_context 边界清晰** | 客户端本地合成，不回写完整对象；本文档不出现 current_context 字段表 |
+| 9 | **Push 不推大对象** | 每条 push 只有 summary + resource_refs[]；客户端按需 pull |
+| 10 | **Mutation 有 ack 闭环** | 全部 mutation_type 都对应 ack_status 处理路径 |
+| 11 | **证据链可串通** | 任选一条 derived_memory，能反查到 source_record；任选一条 mutation 能找到 target_resource_id 与 updated_resource_refs |
+| 12 | **授权撤回有反向清理机制** | 撤回任一 `privacy_grants.*` 后，§5.4 流程完成，受影响 derived_memory 在 24h 内标失效 |
+| 13 | **运营参数有默认推荐值** | §2.4 全部参数都有起点值，标"Engineering 可调优" |
+| 14 | **场景接力图覆盖核心流程** | §6 八个场景的 Mermaid 图与表格能让读者一眼看完闭环 |
+
+---
+
+> **变更说明（v2）**：本版本相对 v1 做了**全文重写**，主要变化：
+> 1. 骨架从"传输契约 + 数据类别 + 场景"三层并列改为"按数据流向（上报 / 返回 / mutation）单线索"。
+> 2. 删除 v1 §4.8 `current_context` 字段表（纯本地对象不在本文档范围）。
+> 3. v1 §4.x 13 个业务类别表合并入 §3.1（事实源）/ §4.1（加工记忆）/ §4.2（控制状态），同一数据只讲一次。
+> 4. 新增 §1.2 客户端数据来源全貌图、§2.4 运营参数推荐值表、§5.4 授权撤回反向清理机制、§6 八个场景接力图。
+> 5. 双向字段全部拆名（`emotion_signal_observed` / `_derived`，`playstyle_tags_user_set` / `_inferred` 等）。
+> 6. 游戏数据明确"通用事件清单 + 自定义事件 + IDIP 心跳 + 服务端 diff"四件套。
+> 7. VLM 弱感知字段集精简到 7 个核心字段，不再携带 semantic_tags / summary。
+> 8. MCP 路径明确"经客户端中转"。
+> 9. PC 环境信号（v1 §4.2 + §4.3 + 多个 v2.5 通道）合并为 §3.1.3 一节，按子表分类。
