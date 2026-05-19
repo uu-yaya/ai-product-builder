@@ -4,17 +4,17 @@
 
 ## 目录
 
-- [§0 文档定位](#0-文档定位)
-- [§1 系统分工与数据原则](#1-系统分工与数据原则)
-- [§2 统一传输契约](#2-统一传输契约)
-- [§3 Client → Memory 上报](#3-client--memory-上报)
-- [§4 Memory → Client 返回](#4-memory--client-返回)
-- [§5 Mutation / Ack 双向闭环](#5-mutation--ack-双向闭环)
-- [§6 业务场景接力图](#6-业务场景接力图)
-- [§7 优先级建议](#7-优先级建议)
-- [§8 隐私与排除项](#8-隐私与排除项)
-- [§9 待确认问题](#9-待确认问题)
-- [§10 验收标准](#10-验收标准)
+- [§0 文档定位](http://localhost:7799/projects/desktop-pet/01-pm/branches/memory-dataset/DATA_FLOW_REQUIREMENT_SPECIFICATION.md#0-%E6%96%87%E6%A1%A3%E5%AE%9A%E4%BD%8D)
+- [§1 系统分工与数据原则](http://localhost:7799/projects/desktop-pet/01-pm/branches/memory-dataset/DATA_FLOW_REQUIREMENT_SPECIFICATION.md#1-%E7%B3%BB%E7%BB%9F%E5%88%86%E5%B7%A5%E4%B8%8E%E6%95%B0%E6%8D%AE%E5%8E%9F%E5%88%99)
+- [§2 统一传输契约](#2-%E7%BB%9F%E4%B8%80%E4%BC%A0%E8%BE%93%E5%A5%91%E7%BA%A6)
+- [§3 Client → Memory 上报](#3-client--memory-%E4%B8%8A%E6%8A%A5)
+- [§4 Memory → Client 返回](#4-memory--client-%E8%BF%94%E5%9B%9E)
+- [§5 Mutation / Ack 双向闭环](#5-mutation--ack-%E5%8F%8C%E5%90%91%E9%97%AD%E7%8E%AF)
+- [§6 业务场景接力图](#6-%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF%E6%8E%A5%E5%8A%9B%E5%9B%BE)
+- [§7 优先级建议](#7-%E4%BC%98%E5%85%88%E7%BA%A7%E5%BB%BA%E8%AE%AE)
+- [§8 隐私与排除项](#8-%E9%9A%90%E7%A7%81%E4%B8%8E%E6%8E%92%E9%99%A4%E9%A1%B9)
+- [§9 待确认问题](#9-%E5%BE%85%E7%A1%AE%E8%AE%A4%E9%97%AE%E9%A2%98)
+- [§10 验收标准](#10-%E9%AA%8C%E6%94%B6%E6%A0%87%E5%87%86)
 
 ---
 
@@ -49,8 +49,8 @@
 
 | 角色 | 数据舱角色 | 主要职责 | **不**做 |
 | --- | --- | --- | --- |
-| **记忆系统**（Memory System） | 数据舱 | 接收客户端上报的事实源；持久化用户控制状态；后台加工生成 `derived_memory`；响应客户端 pull；变化时 push 轻通知；执行 mutation 并返回 ack；维护证据链与失效状态机。 | 不直接采集游戏 SDK / 屏幕 / 音频 / MCP；不决定桌宠当下是否说话；不绕过授权写入。 |
-| **客户端**（Pet Client） | 数据采集与消费端 | 采集并标准化游戏 SDK / PC 环境 / 用户输入 / VLM 语义；按业务场景上报事实源；按场景 pull 加工记忆；本地合成 `current_context`；接收用户保存 / 删除 / 纠错 / 授权变更并回写为 mutation。 | 不长期保存完整记忆；不把临时判断伪装成长期事实；不上传原图 / 原始音频 / 键盘字符流。 |
+| **记忆系统**（Memory System） | 数据舱 | <ul><li>接收客户端上报的事实源；</li><li>持久化用户控制状态；</li><li>后台加工生成 `derived_memory`；</li><li>响应客户端 pull；</li><li>变化时 push 轻通知；</li><li>执行 mutation 并返回 ack；</li><li>维护证据链与失效状态机。</li></ul> | <ul><li>不直接采集游戏 SDK / 屏幕 / 音频 / MCP；</li><li>不决定桌宠当下是否说话；</li><li>不绕过授权写入。</li></ul> |
+| **客户端**（Pet Client） | 数据采集与消费端 | <ul><li>采集并标准化游戏 SDK / PC 环境 / 用户输入 / VLM 语义；</li><li>按业务场景上报事实源；</li><li>按场景 pull 加工记忆；</li><li>本地合成 `current_context`；</li><li>接收用户保存 / 删除 / 纠错 / 授权变更并回写为 mutation。</li></ul> | <ul><li>不长期保存完整记忆；</li><li>不把临时判断伪装成长期事实；</li><li>不上传原图 / 原始音频 / 键盘字符流。</li></ul> |
 | **Game SDK** | 数据生产者 | 向客户端推送游戏生命周期、状态快照、实时事件、自定义字段。 | 不直接绕过客户端写入记忆系统。 |
 | **授权 MCP app** | 数据生产者 | 在用户授权后向**客户端**提供白名单字段（任务标题 / 元数据 / app 自生成摘要）。 | 不直接连记忆系统（详见 §3.1.4）；不暴露正文 / 附件。 |
 
@@ -71,7 +71,7 @@ flowchart LR
 ```
 
 - 5 类来源 → 客户端的过程是"采集"，由客户端本地负责，**不在本文档范围**。
-- 客户端 ↔ 记忆系统的过程才是本文档要严格契约化的部分。
+- 客户端 ↔ 记忆系统的过程是本文档要严格契约化的部分。
 - 客户端最终交付给桌宠的"当下决策包"`current_context` 由：①记忆系统返回的画像 / 摘要 / 偏好（来自 §4） + ②客户端 5 类本地来源 合成 —— 合成结果**不回写**，只把支撑它的 raw `source_record` 按需上报。
 
 ### 1.3 数据对象三分类

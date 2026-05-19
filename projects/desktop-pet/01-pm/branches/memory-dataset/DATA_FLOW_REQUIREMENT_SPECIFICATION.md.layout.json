@@ -52,8 +52,8 @@
       "cols": [
         244,
         122,
-        233,
-        190
+        278,
+        239
       ],
       "rows": [
         {
@@ -68,13 +68,38 @@
           "align": "center"
         },
         {
+          "row": 1,
+          "col": 1,
+          "align": "center"
+        },
+        {
           "row": 2,
           "col": 0,
           "align": "center"
         },
         {
+          "row": 2,
+          "col": 1,
+          "align": "center"
+        },
+        {
           "row": 3,
           "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 3,
+          "col": 1,
+          "align": "center"
+        },
+        {
+          "row": 4,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 4,
+          "col": 1,
           "align": "center"
         }
       ]
