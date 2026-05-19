@@ -183,9 +183,9 @@ flowchart LR
 
 | 参数 | 参考值 | 备注 |
 | --- | --- | --- |
-| `idip_heartbeat_interval_sec` | **60** | 无 SDK 实时事件的游戏；快节奏游戏可降至 30，慢节奏可升至 120 |
+| `idip_heartbeat_interval_sec` | **60** | 快节奏游戏可降至 30，慢节奏可升至 120 |
 | `pc_signal_heartbeat_sec` | **30** | active_app / idle_signal / is_fullscreen_game 三字段最低频率 |
-| `idle_signal_thresholds_sec` | **`[60, 300, 1800]`**（active / idle_1min / idle_5min / idle_30min+） | 跨级时触发状态变化上报 |
+| `idle_signal_thresholds_sec` | **`[60, 300, 1800] <br>`**（active / idle_1min / idle_5min / idle_30min+） | 跨级时触发状态变化上报 |
 | `push_dedup_window_sec` | **30** | 同 `resource_ref` 在 30 秒内只 push 一次 |
 | `offline_buffer_max_hours` | **24** | 超出丢弃并记录 `offline_dropped_count` |
 | `offline_buffer_max_records` | **5000** | 防止低端机内存爆炸 |
@@ -204,7 +204,7 @@ flowchart LR
 
 | 子节 | 内容 | 优先级 |
 | --- | --- | --- |
-| §3.1 | 事实源记录（`source_record`），按 5 大类细分 | P0 / P1 |
+| §3.1 | 事实源记录（`source_record`），按 5 大类细分 | P0 |
 | §3.2 | 用户控制 mutation（保存 / 删除 / 纠错 / 授权 / 重新总结 / 反馈） | P0 |
 | §3.3 | 批量补传规则 | P1 |
 
@@ -214,7 +214,7 @@ flowchart LR
 
 | `record_type` | 含义 | 触发时机 | 关键 payload 字段 | 优先级 |
 | --- | --- | --- | --- | --- |
-| `chat_message` | 用户与桌宠的首方对话 | 用户发送 / 桌宠输出每条消息后立即 | `conversation_id` / `speaker`（user/pet）/ `message_type`（text/voice_transcribed）/ `content` / `client_scene` | P0 |
+| `chat_message` | 用户与桌宠的对话内容 | 用户发送 / 桌宠输出每条消息后立即触发 | `conversation_id` / `speaker`（user/pet）/ `message_type`（text/voice_transcribed）/ `content` / `client_scene` | P0 |
 | `pet_runtime_event` | 桌宠运行事件（消息送达、忽略、桌宠主动表达） | 桌宠产生主动行为时 | `event_type` / `client_scene` / `related_record_ids[]` / `message_template_id` / `user_interruption_level` | P0 |
 
 > **来源边界**：`chat_message.content` 一律视为"干净文本"，不带 input_modality（键盘 / STT 都不区分）。voice-interaction 分支输出的 STT 文本进入这里时也一样。
@@ -239,7 +239,7 @@ flowchart LR
 
 > **核心契约**：所有游戏数据 envelope 必带 6 个键 —— `game_id` / `game_user_id_pseudonym` / `occurred_at` / `event_type` / `common_fields` / `custom_fields`。前两个在 envelope 通用字段里已带，后四个在 payload 里。
 
-##### 3.1.2.1 通用事件清单（所有接入游戏都必须提供）
+##### 3.1.2.1 通用事件清单
 
 | `event_type` | `event_mode` | 触发时机 | 必含 `common_fields` | 优先级 |
 | --- | --- | --- | --- | --- |
