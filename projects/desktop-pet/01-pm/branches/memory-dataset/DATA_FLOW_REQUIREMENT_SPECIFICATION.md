@@ -86,15 +86,15 @@ flowchart LR
 
 > **规则**：一条字段只能属于一类。如果一个业务概念既需要"客户端推导"又需要"记忆系统加工"，**拆成两个字段**（详见 §1.4 D3）。
 
-### 1.4 数据流原则（六条）
+### 1.4 数据流原则
 
 | # | 原则 | 含义 |
 | --- | --- | --- |
-| 1 | **先事实，再加工** | `source_record` 必须先写入，`derived_memory` 才能被生成；客户端不能直接上报"加工结论"。 |
+| 1 | **先事实，再加工** | <ul><li>`source_record` 必须先写入，`derived_memory` 才能被派生；</li><li>客户端不能直接上报"加工结论"。</li></ul> |
 | 2 | **加工结果可解释** | 每条 `derived_memory` 必须带 `source_record_ids[]` 或 `evidence_ids[]`，让客户端可以反查证据。 |
-| 3 | **用户控制最高优先级** | `user_control_state` 不会被任何加工覆盖；用户 mutation 永远优先于 AI 推断。 |
-| 4 | **双向字段必拆名** | 同一业务概念若客户端和记忆系统都要写，必须拆成两个字段（如 `emotion_signal_observed` / `emotion_signal_derived`，`playstyle_tags_user_set` / `playstyle_tags_inferred`），避免方向歧义。 |
-| 5 | **授权快照贯穿全链** | 每条 `source_record` 必带当时的 `consent_snapshot_id`；用户撤回授权时，记忆系统沿这条链反向溅透清理（详见 §5.4）。 |
+| 3 | **用户控制最高优先级** | <ul><li>`user_control_state` 不会被任何加工覆盖；</li><li>用户 mutation 永远优先于 AI 推断。</li></ul> |
+| 4 | **双向字段必拆名** | 同一业务概念若客户端和记忆系统都要写，拆成两个字段（如 `emotion_signal_observed` / `emotion_signal_derived`，`playstyle_tags_user_set` / `playstyle_tags_inferred`），避免方向歧义。 |
+| 5 | **授权快照贯穿全链** | <ul><li>每条 `source_record` 必带当时的 `consent_snapshot_id`；</li><li>用户撤回授权时，记忆系统沿这条链反向溅透清理（详见 §5.4）。</li></ul> |
 | 6 | **本地合成不回写完整对象** | 客户端的 `current_context` 是临时决策包，只回写支撑它的 raw `source_record` 或用户明确确认的 mutation，永不回写整个 context。 |
 
 ### 1.5 总体数据流
@@ -125,7 +125,7 @@ flowchart LR
 
 ### 2.1 四种管道
 
-跨系统流通统一用 4 种管道，每条数据只走其中一种主管道：
+> 跨系统流通统一用 4 种管道，每条数据只走其中一种主管道：
 
 | 管道 | 方向 | 适合数据 | 同步特征 |
 | --- | --- | --- | --- |
