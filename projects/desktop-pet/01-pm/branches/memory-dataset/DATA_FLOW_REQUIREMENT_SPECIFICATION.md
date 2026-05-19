@@ -463,8 +463,6 @@ sequenceDiagram
 }
 ```
 
-> envelope 外层 `trigger_cause=event_driven` 已表达"实时事件性质"，payload 内**不再**重复使用 `event_mode` 字段。客户端不应在 payload 中携带 `event_mode`。
-
 ##### 3.1.2.4 `common_fields` 字段表
 
 > `common_fields` 是 game_event payload 内的固定子对象，承载跨游戏共有的会话 / 关卡 / 难度 / 区服等结构化字段。`custom_fields` 才允许游戏自定义。
@@ -509,8 +507,6 @@ sequenceDiagram
 | `ui_semantic_tags[]` | 授权窗口检测到的 UI 元素（如 error_dialog） | source_record | `event_driven`（语义事件触发） | P1 |
 | `focused_element_role` | 焦点控件类型（input / button / list 等） | source_record | `threshold_crossed` | P1 |
 | `semantic_events[]` | OS 级白名单语义事件（save / undo / paste / app_switch） | source_record | `event_driven` | P1 |
-
-> **永禁**：原始按键字符、窗口全文、文件路径、URL、第三方 app 正文。
 
 ##### 3.1.3.3 音频派生与 Now Playing
 
