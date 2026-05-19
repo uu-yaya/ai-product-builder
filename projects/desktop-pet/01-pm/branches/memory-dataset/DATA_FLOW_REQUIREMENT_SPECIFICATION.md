@@ -610,30 +610,6 @@ flowchart TD
 
 ---
 
-###### 实际接入示例
-
-游戏接入方可参考下表确定 `game_category` 和第二层字段子集：
-
-| 游戏 | game_category | 第二层适用子集 | custom_fields 独有（示例）|
-| --- | --- | --- | --- |
-| 王者荣耀 | `pvp_battle` | match_id / match_result / mmr / rank_tier / team_size / map_id / kda | 英雄 ID / 出装方案 / 召唤师技能 |
-| LoL 英雄联盟 | `pvp_battle` | 同上 + opponent_count | 英雄 / 符文 / 装备 / 助记技能 |
-| 仙剑奇侠传 | `pve_quest` | level_id / chapter_id / difficulty / chapter_progress | 队伍配置 / 当前章节剧情节点 |
-| 战神 | `pve_quest` | level_id / difficulty / retry_count / save_slot_id | 武器解锁 / 技能树进度 |
-| 杀戮尖塔 | `pve_roguelike` | run_id / floor_id / character_build / death_count / difficulty | 当前牌组 / 圣物列表 / 楼层精英遭遇 |
-| 哈迪斯 | `pve_roguelike` | run_id / floor_id / character_build / death_count | 武器选择 / 神祝福列表 |
-| 原神 | `open_world` | region_id / current_quest_id / world_progress / playtime_in_session_min | 角色等级 / 抽卡保底数 / 树脂值 |
-| 塞尔达旷野之息 | `open_world` | region_id / current_quest_id / world_progress | 神庙数 / 心之容器 / 装备耐久 |
-| 炉石传说 | `card_strategy` | match_id / deck_id / opponent_archetype / turn_count / match_result | 职业 / 模式（标准 / 狂野 / 酒馆战旗）/ 当前奖励等级 |
-| 云顶之弈 | `card_strategy` | match_id / deck_id（羁绊组合）/ opponent_archetype（其他玩家阵容）/ turn_count | 等级 / 经济 / 装备合成情况 |
-| 模拟城市 | `simulation` | in_game_day / economy_score / population / building_count | 灾害事件 / 区域规划方案 |
-| 动物森友会 | `simulation` | in_game_day / population（村民数）| 当前季节 / 节日 / 博物馆完成度 |
-| OSU（音游） | `other` | （走 custom_fields） | beatmap_id / accuracy / pp 分数 |
-
-> **不确定怎么归类时**：先按速查表问题顺序判别；如仍有歧义，**优先归类到第一个命中的 category**（例如：原神既有探索又有对战，但探索是核心 → `open_world`；炉石酒馆战旗既是 card 又是 pvp → `card_strategy`，因构筑维度更核心）。
-
-> **接入流程提醒**：每个游戏接入时，游戏接入方提交 schema 提案（含 `game_category` + 本类适用的第二层字段子集 + custom_fields 独有字段），PM + Engineering 三方 review 后锁入"该游戏的 game_event schema"，记忆系统按此 schema 校验后续上报。
-
 #### 3.1.3 PC 环境信号
 
 ##### 3.1.3.1 active_app 与 idle 信号
