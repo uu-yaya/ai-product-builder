@@ -369,18 +369,18 @@ sequenceDiagram
 
 | 字段 | 数据对象 | 触发时机 | 上报方式 | 优先级 |
 | --- | --- | --- | --- | --- |
-| `audio_mood_tag` | source_record | 系统音频派生（节拍 / 能量 / 调式）—— 仅在 `privacy_grants.system_audio_music_context.granted=true` | digest 周期 / 状态变化（mood 跨档） | 扩展 |
-| `audio_bpm_signal` | source_record | 音频派生 | digest 周期 | 扩展 |
-| `now_playing.app` | source_record | macOS MediaRemote / Windows SMTC API 上报 | 状态变化（曲目切换） | P1 |
+| `audio_mood_tag` | source_record | 系统音频派生（节拍 / 能量 / 调式） <br>—— 仅在`privacy_grants.system_audio_music_context.granted=true` | digest 周期 / 状态变化（mood 跨档） | P1 |
+| `audio_bpm_signal` | source_record | 音频派生 | digest 周期 | P1 |
+| now_playing.app | source_record | macOS MediaRemote / Windows SMTC API 上报 | 状态变化（曲目切换） | P1 |
 | `now_playing.track_title` | source_record | 同上 | 同上 | P1 |
 | `now_playing.artist` | source_record | 同上 | 同上 | P1 |
-| `now_playing.platform_category` | source_record | 来源平台归类（music / podcast / video）| 状态变化 | P1 |
+| `now_playing.platform_category` | source_record | 来源平台归类（music / podcast / video） | 状态变化 | P1 |
 
 ##### 3.1.3.4 浏览器 tab 与 OS Scripting Bridge
 
 | 字段 | 数据对象 | 触发时机 | 上报方式 | 优先级 |
 | --- | --- | --- | --- | --- |
-| `active_tab_signal.category` | source_record | 浏览器扩展上报 tab 切换；仅 6 类 category（video/social/dev/news/shopping/other），不读 URL 与正文 | 状态变化 | P1 |
+| `active_tab_signal.category` | source_record | <ul><li>浏览器扩展上报 tab 切换；</li><li>仅 6 类 （video/social/dev/news/shopping/other）</li><li>不读 URL 与正文</li></ul> | 状态变化 | P1 |
 | `recent_tab_categories_top3` | source_record | digest 周期 | 周期聚合 | P1 |
 | `osa_bridge.app_id` | source_record | 用户授权范围内的桌面 app（Spotify/Music/VLC/IINA/Notes/Bear/Office 等） | 状态变化 | P1 |
 | `osa_bridge.app_metadata_summary` | source_record | OSA / COM 拉取的元数据摘要（不含正文） | 状态变化 / digest | P1 |
