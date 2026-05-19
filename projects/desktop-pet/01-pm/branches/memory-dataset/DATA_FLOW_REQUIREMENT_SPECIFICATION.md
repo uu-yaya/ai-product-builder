@@ -598,14 +598,14 @@ sequenceDiagram
 
 ### 4.1 加工记忆 pull response（derived_memory）
 
-#### 4.1.1 Pull Query 请求字段
+#### 4.1.1 `Pull Query` 请求字段
 
 | 字段 | 含义 | 必填 | 优先级 |
 | --- | --- | --- | --- |
 | `query_id` | 查询 ID | 是 | P0 |
 | `query_type` | 查询类型，见 §4.1.2 | 是 | P0 |
 | `game_id` / `game_user_id_pseudonym` | 数据隔离 | 是 | P0 |
-| `scene` | 客户端业务场景（用于 Memory 裁剪结果） | 是 | P0 |
+| `scene` | 客户端业务场景 | 是 | P0 |
 | `time_window` | 查询时间窗 `{from, to}` | 否 | P1 |
 | `resource_refs[]` | 从 push 拿到的资源引用 | 取决于 `query_type` | P0 |
 
