@@ -149,7 +149,7 @@ flowchart LR
 | `sent_at` | 客户端发送时间 | ISO 8601 | 是 | P0 | 排查延迟、离线补传 |
 | `consent_snapshot_id` | 当时授权快照 ID | string | 是 | P0 | 反向溅透清理用（§5.4） |
 | `payload_schema_version` | payload schema 版本 | string | 是 | P0 | 兼容字段升级 |
-| `trigger_cause` | 触发因（详见 §2.3.1） | enum | 是 | P0 | `event_driven` / `threshold_crossed` / `scheduled` / `user_action` / `external_push` |
+| `trigger_cause` | 触发因（详见 §2.3.1） | enum | 是 | P0 | `scheduled` / `event_driven`（**2 选 1**） |
 | `delivery_mode` | 传输模式（详见 §2.3.1） | enum | 是 | P0 | 默认 `realtime`；其余：`aggregated` / `batched_recovery` / `batched_startup` |
 | `payload` | 业务内容 | object | 是 | P0 | 按 `record_type` 各自定义 |
 
@@ -179,46 +179,50 @@ flowchart LR
 | `chat_message` | 用户与桌宠的单条对话消息（文本，含 STT 转写） | source_record | `event_driven` | §3.1.1.2 | P0 |
 | `pet_runtime_event` | 桌宠运行时事件（消息送达 / 用户忽略 / 主动表达 / 强感知会话审计 / 离线丢弃汇总 等） | source_record | `event_driven` | §3.1.1.3 + §3.1.1.4（event_type 枚举） | P0 |
 | `game_event` | 游戏内事件（含 8 通用事件 + 游戏自定义事件，如 boss_defeated） | source_record | `event_driven` | §3.1.2.1 / §3.1.2.3 | P0 |
-| `idip_snapshot` | 游戏状态完整快照（生命周期边界 + 周期心跳） | source_record | `scheduled` 心跳 / `event_driven` 生命周期 | §3.1.2.2 | P0 |
-| `pc_signal` | PC 环境信号（active_app / 输入派生 / 音频 / now_playing / 浏览器 tab / OSA Bridge） | source_record | `threshold_crossed` / `scheduled` | §3.1.3 | P1 |
+| `idip_snapshot` | 游戏状态完整快照（生命周期边界 + 周期心跳） | source_record | 心跳=`scheduled`；生命周期边界=`event_driven` | §3.1.2.2 | P0 |
+| `pc_signal` | PC 环境信号（active_app / 输入派生 / 音频 / now_playing / 浏览器 tab / OSA Bridge） | source_record | 状态变化=`event_driven`；心跳/digest=`scheduled` | §3.1.3 | P1 |
 | `vlm_observation` | 弱感知 VLM 语义观察结果（**强感知不入记忆**） | source_record | `scheduled` | §3.1.5.2 | P1 |
-| `mcp_observation` | 授权 MCP app 经客户端中转的白名单字段 | source_record | `scheduled` / `external_push` | §3.1.4 | P1 |
-| `user_action` | 用户主动触发的 mutation（save / update / delete / restore / correct / confirm / request / feedback） | 跨系统 mutation 载体（不是单纯 source_record） | `user_action` | §3.2 | P0 |
+| `mcp_observation` | 授权 MCP app 经客户端中转的白名单字段 | source_record | 客户端定时拉=`scheduled`；MCP 主动推=`event_driven` | §3.1.4 | P1 |
+| `user_action` | 用户主动触发的 mutation（save / update / delete / restore / correct / confirm / request / feedback） | 跨系统 mutation 载体（不是单纯 source_record） | `event_driven` | §3.2 | P0 |
 
 > **判别规则**：客户端发任何一条 envelope，必须先确定 `record_type`，再按对应子节填充 payload。`record_type` 与 `payload_schema_version` 配对使用（如 `record_type=chat_message` ⇒ `payload_schema_version=chat_message.v1`）。
 
-### 2.3 触发因术语表
+### 2.3 触发因与传输模式术语表
 
-#### 2.3.1 `trigger_cause`（触发因）
+#### 2.3.1 `trigger_cause`（触发因，2 选 1）
 
-| `trigger_cause` | 含义 | 举例 | 典型 record_type |
+| `trigger_cause` | 含义 | 典型场景 | 默认 SLA |
 | --- | --- | --- | --- |
-| `event_driven` | 具体离散事件触发 | 用户发一条消息 / 游戏 SDK 推一条事件 / 用户启动游戏 | `chat_message` / `game_event (realtime_push)` / `game_launch` / `session_start` / `session_end` / `pet_runtime_event` |
-| `threshold_crossed` | 字段值跨阈值 / 枚举切换 | active_app 从 Steam 切到 Chrome / idle_signal 从 active 跳到 idle_5min | `pc_signal.active_app_change` / `pc_signal.idle_signal` 跨档 / `app_switch_burst` / `now_playing_change` |
-| `scheduled` | 按固定或可配频率周期采集 | idip 心跳 60s 上报 / 弱感知 VLM 每 10min 截图 / PC 信号 30s 心跳 | `idip_snapshot` 心跳 / `pc_signal_heartbeat` / `pc_signal.input_digest` / `vlm_observation` 弱感知 |
-| `user_action` | 用户主动触发（mutation） | 用户点赞回复/ 用户撤回授权 / 用户说"我不喜欢这个形容“ | 所有 `user_action` (mutation=true) |
-| `external_push` | 外部系统主动推入 | MCP app（如飞书）主动通知"你有新待办" | MCP app 主动通知客户端 → `mcp_observation` |
+| `scheduled` | **按固定或可配频率周期采集**，无论值是否变化 | idip 心跳 60s / pc_signal 心跳 30s / digest 聚合 10min / 弱感知 VLM 用户配置频率 | 按配置间隔（见 §2.4） |
+| `event_driven` | **事件触发**（其他一切：离散事件 / 状态变化 / 用户操作 / 外部推入） | 用户发消息 / 游戏 SDK 推事件 / active_app 切换 / 用户保存高光 / MCP 主动通知 | 触发后 ≤ 2 秒；用户 mutation ≤ 1 秒（必有 ack）；MCP 外部推入 ≤ 2 秒 |
+
+**判别决策**：
+
+```
+这条数据是定时器触发发出的吗？
+  ├── 是 → scheduled
+  └── 否 → event_driven
+```
 
 #### 2.3.2 `delivery_mode`（传输模式，默认 `realtime`）
 
 | `delivery_mode` | 含义 |
 | --- | --- |
 | `realtime`（默认） | 触发即发，单发 envelope |
-| `aggregated` | 周期内聚合 N 条信号成一条二阶统计（input_digest / typing_rhythm / mouse_heatmap_top3 等） |
+| `aggregated` | 客户端在周期内聚合 N 条信号成一条二阶统计（input_digest / typing_rhythm / mouse_heatmap_top3 等） |
 | `batched_recovery` | 离线 / 网络恢复批量补传 |
 | `batched_startup` | 客户端冷启动一次性批量同步 |
 
 #### 2.3.3 SLA 对应表
 
-| `trigger_cause` | 默认 SLA | 批量是否允许 |
+| 场景 | 默认 SLA | 批量是否允许 |
 | --- | --- | --- |
-| `event_driven` | 发生后 ≤ 2 秒 | 离线时通过 `batched_recovery` 批量 |
-| `threshold_crossed` | 状态变化后 ≤ 1 秒 | 否 |
-| `scheduled` | 按配置间隔（见 §2.4） | `aggregated` 内合并 |
-| `user_action` | 用户操作后 ≤ 1 秒，必有 ack | 否 |
-| `external_push` | 外部推入后 ≤ 2 秒 | 否 |
-| `batched_recovery` | 网络恢复后 ≤ 30 秒内启动 | 是 |
-| `batched_startup` | 客户端 ready 后 ≤ 10 秒 | 是 |
+| `trigger_cause=event_driven`（普通） | 触发后 ≤ 2 秒 | 离线时通过 `batched_recovery` 批量 |
+| `trigger_cause=event_driven` + `record_type=user_action`（mutation） | 用户操作后 ≤ 1 秒，必有 ack | 否（mutation 单条发） |
+| `trigger_cause=event_driven` + `record_type=mcp_observation`（外部推入） | 外部推入后 ≤ 2 秒 | 否 |
+| `trigger_cause=scheduled`（心跳 / 周期采集） | 按配置间隔（见 §2.4） | `delivery_mode=aggregated` 内允许合并 |
+| `delivery_mode=batched_recovery` | 网络恢复后 ≤ 30 秒内启动 | 是 |
+| `delivery_mode=batched_startup` | 客户端 ready 后 ≤ 10 秒 | 是 |
 
 ### 2.4 参数参考值
 
@@ -296,7 +300,7 @@ flowchart LR
 | --- | --- | --- | --- | --- | --- |
 | `event_type` | 运行事件类型（完整枚举见 §3.1.1.4） | enum | 是 | "proactive_speak" | P0 |
 | `client_scene` | 触发该事件的客户端业务场景（枚举完整清单见 §3.1.1.5） | enum | 是 | "long_no_feedback" | P0 |
-| `related_record_ids[]` | 与本事件相关的 source_record / mutation 引用 | array<string> | 否 | ["rec_pc_signal_001"] | P1 |
+| `related_record_ids[]` | 与本事件相关的 source_record / mutation 引用 | array | 否 | ["rec_pc_signal_001"] | P1 |
 | `message_template_id` | 若为桌宠主动表达，对应消息模板 ID | string | 否 | "tmpl_encourage_002" | P1 |
 | `user_interruption_level` | 该事件对用户的打扰级别（`low` / `mid` / `high`） | enum | 否 | "low" | P1 |
 | `extra` | 业务自定义扩展（强感知会话审计的 duration_sec / app_scope 等放这里） | object | 否 | { "duration_sec": 1200 } | P1 |
@@ -370,7 +374,7 @@ flowchart LR
 | `user_initiated_screen_share` | 用户开 / 关强感知屏幕共享 | `update + consent.vlm_strong_sensing` | §6.7.1 | P1 |
 | `consent_change` | 授权变更（开 / 关某类授权） | `update + consent.*` | §6.6 | P0 |
 | `offline_drop` | 离线缓存满 / 超时丢弃事件 | offline_buffer 超限 | §3.3 | P1 |
-| `mcp_event` | MCP app 主动通知客户端 | MCP `external_push` | §6.9 | P1 |
+| `mcp_event` | MCP app 主动通知客户端 | MCP 主动推入（`record_type=mcp_observation` + `trigger_cause=event_driven`） | §6.9 | P1 |
 
 #### 3.1.2 游戏数据
 
@@ -484,54 +488,54 @@ sequenceDiagram
 
 | 字段 | 含义 | 数据对象 | 触发时机（trigger_cause + delivery_mode） | 优先级 |
 | --- | --- | --- | --- | --- |
-| `active_app.name` | 前台 app 显示名 | source_record | `threshold_crossed` + `scheduled (30s)` | P0 |
-| `active_app.bundle_id` | 前台 app 标识符（macOS bundle id / Windows AUMID） | source_record | `threshold_crossed` + `scheduled (30s)` | P0 |
-| `active_app.is_fullscreen` | 前台 app 是否全屏 | source_record | `threshold_crossed` | P0 |
-| `idle_signal` | 用户闲置状态枚举（active / idle_1min / idle_5min / idle_30min+） | source_record | `threshold_crossed`（跨档触发） | P0 |
-| `is_fullscreen_game` | 是否前台游戏窗口处于全屏（用于打扰判断） | source_record | `threshold_crossed` | P0 |
-| `app_switch_burst` | 短窗口高频切 app 的二阶统计（60s 内切 ≥5 次） | source_record | `threshold_crossed` + `aggregated` | P1 |
+| `active_app.name` | 前台 app 显示名 | source_record | `event_driven` + `scheduled (30s)` | P0 |
+| `active_app.bundle_id` | 前台 app 标识符（macOS bundle id / Windows AUMID） | source_record | `event_driven` + `scheduled (30s)` | P0 |
+| `active_app.is_fullscreen` | 前台 app 是否全屏 | source_record | `event_driven` | P0 |
+| `idle_signal` | 用户闲置状态枚举（active / idle_1min / idle_5min / idle_30min+） | source_record | `event_driven`（跨档触发） | P0 |
+| `is_fullscreen_game` | 是否前台游戏窗口处于全屏（用于打扰判断） | source_record | `event_driven` | P0 |
+| `app_switch_burst` | 短窗口高频切 app 的二阶统计（60s 内切 ≥5 次） | source_record | `event_driven` + `aggregated` | P1 |
 | `recent_apps_top3` | 近 digest 窗口内使用频次 top3 app | source_record | `scheduled (digest 10min)` + `aggregated` | P1 |
 
 ##### 3.1.3.2 输入与 UI 派生
 
 | 字段 | 含义 | 数据对象 | 触发时机（trigger_cause + delivery_mode） | 优先级 |
 | --- | --- | --- | --- | --- |
-| `window_title_redacted` | 脱敏后的窗口标题（去除文件名 / 路径 / 用户名 / URL） | source_record | `threshold_crossed` | P0 |
-| `input_intensity_level` | 输入强度桶化等级（low / mid / high） | source_record | `threshold_crossed` | P0 |
-| `ime_state` | 输入法状态（zh / en / off） | source_record | `threshold_crossed` | P1 |
+| `window_title_redacted` | 脱敏后的窗口标题（去除文件名 / 路径 / 用户名 / URL） | source_record | `event_driven` | P0 |
+| `input_intensity_level` | 输入强度桶化等级（low / mid / high） | source_record | `event_driven` | P0 |
+| `ime_state` | 输入法状态（zh / en / off） | source_record | `event_driven` | P1 |
 | `typing_rhythm_signal` | 打字节奏（steady / bursty / pause_heavy） | source_record | `scheduled (digest 10min)` + `aggregated` | P1 |
-| `text_edit_action_burst` | 短窗口内编辑动作高频统计（60s ≥10 次） | source_record | `threshold_crossed` + `aggregated` | P1 |
+| `text_edit_action_burst` | 短窗口内编辑动作高频统计（60s ≥10 次） | source_record | `event_driven` + `aggregated` | P1 |
 | `undo_redo_rate_per_min` | 撤销 / 重做频率 | source_record | `scheduled (digest 10min)` + `aggregated` | P1 |
 | `mouse_region_heatmap_top3` | digest 窗口内鼠标活跃区域 top3 | source_record | `scheduled (digest 10min)` + `aggregated` | P1 |
-| `scroll_intensity_signal` | 滚动强度等级 | source_record | `threshold_crossed` | P1 |
+| `scroll_intensity_signal` | 滚动强度等级 | source_record | `event_driven` | P1 |
 | `ui_semantic_tags[]` | 授权窗口检测到的 UI 元素（如 error_dialog） | source_record | `event_driven`（语义事件触发） | P1 |
-| `focused_element_role` | 焦点控件类型（input / button / list 等） | source_record | `threshold_crossed` | P1 |
+| `focused_element_role` | 焦点控件类型（input / button / list 等） | source_record | `event_driven` | P1 |
 | `semantic_events[]` | OS 级白名单语义事件（save / undo / paste / app_switch） | source_record | `event_driven` | P1 |
 
 ##### 3.1.3.3 音频派生与 Now Playing
 
 | 字段 | 含义 | 数据对象 | 触发时机（trigger_cause + delivery_mode） | 优先级 |
 | --- | --- | --- | --- | --- |
-| `audio_mood_tag` | 系统音频派生的情绪标签（节拍 / 能量 / 调式聚合） —— 仅在 `privacy_grants.system_audio_music_context.granted=true` | source_record | `scheduled (digest)` + `aggregated`； <br>mood 跨档时 `threshold_crossed` | P1 |
+| `audio_mood_tag` | 系统音频派生的情绪标签（节拍 / 能量 / 调式聚合） —— 仅在 `privacy_grants.system_audio_music_context.granted=true` | source_record | `scheduled (digest)` + `aggregated`； <br>mood 跨档时 `event_driven` | P1 |
 | `audio_bpm_signal` | 系统音频派生的 BPM 信号 | source_record | `scheduled (digest)` + `aggregated` | P1 |
-| `now_playing.app` | 当前播放音乐 / 视频的来源 app（macOS MediaRemote / Windows SMTC） | source_record | `threshold_crossed`（曲目切换） | P1 |
-| `now_playing.track_title` | 当前播放标题 | source_record | `threshold_crossed` | P1 |
-| `now_playing.artist` | 当前播放艺术家 / 频道 | source_record | `threshold_crossed` | P1 |
-| `now_playing.platform_category` | 来源平台归类（music / podcast / video） | source_record | `threshold_crossed` | P1 |
+| `now_playing.app` | 当前播放音乐 / 视频的来源 app（macOS MediaRemote / Windows SMTC） | source_record | `event_driven`（曲目切换） | P1 |
+| `now_playing.track_title` | 当前播放标题 | source_record | `event_driven` | P1 |
+| `now_playing.artist` | 当前播放艺术家 / 频道 | source_record | `event_driven` | P1 |
+| `now_playing.platform_category` | 来源平台归类（music / podcast / video） | source_record | `event_driven` | P1 |
 
 ##### 3.1.3.4 浏览器 tab 与 OS Scripting Bridge
 
 | 字段 | 含义 | 数据对象 | 触发时机（trigger_cause + delivery_mode） | 优先级 |
 | --- | --- | --- | --- | --- |
-| `active_tab_signal.category` | 当前浏览器活动 tab 的归类（video / social / dev / news / shopping / other 6 类，**不读 URL / 不读正文**） | source_record | `threshold_crossed`（浏览器扩展上报 tab 切换） | P1 |
+| `active_tab_signal.category` | 当前浏览器活动 tab 的归类（video / social / dev / news / shopping / other 6 类，**不读 URL / 不读正文**） | source_record | `event_driven`（浏览器扩展上报 tab 切换） | P1 |
 | `recent_tab_categories_top3` | digest 窗口内 tab 类别 top3 | source_record | `scheduled (digest 10min)` + `aggregated` | P1 |
-| `osa_bridge.app_id` | OSA / COM 桥接到的桌面 app 标识（Spotify / Music / VLC / IINA / Notes / Bear / Office 等用户授权范围内） | source_record | `threshold_crossed` | P1 |
-| `osa_bridge.app_metadata_summary` | OSA / COM 拉取的元数据摘要（不含正文） | source_record | `threshold_crossed` 或 `scheduled (digest)` + `aggregated` | P1 |
-| `osa_bridge.ui_indicator_shown_per_app` | 是否对用户显示采集状态指示（每 app 维度） | source_record | `threshold_crossed` | P1 |
+| `osa_bridge.app_id` | OSA / COM 桥接到的桌面 app 标识（Spotify / Music / VLC / IINA / Notes / Bear / Office 等用户授权范围内） | source_record | `event_driven` | P1 |
+| `osa_bridge.app_metadata_summary` | OSA / COM 拉取的元数据摘要（不含正文） | source_record | `event_driven` 或 `scheduled (digest)` + `aggregated` | P1 |
+| `osa_bridge.ui_indicator_shown_per_app` | 是否对用户显示采集状态指示（每 app 维度） | source_record | `event_driven` | P1 |
 
 ##### 3.1.3.5 PC 信号示例（4 类典型场景）
 
-**示例 1：active_app 切换（threshold_crossed）**
+**示例 1：active_app 切换（event_driven）**
 
 ```json
 {
@@ -539,7 +543,7 @@ sequenceDiagram
   "payload_schema_version": "pc_signal.v1",
   "payload": {
     "signal_kind": "active_app_change",
-    "trigger_cause": "threshold_crossed",
+    "trigger_cause": "event_driven",
     "delivery_mode": "realtime",
     "active_app": {
       "name": "Steam",
@@ -572,7 +576,7 @@ sequenceDiagram
 }
 ```
 
-**示例 3：now_playing 切换（threshold_crossed）**
+**示例 3：now_playing 切换（event_driven）**
 
 ```json
 {
@@ -580,7 +584,7 @@ sequenceDiagram
   "payload_schema_version": "pc_signal.v1",
   "payload": {
     "signal_kind": "now_playing_change",
-    "trigger_cause": "threshold_crossed",
+    "trigger_cause": "event_driven",
     "delivery_mode": "realtime",
     "now_playing": {
       "app": "Apple Music",
@@ -592,7 +596,7 @@ sequenceDiagram
 }
 ```
 
-**示例 4：浏览器 tab + OSA Bridge（threshold_crossed）**
+**示例 4：浏览器 tab + OSA Bridge（event_driven）**
 
 ```json
 {
@@ -600,7 +604,7 @@ sequenceDiagram
   "payload_schema_version": "pc_signal.v1",
   "payload": {
     "signal_kind": "active_tab_and_osa_change",
-    "trigger_cause": "threshold_crossed",
+    "trigger_cause": "event_driven",
     "delivery_mode": "realtime",
     "active_tab_signal": {
       "category": "video"
@@ -632,7 +636,7 @@ sequenceDiagram
 
 | `record_type` | 含义 | 关键 payload 字段 | 触发时机（trigger_cause） | 优先级 |
 | --- | --- | --- | --- | --- |
-| `mcp_observation` | 经客户端中转的授权 MCP app 白名单字段 / 任务标题 / 元数据摘要 | `mcp_app_id` / `metadata_summary` / `task_titles[]` / `app_generated_summary` / `summary_source_type` | `scheduled (mcp_pull_interval_sec=300)`（客户端按最小间隔主动拉取）+ `external_push`（MCP app 主动通知，如支持） | P1 |
+| `mcp_observation` | 经客户端中转的授权 MCP app 白名单字段 / 任务标题 / 元数据摘要 | `mcp_app_id` / `metadata_summary` / `task_titles[]` / `app_generated_summary` / `summary_source_type` | 客户端定时拉取=`scheduled (mcp_pull_interval_sec=300)`；MCP app 主动通知=`event_driven`（如 MCP 支持 push） | P1 |
 
 **MVP 接入清单（5 个领域）**：
 
@@ -654,15 +658,9 @@ sequenceDiagram
 
 #### 3.1.5 VLM 语义观察
 
-> **核心约束**：原图永不进入跨系统；本地 VLM 在客户端完成全部画面理解。
-> **新设计（v2.1 翻转）**：强感知 = 实时陪伴，**不入记忆**；弱感知 = 长期数据源，**入记忆**。原 v2 把强感知作为"完整字段回写"、弱感知作为"最小字段"的设计被翻转。
+> **核心约束**：强感知 = 实时陪伴，**不入记忆**；弱感知 = 长期数据源，**入记忆**
 
 ##### 3.1.5.1 强感知（实时陪伴，不入记忆）
-
-> **定位**：用户主动开启屏幕共享，本地 VLM 实时处理后**直接喂当下对话**。桌宠基于"看到的画面 + 当下对话上下文"回应，但**不写 `vlm_observation`**。强感知本身不沉淀为长期记忆，因为：
-> 1. 用户预期是"陪我看一下"，不是"把我此刻屏幕画面长期记下来"。
-> 2. 强感知通常是短时高密度采集，写入记忆会迅速污染画像。
-> 3. 真正有价值的"高光 / 复盘 / 日记"片段，应该靠用户主动 mutation（`save + highlight`）或弱感知长期采样自然沉淀。
 
 | 维度 | 设计 |
 | --- | --- |
@@ -709,8 +707,6 @@ sequenceDiagram
 | `ui_indicator_shown` | 本次采样时是否对用户显示了采集状态 | boolean | 是 | true | P0 |
 | `sampling_interval_sec` | 本次采样所属档位（30 / 60 / 300 / 600 / 1800） | integer | 是 | 600 | P0 |
 | `trigger_subtype` | 触发子类型：`scheduled` / `long_no_feedback` / `post_session` / `pre_proactive_speak` | enum | 是 | "scheduled" | P0 |
-
-> **永禁字段**：原图 / 帧 hash 可反查原图的引用 / 第三方账号 / 真实姓名 / 完整 URL / 完整文件路径 / 邮件正文 / 聊天正文 / 财务详情。
 
 ##### 3.1.5.4 用户控制字段（写入 `privacy_grants`，详见 §4.2）
 
@@ -1716,7 +1712,7 @@ sequenceDiagram
 >
 > **v2.1 新增（mentor 反馈 + 审查员清单）**：
 > 1. **VLM 角色翻转**（mentor 反馈）：强感知 = 实时陪伴**不入记忆**；弱感知 = 用户可调档位（30/60/300/600/1800s）定时采集**入记忆作为长期数据源**。重写 §3.1.5 + §6.7。
-> 2. **触发时机重新设计**：原 9 个混杂术语收敛为 5 个 `trigger_cause`（`event_driven` / `threshold_crossed` / `scheduled` / `user_action` / `external_push`）+ 4 个 `delivery_mode`（`realtime` / `aggregated` / `batched_recovery` / `batched_startup`）。详见 §2.3。
+> 2. **触发时机精简（v2.1 终版）**：原 9 个混杂术语 → 中间过渡 5 个 `trigger_cause` → 最终精简为 **2 个 `trigger_cause`**（`scheduled` / `event_driven`，2 选 1）+ 4 个 `delivery_mode`（`realtime` / `aggregated` / `batched_recovery` / `batched_startup`）。"是否 mutation""数据来源""阈值跨越"等维度交由 `record_type` 区分。详见 §2.3。
 > 3. **Mutation 通用化**：13 个枚举式 `mutation_type` → 7 个通用 `action`（`save` / `update` / `delete` / `restore` / `correct` / `confirm` / `request` / `feedback`）× N 个 `target_type`；新增 `restore`、`confirm` action。详见 §3.2。
 > 4. **Ack 状态机分化**：同步 / 异步 / 批量三类各自的可达状态分别定义。详见 §5.2。
 > 5. **§4.1.3 详细化**：15 个加工记忆资源族每族一张完整字段表，含字段名 / 含义 / 数据类型 / 示例值 / 触发返回的 query_type / 优先级。
