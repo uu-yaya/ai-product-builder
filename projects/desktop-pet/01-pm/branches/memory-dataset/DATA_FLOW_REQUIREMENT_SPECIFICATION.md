@@ -197,7 +197,7 @@ flowchart LR
 | `trigger_cause` | 含义 | 典型场景 | 默认 SLA |
 | --- | --- | --- | --- |
 | `scheduled` | **按固定或可配频率周期采集**，无论值是否变化 | idip 心跳 60s / pc_signal 心跳 30s / digest 聚合 10min / 弱感知 VLM 用户配置频率 | 按配置间隔（见 §2.4） |
-| `event_driven` | **事件触发**（其他一切：离散事件 / 状态变化 / 用户操作 / 外部推入） | 用户发消息 / 游戏 SDK 推事件 / active_app 切换 / 用户保存高光 / MCP 主动通知 | 触发后 ≤ 2 秒；用户 mutation ≤ 1 秒（必有 ack）；MCP 外部推入 ≤ 2 秒 |
+| `event_driven` | **事件触发**（其他一切：离散事件 / 状态变化 / 用户操作 / 外部推入） | 用户发消息 / 游戏 SDK 推事件 / active_app 切换 / 用户保存日记 / MCP 主动通知 | 触发后 ≤ 2 秒；用户 mutation ≤ 1 秒（必有 ack）；MCP 外部推入 ≤ 2 秒 |
 
 **判别决策**：
 
@@ -241,7 +241,7 @@ flowchart LR
 | `mutation_ack_timeout_sec` | **5** | 秒 | 同步 mutation 超时阈值，超时客户端进入"处理中" |
 | `mutation_async_max_wait_min` | **30** | 分钟 | 异步 mutation（request_*）最长等待时间，超时记录 `mutation_async_overdue` 告警 |
 | `pull_query_p99_ms` | **200** | 毫秒 | 实时 query（startup_context / conversation_context） |
-| `pull_query_batch_p99_ms` | **2000** | 毫秒 | 详情类（highlight_detail / episode_detail / assessment_result） |
+| `pull_query_batch_p99_ms` | **2000** | 毫秒 | 详情类（diary_detail / episode_detail / assessment_result） |
 | `vlm_weak_sensing_interval_sec` | **600** | 秒 | 默认 10 分钟一次；普通用户档位 300 / 600 / 1800 / off；高级设置页另开放 30 / 60 |
 | `vlm_weak_sensing_cooldown_sec` | **60** | 秒 | 弱感知两次本地推理之间最小间隔（防同档过密） |
 | `mcp_pull_interval_sec` | **300** | 秒 | 客户端主动从 MCP app 拉取的最小间隔（每 app 独立） |
@@ -356,7 +356,6 @@ flowchart LR
 | `during_game_chat` | 对局中实时聊天（不打断游戏的轻量对话） | `session_start` 与 `session_end` 之间 | §5.2 | P0 |
 | `post_game_chat` | 结算后聊天 | `session_end` 之后 | §5.3 | P0 |
 | `diary_chat` | 日记页对话 | 用户进入日记页 | §5.4 | P1 |
-| `highlight_recall` | 高光回顾对话 | 用户进入高光页 | §5.4 | P1 |
 | `memory_review` | 个人画像页对话 | 用户进入个人画像页 | §5.5 | P1 |
 | `settings_chat` | 设置页对话（如询问关系定位、授权说明） | 用户在设置页与桌宠对话 | §5.6 | P1 |
 | `screen_share_chat` | 强感知屏幕共享期间的对话 | `vlm_strong_sensing` 开启期间 | §5.7.1 | P1 |
@@ -367,7 +366,7 @@ flowchart LR
 | --- | --- | --- | --- | --- |
 | `proactive_speak` | 桌宠主动开口（通用，未细分） | 各种主动表达兜底 | §5 通用 | P0 |
 | `proactive_comfort` | 连败 / 卡关时主动安慰 | `idip_anomaly` 触发 / `fail` 事件多次 | §5.2 / §5.3 | P1 |
-| `proactive_congratulate` | 里程碑 / 高光达成主动祝贺 | `idip_milestone` / `highlight_ready` push | §5.3 / §5.4 | P1 |
+| `proactive_congratulate` | 里程碑达成主动祝贺 | `idip_milestone` push | §5.3 | P1 |
 | `proactive_reminder` | 任务 / 待办主动提醒（来自 MCP） | `mcp_summary_ready` push | §3.1.4 MCP 通道 | P1 |
 | `proactive_share_observation` | 弱感知发现"用户在干什么"后主动评论 | `vlm_observation` 弱感知触发 | §5.7.2 | P1 |
 
@@ -400,8 +399,8 @@ flowchart LR
 
 ##### 3.1.2.2 IDIP 心跳与服务端 diff（所有游戏适用）
 
-- **A 类游戏（有 SDK 实时事件）**：心跳是**兜底**通道，**120 秒**一次。作用是 SDK 偶发丢事件 / 客户端短暂掉线时记忆系统仍能拿到完整状态、避免"看不见"状态变化。A 类游戏的状态变更主路径是 `game_event (realtime_push)`。
-- **B 类游戏（无 SDK 实时事件）**：心跳是**主**通道， **60 秒**一次。客户端必须按时上报完整 `idip_snapshot`，记忆系统服务端做相邻快照 diff 生成 `idip_delta` 推回。**客户端不做本地 diff**，避免双端状态不一致。
+- **有SDK 实时事件的游戏**：心跳是**兜底**通道，**120 秒**一次。作用是 SDK 偶发丢事件 / 客户端短暂掉线时记忆系统仍能拿到完整状态、避免"看不见"状态变化。A 类游戏的状态变更主路径是 `game_event (realtime_push)`。
+- **无 SDK 实时事件的游戏**：心跳是**主**通道， **60 秒**一次。客户端必须按时上报完整 `idip_snapshot`，记忆系统服务端做相邻快照 diff 生成 `idip_delta` 推回。**客户端不做本地 diff**，避免双端状态不一致。
 
 **统一规则**：客户端永远只上报"快照本身"，diff 计算永远在记忆系统服务端。
 
@@ -844,8 +843,8 @@ sequenceDiagram
 
 | `action` | 含义 | 是否异步 | 适用 target_type 范围 | 优先级 |
 | --- | --- | --- | --- | --- |
-| `save` | **保存对象到长期记忆**。target_type 范围**开放**：任何支持"被用户主动创建"语义的对象都可作为 save 目标 | 同步 | **开放**：`highlight` / `rule.do_not_remember` / `free_form_note` / `diary_entry`（Diary 模块用） / 未来扩展类型 | P0 |
-| `update` | **修改已有对象的字段**。覆盖原 `update` / `correct`（纠错）/ `restore`（恢复 is_active=true）三种语义；用 `is_correction` / `new_value.is_active` 等子参数区分意图 | 同步 | `highlight` / `profile_field.*` / `preference.*` / `consent.*` / `assessment.use_for_companion` / `episode` / 任意可改字段对象 | P0 |
+| `save` | **保存对象到长期记忆**。target_type 范围**开放**：任何支持"被用户主动创建"语义的对象都可作为 save 目标 | 同步 | **开放**：`rule.do_not_remember` / `free_form_note` / 未来扩展类型 | P0 |
+| `update` | **修改已有对象的字段**。覆盖原 `update` / `correct`（纠错）/ `restore`（恢复 is_active=true）三种语义；用 `is_correction` / `new_value.is_active` 等子参数区分意图 | 同步 | `profile_field.*` / `preference.*` / `consent.*` / `assessment.use_for_companion` / `episode` / 任意可改字段对象 | P0 |
 | `delete` | 标 `is_active=false`，记 `inactive_reason=user_deleted`（不物理删除，保留审计） | 同步 | 任意可失效对象 | P0 |
 | `request` | 触发**后台异步流程**，必带 `request_type` | **异步** | `request_type=``character_similarity_assessment` | P0 |
 | `feedback` | **用户态度表达（like/unlike）** | like同步 | 任意可被反馈对象 | P1 |
@@ -860,26 +859,63 @@ sequenceDiagram
 | `request` | `request_type` | `request_params` | `target_resource_id`（除非流程指向具体对象，如 profile_reset 指向某 game_id 下的 profile） |
 | `feedback` | `target_resource_id` + `feedback_value` | `feedback_reason`（**enum**，`accurate` / `not_accurate` / `not_like_me` / `wrong_tone` / `too_private` / `boring`/ `other`） | `new_value` |
 
-#### 3.2.3 target_type
+#### 3.2.3 target_type 命名约定（开放命名空间）
 
-> action可以作用的对象
+##### 3.2.3.1 命名约定与三类划分
 
-| target_type 示例 | 含义 | 谁创建 | 谁修改 |
+`target_type` 是 `user_action` mutation 中用来定位"操作哪个对象"的字段。**采用开放命名空间**，按对象产生方式分为三类：
+
+| 类别 | 特征 | 谁产生 | 典型 mutation |
 | --- | --- | --- | --- |
-| `highlight` | 单条高光对象 | `save` 创建 / Memory 系统自动生成候选 | `update` / `delete` / `feedback` |
-| `rule.do_not_remember` | 不可记忆规则 | `save` 创建 | `delete` |
-| `free_form_note` | 用户对桌宠说"记一下这件事"产生的自由备忘 | `save` 创建 | `update` / `delete` |
-| `diary_entry` | 用户保存的日记成品（含 30+ 字段，详见 Diary PRD §七.2；DFRS 视为开放 schema，由 Diary 模块定义具体 payload） | `save` 创建（payload = 完整 diary_entry 对象） | `update`（改 is_favorited / mailbox_status / privacy_level 等）/ `delete`（标 is_active=false） / `feedback`（feedback_value=like/dislike，feedback_reason 含 `boring`） |
-| `diary_reply` | 用户日记回信（独立 source_record，详见 §3.1.6） | 通过 `diary_reply` record_type 直接上报（不走 save action） | `delete` 删除单条回信 |
-| `profile_field.playstyle_profile.playstyle_tags_inferred` | 玩法画像 → 玩法标签（AI 推断版本） | Memory 后台加工 | `update` / `feedback (confirm)` / `feedback (inaccurate)` |
-| `profile_field.profile_identity.preferred_call_name_candidate` | 桌宠对用户的称呼候选（AI 推断版本） | Memory 后台加工 | `update` / `feedback (confirm)` |
-| `consent.vlm_visual` | 隐私授权 → VLM 弱感知访问屏幕画面 | 用户首次启用 / `update` | `update` |
-| `consent.vlm_strong_sensing` | 隐私授权 → VLM 强感知单独开关 | 用户首次启用 / `update` | `update` |
-| `preference.notification.disturbance_boundaries` | 偏好 → 打扰边界配置（时段 / 强度 / 渠道） | `update` | `update` |
-| `preference.diary_style.length` | 偏好 → 日记长度 | `update` | `update` |
-| `assessment.use_for_companion` | 角色相似度测定 → 是否允许测定结果影响陪伴策略 | `update` | `update` |
-| `episode` | 单条情节摘要 | Memory 后台加工 | `update` / `delete` / `feedback` |
-| `atomic_fact` | 单条原子事实 | Memory 后台加工 | `update` / `delete` / `feedback` |
+| **A 类：用户主动创建的顶层资源** | 用户在 UI 上点保存 / 添加规则 / 备忘等 | 用户 `save` action 创建 | save / update / delete / feedback |
+| **B 类：Memory 自动加工的顶层资源** | 后台 LLM / 规则生成的 derived_memory 对象 | Memory 后台 | update / delete / feedback（不可 save） |
+| **C 类：子命名空间字段（点号路径）** | 通过 `<root>.<sub>.<field>` 形式定位 §4.1.3 / §4.2 字段族下的某具体字段 | 多源（用户 update / Memory 推断 / 初始默认） | update / feedback（视字段而定） |
+
+**点号路径规则**：根命名空间（`profile_field` / `preference` / `consent` / `assessment`） + `.` + 子族 + `.` + 字段名。Engineering 建议加 schema lint 强制路径合法。
+
+> 下面 §3.2.3.2 列示例 target_type；不是完整清单。完整字段命名空间见 §4.1.3（derived_memory 族）+ §4.2.1-§4.2.5（user_control_state 族）。
+
+##### 3.2.3.2 target_type 示例（按 A/B/C 三类分组）
+
+| target_type | 类别 | 含义 | mutability_policy | 详见章节 |
+| --- | --- | --- | --- | --- |
+| `rule.do_not_remember` | A | 用户"以后别这样记"规则 | user_only | §4.2.4 memory_controls |
+| `free_form_note` | A | 用户对桌宠说"记一下这件事"产生的自由备忘 | user_only | §3.2.4 envelope 示例 3 |
+| `diary_entry` | B | 日记成品（每生理日由 Diary 模块自动生成 + 自动持久化，**非用户主动 save**；含 30+ 字段，DFRS 视为开放 schema） | ai_inferred_writable（Diary 模块加工，用户可改/删/反馈） | §3.1.6 + Diary PRD §七.2 |
+| `episode` | B | 单条情节摘要（AI 聚合 chat segment） | ai_inferred_writable | §4.1.3.2 |
+| `atomic_fact` | B | 单条原子事实（AI 从聊天抽取） | ai_inferred_writable | §4.1.3.1 |
+| `diary_reply` | B' | 日记回信对象（**上报时**走 §3.1.6 独立 record_type；**仅作为 delete target_type** 使用） | ai_inferred_writable（用户 delete 自己的回信） | §3.1.6 |
+| `profile_field.<族>.<字段>_user_set` | C | 用户显式设置的画像字段（如 `profile_field.profile_identity.preferred_call_name`） | user_only | §4.1.3.4 / §4.1.3.5 + §4.1.3.16 |
+| `profile_field.<族>.<字段>_inferred` | C | AI 推断的画像字段（如 `profile_field.playstyle_profile.playstyle_tags_inferred`） | user_primary_ai_candidate 或 ai_inferred_writable | §4.1.3.6-§4.1.3.9 + §4.1.3.16 |
+| `consent.<授权名>` | C | 隐私授权（12 项之一，如 `consent.vlm_visual` / `consent.chat_content`） | user_only | §4.2.1 |
+| `preference.<偏好族>.<字段>` | C | 用户偏好（如 `preference.diary_style.length` / `preference.notification.disturbance_boundaries`） | user_only | §4.2.2 / §4.2.4 / §4.2.5 |
+| `assessment.use_for_companion` | C | 角色相似度测定的"是否影响陪伴"开关 | user_only | §4.1.3.14 |
+| `request_type=resummarize_profile` | request 专用 | "重新总结我"异步流程触发 | — | §3.2.4 envelope 示例 5 |
+| `request_type=character_similarity_assessment` | request 专用 | 用户主动触发角色相似度测定 | — | §4.1.3.14 |
+| `request_type=profile_reset` | request 专用 | 用户清空画像异步流程 | — | §3.2.2 schema 约束表 |
+
+> **highlight_event 不在 target_type 表内**：v2.1 决策"高光完全后台化"，用户无任何 mutation 入口，highlight_event 仅作为 Memory 自动生成 / 自动失效的 derived_memory 存在（详见变更说明 #21）。
+
+##### 3.2.3.3 action × target_type 矩阵
+
+哪些 action 可作用于哪些 target_type：
+
+| target_type | `save` | `update` | `delete` | `request` | `feedback` |
+| --- | --- | --- | --- | --- | --- |
+| `rule.do_not_remember` (A) | ✓ 创建 | — | ✓ | — | — |
+| `free_form_note` (A) | ✓ 创建 | ✓ 改文本 | ✓ | — | — |
+| `diary_entry` (B) | — | ✓ 改 favorited/mailbox_status 等 | ✓ | — | ✓ (含 boring) |
+| `episode` (B) | — | ✓ 纠错（is_correction）| ✓ | — | ✓ |
+| `atomic_fact` (B) | — | ✓ 纠错 | ✓ | — | ✓ |
+| `diary_reply` (B') | — | — | ✓ 删除单条回信 | — | — |
+| `profile_field.*_user_set` (C) | ✓ 首次设置 | ✓ 覆盖 | — | — | — |
+| `profile_field.*_inferred` (C) | — | ✓（含 `is_correction=true` 锁定）| ✓ | — | ✓ (confirm/inaccurate) |
+| `consent.*` (C) | — | ✓ | — | — | — |
+| `preference.*` (C) | — | ✓ | — | — | — |
+| `assessment.use_for_companion` (C) | — | ✓ | — | — | — |
+| `request_type=*` | — | — | — | ✓ | — |
+
+> **schema 一致性**：A/B/C 三类的 mutation envelope 都符合 §3.2.2 子参数 schema 约束；具体 envelope 示例见 §3.2.4。
 
 #### 3.2.4 envelope 示例
 
@@ -945,7 +981,7 @@ sequenceDiagram
 }
 ```
 
-**示例 4：`update + highlight`（**恢复**用户误删的高光，new_value.is_active=true）**
+**示例 4：`update + free_form_note`（**恢复**用户误删的备忘，new_value.is_active=true）**
 
 ```json
 {
@@ -955,8 +991,8 @@ sequenceDiagram
     "mutation": true,
     "mutation_id": "mut_restore_001",
     "action": "update",
-    "target_type": "highlight",
-    "target_resource_id": "hl_2026051200031",
+    "target_type": "free_form_note",
+    "target_resource_id": "note_2026051200031",
     "new_value": { "is_active": true },
     "user_intent": "用户撤销刚才的删除"
   }
@@ -1099,7 +1135,6 @@ sequenceDiagram
 | `session_memory` | 一局结束 / 结算页 | 本 session 的 `episode` + `idip_delta` + `highlight_event` refs + 事件摘要 |
 | `profile_detail` | 画像页 / 对话前 | `profile.*` 全量 + `profile_meta`（含 evidence_ids） |
 | `episode_detail` | 跨日召回 / 日记 / 复盘 | `episode` 详情 + evidence_ids |
-| `highlight_detail` | 高光页 / 日记 / 分享 | `highlight_event` 详情 + evidence_ids |
 | `preferences_state` | 设置页 / 能力调用前 | `user_preferences` + `privacy_grants` + `deletion_policy` |
 | `mcp_context` | 外部 app 轻量提醒 | 已授权 MCP app 的 `metadata_summary` + `task_titles[]` + `app_generated_summary` |
 | `assessment_result` | 角色相似度结果页 | `game_character_similarity_assessment` 详情 |
@@ -1130,7 +1165,7 @@ sequenceDiagram
 | `episode.content` | AI 摘要的情节内容正文 | string | "用户和桌宠讨论了..." | session_memory / episode_detail | P0 |
 | `episode.time_range` | 情节起止时间 | object {start,end} | { start:"...", end:"..." } | 同上 | P0 |
 | `episode.participants` | 参与方枚举 | array&lt;string&gt; | ["pet","user"] | session_memory / episode_detail | P0 |
-| `episode.highlight_score` | 情节高光排序分（0-1） | number | 0.82 | highlight_detail / episode_detail | P1 |
+| `episode.highlight_score` | 情节高光排序分（0-1） | number | 0.82 | episode_detail / diary_detail | P1 |
 | `episode.score_version` | 高光分版本号 | string | "highlight_score_default" | 同上 | P1 |
 | `episode.score_reason[]` | 高光分推理因子列表 | array&lt;string&gt; | ["milestone_hit","user_starred"] | 同上 | P1 |
 | `episode.meta` | profile_meta（见 4.1.3.15） | object | (同 4.1.3.15) | 同上 | P0 |
@@ -1218,20 +1253,20 @@ sequenceDiagram
 
 | 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
 | --- | --- | --- | --- | --- | --- |
-| `highlight_event.highlight_id` | 高光唯一 ID | string | "hl_2026051200031" | highlight_detail | P1 |
-| `highlight_event.title` | 标题（AI 生成 + 用户可编辑） | string | "首杀 chapter_02 BOSS" | highlight_detail | P1 |
-| `highlight_event.time` | 发生时间（或时段中点） | ISO 8601 | "2026-05-12T20:31:00Z" | highlight_detail | P1 |
-| `highlight_event.scene` | 业务场景（settlement / chat / replay 等） | enum | "settlement" | highlight_detail | P1 |
-| `highlight_event.event_summary` | 一句话事件摘要 | string | "用户操控法师 12% HP 翻盘" | highlight_detail | P1 |
-| `highlight_event.category` | 业务分类（victory / milestone / funny / emo 等） | enum | "victory" | highlight_detail | P1 |
-| `highlight_event.tags[]` | 标签 | array&lt;string&gt; | ["boss_kill","comeback"] | highlight_detail | P1 |
-| `highlight_event.source` | 来源（ai_auto / user_saved / vlm_capture 等） | enum | "user_saved" | highlight_detail | P1 |
-| `highlight_event.privacy_level` | 隐私级别（private / shareable_anonymized / shareable_full） | enum | "private" | highlight_detail | P1 |
-| `highlight_event.pinned` | 是否被用户置顶 | boolean | false | highlight_detail | P1 |
-| `highlight_event.evidence_ids[]` | 证据链 | array&lt;string&gt; | ["episode_...","rec_..."] | highlight_detail | P1 |
-| `highlight_event.is_active` | 是否仍生效 | boolean | true | highlight_detail | P0 |
-| `highlight_event.inactive_reason` | 失效原因（user_deleted / consent_revoked / expired 等） | enum | null | highlight_detail | P0 |
-| `highlight_event.inactive_at` | 失效时间 | ISO 8601 | null | highlight_detail | P0 |
+| `highlight_event.highlight_id` | 高光唯一 ID | string | "hl_2026051200031" | diary_detail | P1 |
+| `highlight_event.title` | 标题（AI 生成；用户无直接编辑入口，仅通过日记反馈间接影响） | string | "首杀 chapter_02 BOSS" | diary_detail | P1 |
+| `highlight_event.time` | 发生时间（或时段中点） | ISO 8601 | "2026-05-12T20:31:00Z" | diary_detail | P1 |
+| `highlight_event.scene` | 业务场景（settlement / chat / replay 等） | enum | "settlement" | diary_detail | P1 |
+| `highlight_event.event_summary` | 一句话事件摘要 | string | "用户操控法师 12% HP 翻盘" | diary_detail | P1 |
+| `highlight_event.category` | 业务分类（victory / milestone / funny / emo 等） | enum | "victory" | diary_detail | P1 |
+| `highlight_event.tags[]` | 标签 | array&lt;string&gt; | ["boss_kill","comeback"] | diary_detail | P1 |
+| `highlight_event.source` | 来源（ai_auto / vlm_capture / idip_milestone_trigger 等） | enum | "ai_auto" | （内部加工，不对用户 query 暴露；仅通过 diary_detail 间接访问） | P1 |
+| `highlight_event.privacy_level` | 隐私级别（private / shareable_anonymized / shareable_full）；用于日记分享时的可见性控制 | enum | "private" | diary_detail | P1 |
+| `highlight_event.pinned` | 是否被系统标记为重点（后台加工字段，用户无直接置顶入口） | boolean | false | diary_detail | P1 |
+| `highlight_event.evidence_ids[]` | 证据链 | array&lt;string&gt; | ["episode_...","rec_..."] | diary_detail | P1 |
+| `highlight_event.is_active` | 是否仍生效 | boolean | true | diary_detail | P0 |
+| `highlight_event.inactive_reason` | 失效原因（consent_revoked / expired / superseded 等；用户无直接删除入口） | enum | null | diary_detail | P0 |
+| `highlight_event.inactive_at` | 失效时间 | ISO 8601 | null | diary_detail | P0 |
 
 ##### 4.1.3.12 `memory_digest`（**v2.1 终版：已删除，改为客户端现场聚合**）
 
@@ -1346,8 +1381,8 @@ sequenceDiagram
 | `social_profile.social_preference_inferred` | **ai_inferred_writable** |
 | `emotion_signal_derived.*` | **ai_inferred_writable** |
 | `profile.summary` | **ai_inferred_writable**（但用户可 `request { request_type: resummarize_profile }` 强制重算） |
-| `atomic_facts[]` / `episode` / `idip_delta` / `idip_anomaly` / `idip_milestone` / `highlight_event`（候选） | **ai_inferred_writable**（用户可 `delete` / `feedback`） |
-| `highlight_event`（用户保存版本） | **ai_inferred_writable** 但保存后 `is_correction=true` 锁定标题 / 标签 |
+| `atomic_facts[]` / `episode` / `idip_delta` / `idip_anomaly` / `idip_milestone` | **ai_inferred_writable**（用户可 `delete` / `feedback`） |
+| `highlight_event` | **ai_inferred_writable**（**完全后台**：用户无 mutation 入口；仅 Memory 自动加工生成、自动失效；用户对高光的反馈通过对包含该高光的日记 feedback 间接传递） |
 
 ###### C. `review_status` 状态机
 
@@ -1537,7 +1572,6 @@ Diary 模块的内容生成偏好（详见 Diary PRD 引用）。
 | --- | --- | --- | --- |
 | `episode_ready` | 新情节摘要可用 | 在对话 / 日记 / 复盘场景 pull `episode_detail` | P0 |
 | `profile_updated` | `profile` / `profile_meta` 有变化 | 画像页刷新 / 对话前 pull `profile_detail` | P0 |
-| `highlight_ready` | 新高光候选 / 高光详情可用 | 结算页 / 高光页 pull `highlight_detail` | P1 |
 | `idip_delta_ready` | 服务端 diff 生成新 delta | session 中 / 结算页 pull `session_memory` | P1 |
 | `preferences_changed` | `user_preferences` / `privacy_grants` 被多端修改 | 设置页刷新 + 更新本地能力开关 | P0 |
 | `mcp_summary_ready` | MCP app 有新的白名单摘要 | 按场景 pull `mcp_context` | P1 |
@@ -1555,9 +1589,9 @@ Diary 模块的内容生成偏好（详见 Diary PRD 引用）。
 ```json
 {
   "push_id": "push_001",
-  "push_type": "highlight_ready",
-  "summary": "本局生成 1 条高光候选",
-  "resource_refs": ["highlight_candidate_001"],
+  "push_type": "episode_ready",
+  "summary": "本局生成 1 条情节摘要",
+  "resource_refs": ["episode_001"],
   "suggested_action": "pull_detail",
   "created_at": "2026-05-18T21:30:00Z"
 }
@@ -1606,7 +1640,7 @@ sequenceDiagram
         M-->>C: ack
     end
     M-->>M: 后台加工：episode / highlight 候选 / profile 更新
-    M->>C: push: episode_ready / highlight_ready
+    M->>C: push: episode_ready
 ```
 
 #### 5.2.2 无 SDK 实时事件（B 类游戏，靠 idip 心跳 diff）
@@ -1646,12 +1680,8 @@ sequenceDiagram
     SDK->>C: session_end + 最终 idip
     C->>M: session_end + idip_snapshot envelope
     C->>M: pull session_memory
-    M->>C: episode + idip_delta + highlight refs
+    M->>C: episode + idip_delta + highlight refs（仅作为后台素材，不展示独立 UI）
     C-->>C: 展示结算页
-    alt 用户保存高光
-        C->>M: mutation: save + highlight<br/>{ action: save, target_type: highlight, payload }
-        M-->>C: ack applied + updated_resource_refs
-    end
     alt 用户纠错
         C->>M: mutation: update + profile_field.*<br/>{ action: update, target_type: profile_field.*, new_value, is_correction: true }
         M-->>C: ack applied
@@ -1659,15 +1689,15 @@ sequenceDiagram
     end
 ```
 
-### 5.4 日记 / 高光生成与保存
+### 5.4 日记生成与保存
 
 | 步骤 | 客户端 | 记忆系统 | 数据 / 回执 |
 | --- | --- | --- | --- |
 | 1 | 用户进入日记页 | — | — |
-| 2 | pull `episode_detail` + `highlight_detail` | 返回候选 | query response |
-| 3 | 客户端本地大模型生成日记草稿（不入 Memory） | — | — |
+| 2 | pull `episode_detail` + `diary_detail`（候选素材已包含后台加工的 `highlight_event` 引用） | 返回候选 | query response |
+| 3 | 客户端本地大模型生成日记草稿（不入 Memory）；记忆系统自动记录 `highlight_event` 作为日记素材，无需用户显式保存 | — | — |
 | 4 | 用户编辑并保存 | — | — |
-| 5 | mutation: `save + highlight` 或 `update + profile_field.*` | 持久化 + 加工 | ack applied |
+| 5 | mutation: `update + profile_field.*` / `update + diary_entry`（编辑标题/收藏 等）| 持久化 + 加工 | ack applied |
 | 6 | 若引用原话：检查 `atomic_facts.quote_eligible=true` 且 `privacy_grants.diary_quote.granted=true` | 仅当两个条件都成立才允许引用 | — |
 
 ### 5.5 用户主动纠错 / 删除 / 重新总结
@@ -1722,15 +1752,15 @@ sequenceDiagram
 | 6 | — | 按策略标 `is_active=false, inactive_reason=consent_revoked` 或 `pending_user_decision` | 后台 |
 | 7 | 收到 ack + push: `consent_cascade_started / completed` | — | 否（合并后只一次提示） |
 | 8 | 刷新设置页 + 受影响页面 | — | 是 |
-| 9 | （可选）Memory Center 审计页显示清理记录 | 提供 audit log | 是 |
+| 9 | （可选）设置页 → 隐私页 → 审计入口显示清理记录 | 提供 audit log | 是 |
 
 **边界情况**：
 
 | 情况 | 处理 |
 | --- | --- |
 | derived_memory 同时引用了多类授权的 source_record，其中一类被撤回 | 默认整条标失效；若 derived_memory 可仅基于剩余授权重新加工，触发"重新加工"任务 |
-| 用户重新开启同类授权 | 不自动恢复已失效 derived_memory；用户可在 Memory Center 手动 `update + new_value.is_active=true` 或"重新生成" |
-| user_action mutation（如 `save + highlight`）已用户确认 | 即使依赖的 vlm_observation 因撤回失效，也保留 `is_active=true`（用户确认权重高于源失效）；但 evidence_summary 中标注"原画面证据已不可用" |
+| 用户重新开启同类授权 | 不自动恢复已失效 derived_memory；用户可在设置页 / 画像页对单条记忆手动 `update + new_value.is_active=true` 或触发"重新生成" |
+| user_action mutation（如 `save + free_form_note` / `update + diary_entry`）已用户确认 | 即使依赖的 vlm_observation 因撤回失效，也保留 `is_active=true`（用户确认权重高于源失效）；但 evidence_summary 中标注"原画面证据已不可用" |
 
 ### 5.7 VLM 强 / 弱感知
 
@@ -1823,7 +1853,7 @@ sequenceDiagram
 | P2 | VLM 强感知会话审计（不入记忆，仅 mutation + pet_runtime_event） | 实时陪伴场景的隐私可审计 |
 | P1 | PC 环境信号（§3.1.3 全部字段） | 打扰判断、场景理解、行为画像 |
 | P1 | MCP 通道（经客户端中转） | 外部 app 元数据 / 任务标题 / 自生成摘要 |
-| P1 | `episode` / `highlight_event` / `assessment` 详情消费 | 画像页 / 日记 / 复盘 / 高光 / 角色测定 |
+| P1 | `episode` / `highlight_event` / `assessment` 详情消费 | 画像页 / 日记 / 复盘 / 角色测定 |
 | P1 | 离线批量补传 | 弱网容错 |
 | 扩展 | 系统音频 mood / bpm 派生信号 | 听音乐跳舞场景；待 PRIVACY_BOUNDARY 修订提案通过 |
 
@@ -1842,7 +1872,8 @@ sequenceDiagram
 | MCP app 白名单字段（经客户端中转） | 授权后是 | 只允许元数据 / 任务标题 / app 自生成摘要 / 来源类型 |
 | **VLM 强感知语义结果** | **否** | mentor 反馈翻转：仅服务实时陪伴对话，**不**写 `vlm_observation`；跨系统只留 `update + consent.vlm_strong_sensing` mutation 与 `pet_runtime_event` 会话审计事件 |
 | **VLM 弱感知完整语义结果** | **授权后是** | mentor 反馈翻转：作为长期数据源；按用户配置档位（30/60/300/600/1800s）定时采集；含 `activity_category` / `semantic_tags[]` / `user_visible_summary` / `confidence`；原图永不进 |
-| profile / profile_meta / highlight / assessment | 是 | Memory 加工结果返回客户端；用户可删除 / 纠错 / 反馈 |
+| profile / profile_meta / assessment | 是 | Memory 加工结果返回客户端；用户可删除 / 纠错 / 反馈 |
+| highlight_event | 是 | Memory 后台加工，**完全后台对象**：用户无 mutation 入口，仅通过 diary_detail 间接访问；用户对高光的反馈通过对包含该高光的日记 feedback 间接传递 |
 | user_preferences / privacy_grants | 是 | 用户显式设置，Memory 持久化 |
 | **`current_context` 完整对象** | **否** | 客户端运行时判断，不是长期事实 |
 | **原始截图 / 屏幕帧** | **否** | 客户端本地处理后丢弃 |
@@ -1873,7 +1904,7 @@ sequenceDiagram
 | 2 | 离线 buffer 上限 24h / 5000 条是否合理？ | Engineering 压测后确认；超出按 §3.3 规则丢弃并审计上报 |
 | 3 | 游戏 `custom_fields` schema review 由谁拍板？ | 建议 PM + Engineering + 游戏接入方三方 review；首批游戏接入时建模板 |
 | 4 | Memory pull query SLA P99 ≤ 200ms / 详情类 ≤ 2s 是否可达？ | Engineering 服务架构选型后回填 |
-| 5 | 日记 / 复盘正文（客户端本地大模型生成）是否回写 Memory？ | 默认不回写生成正文；用户保存为日记 / 高光成品时才作为 user_action 写入 |
+| 5 | 日记 / 复盘正文（客户端本地大模型生成）是否回写 Memory？ | 默认不回写生成正文；用户保存为日记成品时才作为 user_action 写入 |
 | 6 | 弱感知 `trigger_subtype` 枚举（`scheduled` / `long_no_feedback` / `post_session` / `pre_proactive_speak`）是否需要细化分类？ | 建议先用 4 档起步，按运营数据反馈再扩 |
 | 7 | `consent_revoke_overdue` 告警如何投递给用户？ | 建议 push: `consent_revoke_overdue_warning` + 设置页红点；待 Design 收口 |
 | 8 | MCP app 若客户端长期离线，是否允许 MCP server 端临时缓存？ | 默认不允许；客户端是数据流唯一节点 |
@@ -1881,7 +1912,7 @@ sequenceDiagram
 | 10 | 双向字段拆名（`_observed` / `_derived` / `_inferred` / `_user_set`）是否需要在 schema 检查工具中强制？ | 建议是；Engineering 实施时加 schema lint |
 | 11 | profile_meta 新增的 `node_version` / 并发控制是否 v2.2 引入？ | 当前桌宠单端使用，多端并发场景极少；v2.1 不引入；如未来上线多端（桌面 + 网页 + 移动）同步，v2.2 加 `node_version` + `version_conflict` ack 子类型 |
 | 12 | `mutability_policy` 字段映射是否需要在每个游戏接入时按游戏特性微调？ | 建议默认遵守 §4.1.3.16 映射表；单个游戏如有特殊需求（如某游戏的 `game_goals_inferred` 应升级为 `ai_inferred_writable`），由 PM + Engineering review 后写入该游戏接入配置 |
-| 13 | `review_status=pending_user_review` 的字段如果 30 天用户都没看 / 没反馈，怎么处理？ | 建议 30 天后自动转 `is_active=false, inactive_reason=expired`；记忆系统不再持续推送；用户在 Memory Center 仍可在审计页查看 |
+| 13 | `review_status=pending_user_review` 的字段如果 30 天用户都没看 / 没反馈，怎么处理？ | 建议 30 天后自动转 `is_active=false, inactive_reason=expired`；记忆系统不再持续推送；用户在设置页审计入口仍可查看 |
 
 ---
 
@@ -1944,8 +1975,10 @@ sequenceDiagram
 >     - **`vlm_visual.allow_local_save_for_diary` 子开关**：合并 Diary `privacy_grants.diary_screenshot` 到 vlm_visual 根开关下，作为子开关控制"高光时刻本地截图保存为日记插图"（原图永不上传，仅本地保留）。§3.1.5.4 新增。
 >     - **`mailbox_summary` / `diary_list` / `diary_detail` 三个 query_type 新增**：客户端 pull 时记忆系统实时聚合 `unread_count` / `latest_unread_diary_id` / `has_new_diary_bubble`，**不持久化** mailbox_status。§4.1.2 新增。
 >     - **`diary_reply` 新增 source_record**：作为独立 record_type，含 `reply_id` / `diary_id` / `reply_text` / `reply_intent`（positive/negative/correction/preference/casual/delete_request） / `created_at` 字段。记忆系统据 `reply_intent` 派生 feedback / 触发 derived_memory 更新。§3.1.6 新增。
->     - **`diary_entry` target_type 升级**：从"未来扩展"升级为稳定，作为 `save` action 的标准 target_type；payload schema 由 Diary PRD §七.2 提供（含 30+ 字段，DFRS 视为开放 schema）。§3.2.3 同步。
+>     - **`diary_entry` target_type 归类调整（v2.1 终版）**：原先列在 A 类（用户主动 save 创建），但 Diary PRD 实际流程是"每生理日 Diary 模块**自动生成 + 自动持久化**"，没有用户主动保存动作。已**移到 B 类**（Memory 自动加工的顶层资源，与 episode / atomic_fact 同类）；`save + diary_entry` mutation 路径**移除**；用户对日记的 mutation 入口仅剩 `update`（编辑标题/收藏/mailbox_status）/ `delete` / `feedback`。payload schema 仍由 Diary PRD §七.2 提供。
 >     - **不补的 Diary 概念**：`mailbox_status`（实时聚合）/ `pet_reaction`（客户端现场生成）/ `diary_entry` UI 字段（card_visual_type / detail_layout_type 等）/ `character_config`（合作游戏接入资产）。
+> 21. **高光页 UI 概念完全删除**：v2.1 决策"高光不作为独立 UI 页面，高光时刻通过日记自然提及"。具体修订：①删除 `highlight_recall` client_scene / `highlight_detail` query_type / `highlight_ready` push_type；②删除 save / update / delete / feedback + highlight 所有用户 mutation 入口（highlight 完全 ai_inferred_writable 后台化）；③§5.4 标题改为"日记生成与保存"，流程图删除"用户保存高光"步骤；④`proactive_congratulate` 桌宠主动祝贺改由 idip_milestone push 触发；⑤§4.1.3.11 highlight_event 字段表完整保留，但 query_type 列从 highlight_detail 改为 diary_detail（仅通过日记间接访问）；⑥highlight_event.source enum 去掉 `user_saved`。用户对高光的反馈通过对包含该高光的日记 feedback 间接传递。
+> 22. **§3.2.3 target_type 重构为三表**：原 §3.2.3 单表存在 8 个问题（diary_reply 混淆 / "谁创建"列维度混乱 / 标题过简 / 缺 mutability_policy 列 / 示例 vs 完整清单模糊 / 排序混乱 / 与 §3.2.1 关系不清 / assessment 命名不一致）。重构为三个小节：①§3.2.3.1 命名约定与三类划分（**A 类用户主动 save / B 类 Memory 加工 / C 类子命名空间字段**）；②§3.2.3.2 target_type 示例表（按 A/B/C 分组，含 mutability_policy + 详见章节列）；③§3.2.3.3 action × target_type 矩阵（5 action × 12 target 类型完整可达性）。同时声明 highlight_event 不在 target_type 表内（v2.1 完全后台化）。
 >
 > **v2 → v1 既有变化（保留）**：
 > 1. 骨架从"传输契约 + 数据类别 + 场景"三层并列改为"按数据流向（上报 / 返回 / mutation）单线索"。
