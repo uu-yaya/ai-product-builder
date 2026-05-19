@@ -129,14 +129,14 @@ flowchart LR
 
 | 管道 | 方向 | 适合数据 | 同步特征 |
 | --- | --- | --- | --- |
-| **上报 Envelope** | Client → Memory | `source_record`（含 mutation 也复用同一外壳） | 一条 envelope 一个 `record_id`；可单发、可批量补传。 |
-| **Pull Query / Response** | Client → Memory → Client | 客户端主动取加工记忆或控制状态 | 客户端按业务场景发起，Memory 返回详情；同步。 |
-| **轻量 Push** | Memory → Client | 加工结果变化通知 | 只带 `resource_refs[]` 和短摘要；不推大对象；客户端按需 pull。 |
+| **上报 Envelope** | Client → Memory | `source_record`（含 mutation 也复用同一外壳） | <ul><li>一条 envelope 一个 `record_id`；</li><li>可单发、可批量补传。</li></ul> |
+| **Pull Query / Response** | Client → Memory → Client | 客户端主动取加工记忆或控制状态 | <ul><li>客户端按业务场景发起，Memory 返回详情；</li></ul> |
+| **轻量 Push** | Memory → Client | 加工结果变化通知 | <ul><li>只带 `resource_refs[]` 和短摘要；</li><li>不推大对象；</li><li>客户端按需 pull。</li></ul> |
 | **Mutation / Ack** | Client → Memory（mutation） + Memory → Client（ack） | 用户操作改变记忆系统状态 | 必有 `ack_status`，失败可重试或提示。 |
 
 ### 2.2 上报 Envelope 通用字段
 
-所有 `source_record` 和 mutation 都用同一外壳，**但不要求所有数据合成一个大包**。客户端按业务时机分别上报。
+> 所有 source_record 和 mutation 都用同一外壳，但不要求所有数据合成一个大包。客户端按业务时机分别上报。
 
 | 字段 | 含义 | 格式 | 必填 | 优先级 | 说明 |
 | --- | --- | --- | --- | --- | --- |
