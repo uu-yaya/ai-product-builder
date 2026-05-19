@@ -4317,20 +4317,54 @@
       });
     }
 
+    // Scrollspy — pick the topmost heading whose top is at or above a
+    // fixed offset below the sticky nav, highlight its TOC link.
+    // (Earlier IntersectionObserver approach with a narrow rootMargin band
+    // missed cases where no heading sat inside the band at all → nothing
+    // ever highlighted.)
+    let _tocScrollHandler = null;
     function observeTocScroll() {
-      const headings = document.querySelectorAll('.md-heading h1, .md-heading h2, .md-heading h3, .md-heading h4');
+      const headings = Array.from(document.querySelectorAll(
+        '.md-heading h1, .md-heading h2, .md-heading h3, .md-heading h4'
+      )).filter(h => h.id);
       const links = new Map();
       document.querySelectorAll('#toc-list a').forEach(a => links.set(a.dataset.target, a));
-      const obs = new IntersectionObserver(entries => {
-        entries.forEach(e => {
-          if (e.isIntersecting) {
-            links.forEach(a => a.classList.remove('is-current'));
-            const link = links.get(e.target.id);
-            if (link) link.classList.add('is-current');
-          }
-        });
-      }, { rootMargin: '-30% 0px -60% 0px' });
-      headings.forEach(h => obs.observe(h));
+      const HEADER_OFFSET = 96; // top-nav (64) + comfort margin
+      let lastActiveId = null;
+      let ticking = false;
+
+      function update() {
+        ticking = false;
+        let active = null;
+        for (const h of headings) {
+          const top = h.getBoundingClientRect().top;
+          if (top - HEADER_OFFSET <= 0) active = h;
+          else break;
+        }
+        // Fallback: if we're scrolled above all headings, use the first one
+        if (!active && headings.length) active = headings[0];
+        const id = active ? active.id : null;
+        if (id === lastActiveId) return;
+        lastActiveId = id;
+        links.forEach(a => a.classList.remove('is-current'));
+        if (id) {
+          const link = links.get(id);
+          if (link) link.classList.add('is-current');
+        }
+      }
+
+      function onScroll() {
+        if (ticking) return;
+        ticking = true;
+        requestAnimationFrame(update);
+      }
+
+      // Detach previous handler (renderAll may call us repeatedly)
+      if (_tocScrollHandler) window.removeEventListener('scroll', _tocScrollHandler);
+      _tocScrollHandler = onScroll;
+      window.addEventListener('scroll', onScroll, { passive: true });
+      // Seed initial state
+      update();
     }
 
     // ============================================================
