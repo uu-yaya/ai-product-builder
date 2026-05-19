@@ -426,7 +426,7 @@ sequenceDiagram
 | --- | --- | --- | --- |
 | `mcp_observation` | `mcp_app_id` / `metadata_summary` / `task_titles[]` / `app_generated_summary` / `summary_source_type` | 客户端按 `mcp_pull_interval_sec` 拉取 + app 主动通知（如支持） | P1 |
 
-**MVP 接入清单**：`dida` / `feishu` / `steam`（P0 后半段）；`office` / `dingtalk`（P1）。
+**MVP 接入清单**：`dida` / `feishu` / `steam`（P0 ）；`office` / `dingtalk`（P1）。
 
 **永禁字段**：第三方聊天正文 / 邮件正文 / 文档正文 / 会议正文 / 附件内容 / 未授权 app 数据。
 
@@ -450,7 +450,8 @@ sequenceDiagram
 
 ##### 3.1.5.2 弱感知（桌宠在用户长时无反馈等"特定时刻"截图）
 
-> **回写策略（v2 决策）**：只回写"脱敏摘要 + 业务原因"，**不回写** `semantic_tags`、**不回写** `user_visible_summary`、**不回写** 任何能反推画面内容的字段。目的：留下"为什么此时启用了弱感知"和"判断结果"的审计痕迹，但不让弱感知反复积累细节画像。
+> **回写策略**：只回写"脱敏摘要 + 业务原因"，**不回写** `semantic_tags`、**不回写** `user_visible_summary`、**不回写** 任何能反推画面内容的字段。 
+> ​目的：留下"为什么此时启用了弱感知"和"判断结果"的审计痕迹，但不让弱感知反复积累细节画像。
 
 | 字段 | 是否回写 | 说明 | 优先级 |
 | --- | --- | --- | --- |
@@ -462,9 +463,6 @@ sequenceDiagram
 | `source_record_ids[]` | 是 | 触发本次弱感知的相邻 pc_signal / chat_message | P1 |
 | `raw_frame_stored = false` | 是 | 恒值 | P0 |
 | `ui_indicator_shown` | 是 | 按用户授权说明记录 | P1 |
-| ~~`semantic_tags[]`~~ | **否** | 弱感知不携带 | — |
-| ~~`user_visible_summary`~~ | **否** | 弱感知不携带 | — |
-| ~~`confidence`~~ | **否** | 弱感知决策不需要细粒度 confidence | — |
 
 ##### 3.1.5.3 示例
 
