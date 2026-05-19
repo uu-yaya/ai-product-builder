@@ -1307,7 +1307,7 @@ sequenceDiagram
 
 ##### 4.1.3.4 `profile_identity`（用户身份基本信息）
 
-> **本资源族字段 mutability_policy = `user_only`**（详见 §4.1.3.16）。即"用户希望桌宠如何称呼自己"等身份字段由用户**独占**设置，AI 不参与推断，不存在 `_inferred` 候选版本。
+> **本资源族字段 mutability_policy = `user_only`**（详见 §4.1.3.16）。即"用户希望桌宠如何称呼自己"等身份字段由用户**独占**设置，AI 不参与推断。
 >
 > 字段实际持久化值见 §4.2 `profile_identity_user_set`（`display_name` / `preferred_call_name`）。
 >
@@ -1315,7 +1315,7 @@ sequenceDiagram
 
 ##### 4.1.3.5 `pet_relationship`（用户对桌宠的关系定位）
 
-> **本资源族字段 mutability_policy = `user_only`**（详见 §4.1.3.16）。即"用户希望和桌宠是什么关系（朋友 / 助理 / 教练 等）"由用户**独占**选择，AI 不参与推断，不存在 `_inferred` 候选版本。
+> **本资源族字段 mutability_policy = `user_only`**（详见 §4.1.3.16）。即"用户希望和桌宠是什么关系（朋友 / 助理 / 教练 等）"由用户**独占**选择，AI 不参与推断。
 >
 > 字段实际持久化值见 §4.2 `pet_relationship_user_set.relationship_mode`。
 
