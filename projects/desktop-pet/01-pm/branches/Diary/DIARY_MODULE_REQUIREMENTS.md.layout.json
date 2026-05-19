@@ -1,0 +1,80 @@
+{
+  "version": 1,
+  "tables": [
+    {
+      "index": 40,
+      "cols": [
+        388,
+        370
+      ],
+      "rows": [
+        {
+          "index": 3,
+          "height": 47
+        }
+      ]
+    },
+    {
+      "index": 48,
+      "cols": [
+        187,
+        571
+      ],
+      "rows": [
+        {
+          "index": 5,
+          "height": 47
+        }
+      ],
+      "aligns": [
+        {
+          "row": 1,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 2,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 3,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 4,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 5,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 6,
+          "col": 0,
+          "align": "center"
+        }
+      ]
+    },
+    {
+      "index": 50,
+      "cols": [
+        124,
+        335,
+        340
+      ]
+    },
+    {
+      "index": 51,
+      "cols": [
+        165,
+        221,
+        234,
+        294
+      ]
+    }
+  ]
+}
