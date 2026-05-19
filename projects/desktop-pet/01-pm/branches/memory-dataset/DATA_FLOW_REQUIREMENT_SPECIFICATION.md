@@ -176,7 +176,7 @@ flowchart LR
 | **生命周期快照** | `game_launch` / `game_close` / `session_start` / `session_end` | 按 session 可批量 | 边界事件发生时立即 | 启动 / 关闭 / 一局开始结束 |
 | **周期心跳** | `idip_snapshot`（heartbeat 模式）/ `pc_signal` 关键字段 | 可合并连续心跳 | 见 §2.4 推荐间隔 | 服务端做 diff（详见 §3.1.2.2） |
 | **状态变化触发** | `pc_signal`（active_app 切换）/ `consent_update` | 否 | 状态变化即发 | 不是定时上报 |
-| **用户主动触发** | 所有 mutation：`user_action.save_highlight` / `user_action.delete_memory` / `user_action.correct_memory` / `user_action.confirm_profile` / `user_action.request_resummarize` / `user_action.submit_feedback` / `consent_update` | 否 | 用户操作后 ≤ 1s | 必须有 ack |
+| **用户主动触发** | 所有 mutation，例如：`user_action.save_highlight` / `user_action.delete_memory` / `user_action.correct_memory` / `user_action.confirm_profile` / `user_action.request_resummarize` / `user_action.submit_feedback` / `consent_update` | 否 | 用户操作后 ≤ 1s | 必须有 ack |
 | **批量补传** | 离线期间积压的所有上述类型 | 是 | 网络恢复后 ≤ 30s 内启动 | 每条仍带独立 `record_id` / `occurred_at` / `consent_snapshot_id` |
 
 ### 2.4 运营参数默认推荐值
