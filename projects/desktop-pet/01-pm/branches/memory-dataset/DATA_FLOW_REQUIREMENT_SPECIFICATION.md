@@ -234,7 +234,7 @@ flowchart LR
 | `mutation_ack_timeout_sec` | **5** | 秒 | 同步 mutation 超时阈值，超时客户端进入"处理中" |
 | `mutation_async_max_wait_min` | **30** | 分钟 | 异步 mutation（request_*）最长等待时间，超时记录 `mutation_async_overdue` 告警 |
 | `pull_query_p99_ms` | **200** | 毫秒 | 实时 query（startup_context / conversation_context） |
-| `pull_query_batch_p99_ms` | **2000** | 毫秒（=2 秒） | 详情类（highlight_detail / episode_detail / assessment_result） |
+| `pull_query_batch_p99_ms` | **2000** | 毫秒 | 详情类（highlight_detail / episode_detail / assessment_result） |
 | `vlm_weak_sensing_interval_sec` | **600** | 秒 | 默认 10 分钟一次；用户可调档位：30 / 60 / 300 / 600 / 1800 / off |
 | `vlm_weak_sensing_cooldown_sec` | **60** | 秒 | 弱感知两次本地推理之间最小间隔（防同档过密） |
 | `mcp_pull_interval_sec` | **300** | 秒 | 客户端主动从 MCP app 拉取的最小间隔（每 app 独立） |
@@ -244,7 +244,7 @@ flowchart LR
 
 ## 3. Client → Memory 上报
 
-### 3.0 章节地图
+### 3.0 章节预览
 
 | 子节 | 内容 | 优先级 |
 | --- | --- | --- |
@@ -303,7 +303,7 @@ flowchart LR
 
 ##### 3.1.1.4 `pet_runtime_event.event_type` 枚举清单
 
-> `pet_runtime_event.event_type` 是 payload 内的字段，标识桌宠运行时的具体事件子类型。**封闭枚举，Engineering 不得自定义**。新事件类型新增需经 PM review。
+> `pet_runtime_event.event_type` 是 payload 内的字段，标识桌宠运行时的具体事件子类型。
 
 **类别 A：桌宠消息交付与用户反馈**
 
@@ -336,15 +336,7 @@ flowchart LR
 | `mcp_pull_error` | MCP app 拉取失败 / 鉴权失效（extra.mcp_app_id / extra.error_code） | `mcp_event` | P1 |
 | `network_recovered` | 客户端网络从离线恢复，准备启动 batched_recovery 补传 | `offline_drop` | P1 |
 
-**类别 E：桌宠程序生命周期**
-
-| 值 | 含义 | 典型 client_scene | 优先级 |
-| --- | --- | --- | --- |
-| `pet_lifecycle_event` | 桌宠程序生命周期事件，具体子类型由 extra.lifecycle_subtype 携带（`pet_started` / `pet_exited` / `pet_minimized` / `pet_restored`） | `idle_chat` 或独立 | P1 |
-
-##### 3.1.1.5 `client_scene` 枚举清单 
-
-​
+##### 3.1.1.5 `client_scene` 枚举清单
 
 **类别 A：用户主动聊天场景**（`chat_message` 用，speaker=user 或 pet 回应）
 
@@ -386,8 +378,6 @@ flowchart LR
 
 ##### 3.1.2.1 通用事件清单
 
-> **说明（v2.1 调整）**：v2 文档曾使用 `event_mode`（lifecycle / realtime_push / snapshot）字段描述事件性质，与 `trigger_cause` 概念重叠且让客户端重复标注。v2.1 已**删除** `event_mode`，事件性质完全由 `record_type` + `trigger_cause` 推导：lifecycle 类 = `record_type=game_event` 中以 `game_launch / game_close / session_start / session_end / settlement` 等生命周期 `event_type` 标识；snapshot 类 = `record_type=idip_snapshot`；其他实时事件统一 `record_type=game_event` + `trigger_cause=event_driven`。
-
 | `event_type` | 性质 | 触发因（trigger_cause） | 必含 `common_fields` | 优先级 |
 | --- | --- | --- | --- | --- |
 | `game_launch` | 生命周期 | `event_driven`（游戏进程拉起 / 桌宠绑定游戏） | `client_version` / `game_version` / `launch_id` / `initial_idip_snapshot` | P0 |
@@ -401,10 +391,8 @@ flowchart LR
 
 ##### 3.1.2.2 IDIP 心跳与服务端 diff（所有游戏适用）
 
-> **澄清**：心跳并非"无 SDK 游戏专享"。所有接入游戏都必须上报 `idip_snapshot` 心跳，区别只在间隔与定位：
-
-- **A 类游戏（有 SDK 实时事件）**：心跳是**兜底**通道，推荐 **120 秒**一次。作用是 SDK 偶发丢事件 / 客户端短暂掉线时记忆系统仍能拿到完整状态、避免"看不见"状态变化。A 类游戏的状态变更主路径是 `game_event (realtime_push)`。
-- **B 类游戏（无 SDK 实时事件）**：心跳是**主**通道，推荐 **60 秒**一次。客户端必须按时上报完整 `idip_snapshot`，记忆系统服务端做相邻快照 diff 生成 `idip_delta` 推回。**客户端不做本地 diff**，避免双端状态不一致。
+- **A 类游戏（有 SDK 实时事件）**：心跳是**兜底**通道，**120 秒**一次。作用是 SDK 偶发丢事件 / 客户端短暂掉线时记忆系统仍能拿到完整状态、避免"看不见"状态变化。A 类游戏的状态变更主路径是 `game_event (realtime_push)`。
+- **B 类游戏（无 SDK 实时事件）**：心跳是**主**通道， **60 秒**一次。客户端必须按时上报完整 `idip_snapshot`，记忆系统服务端做相邻快照 diff 生成 `idip_delta` 推回。**客户端不做本地 diff**，避免双端状态不一致。
 
 **统一规则**：客户端永远只上报"快照本身"，diff 计算永远在记忆系统服务端。
 
