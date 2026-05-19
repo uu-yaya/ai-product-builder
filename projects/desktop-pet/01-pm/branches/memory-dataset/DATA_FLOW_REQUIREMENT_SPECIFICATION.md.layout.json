@@ -1459,6 +1459,11 @@
         },
         {
           "row": 6,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 6,
           "col": 2,
           "align": "center"
         }
@@ -1479,7 +1484,7 @@
         361,
         144,
         206,
-        224
+        83
       ],
       "rows": [
         {
@@ -1495,7 +1500,17 @@
         },
         {
           "row": 1,
-          "col": 1,
+          "col": 3,
+          "align": "center"
+        },
+        {
+          "row": 2,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 2,
+          "col": 3,
           "align": "center"
         }
       ]
@@ -1529,10 +1544,27 @@
     {
       "index": 19,
       "cols": [
-        120,
+        201,
         306,
         494,
         189
+      ],
+      "aligns": [
+        {
+          "row": 1,
+          "col": 2,
+          "align": "center"
+        },
+        {
+          "row": 2,
+          "col": 2,
+          "align": "center"
+        },
+        {
+          "row": 3,
+          "col": 2,
+          "align": "center"
+        }
       ]
     },
     {
@@ -1712,7 +1744,7 @@
     {
       "index": 23,
       "cols": [
-        140,
+        197,
         231,
         419,
         332,
