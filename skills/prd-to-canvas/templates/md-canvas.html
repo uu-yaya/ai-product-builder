@@ -3568,6 +3568,18 @@
       cursor: zoom-in;
     }
 
+    /* ============================================ Per-block copy-link button ============================================ */
+    /* 🔗 lives inside the existing `.block-controls` strip in the gutter.
+       Heading blocks get a slug id from their text; other blocks get
+       `block-N` (position-based — reorder breaks the link, headings stay
+       stable as long as the heading text doesn't change). */
+    /* Show the controls strip on hover in view mode too (was edit-only),
+       but hide the drag / menu buttons there — only the link copy stays. */
+    body:not(.edit-mode) .md-block:hover > .block-controls { display: flex; }
+    body:not(.edit-mode) .block-controls .bc-drag,
+    body:not(.edit-mode) .block-controls .bc-menu { display: none; }
+    .bc-link:hover { color: var(--primary); }
+
     /* ============================================ Image lightbox (click to preview) ============================================ */
     .image-lightbox {
       position: fixed;
@@ -4202,7 +4214,8 @@
     }
 
     function buildBlockControlsHtml() {
-      return '<div class="block-controls" contenteditable="false">' +
+      return '<div class="block-controls" contenteditable="false" data-skip-serialize="true">' +
+        '<button type="button" class="bc-btn bc-link" title="复制此块的链接">🔗</button>' +
         '<button type="button" class="bc-btn bc-drag" title="拖动重排">⋮⋮</button>' +
         '<button type="button" class="bc-btn bc-menu" title="块菜单">⋯</button>' +
       '</div>';
@@ -14173,6 +14186,85 @@
     });
 
     // ============================================================
+    // Per-block copy-link buttons + hash navigation
+    // ============================================================
+    function slugifyHeading(text) {
+      // Keep ASCII word chars + Chinese (CJK Unified Ideographs); collapse
+      // whitespace to '-'; strip everything else. Capped at 80 chars so
+      // very long headings still produce reasonable anchors.
+      const cleaned = (text || '').trim().toLowerCase()
+        .replace(/[^\w一-鿿\s-]/g, '')
+        .replace(/\s+/g, '-')
+        .replace(/-+/g, '-')
+        .replace(/^-|-$/g, '');
+      return (cleaned || 'heading').substring(0, 80);
+    }
+
+    function assignBlockIds() {
+      const used = new Set();
+      const blocks = document.querySelectorAll('#content > .md-block');
+      blocks.forEach((block, i) => {
+        const h = block.querySelector(':scope > h1, :scope > h2, :scope > h3, :scope > h4, :scope > h5, :scope > h6');
+        let id;
+        if (h) {
+          const base = slugifyHeading(h.textContent);
+          id = base;
+          let n = 2;
+          while (used.has(id)) { id = base + '-' + n; n++; }
+        } else {
+          id = 'block-' + (i + 1);
+          let n = 2;
+          while (used.has(id)) { id = 'block-' + (i + 1) + '-' + n; n++; }
+        }
+        block.id = id;
+        used.add(id);
+      });
+    }
+
+    // Re-assign block IDs whenever blocks are added / removed (renderAll,
+    // insertNewBlock, deleteBlock, undo restore, etc.)
+    const blockListObserver = new MutationObserver(() => assignBlockIds());
+    blockListObserver.observe(document.getElementById('content'), { childList: true });
+
+    // Click on a link button → copy `<url>#<block-id>` to clipboard
+    document.getElementById('content').addEventListener('click', e => {
+      const btn = e.target.closest && e.target.closest('.bc-link');
+      if (!btn) return;
+      e.preventDefault();
+      e.stopPropagation();
+      const block = btn.closest('.md-block');
+      if (!block || !block.id) return;
+      const link = location.origin + location.pathname + '#' + encodeURIComponent(block.id);
+      const onOk = () => toast('已复制链接 → #' + block.id);
+      const onFail = (err) => toast('复制失败：' + (err && err.message ? err.message : err));
+      if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(link).then(onOk).catch(onFail);
+      } else {
+        // Fallback for file:// or older browsers without async clipboard
+        try {
+          const ta = document.createElement('textarea');
+          ta.value = link;
+          ta.style.position = 'fixed';
+          ta.style.opacity = '0';
+          document.body.appendChild(ta);
+          ta.select();
+          document.execCommand('copy');
+          ta.remove();
+          onOk();
+        } catch (err) { onFail(err); }
+      }
+    });
+
+    // On first paint, scroll to URL hash if present
+    function scrollToHash() {
+      if (!location.hash) return;
+      const id = decodeURIComponent(location.hash.slice(1));
+      if (!id) return;
+      const el = document.getElementById(id);
+      if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    // ============================================================
     // Image lightbox — click any embedded <img> in a content block to
     // preview it fullscreen with wheel / button zoom + drag-pan.
     // ============================================================
@@ -14297,6 +14389,11 @@
     renderAll();
     checkRestore();
     loadTableLayout();
+    // Assign block ids (MutationObserver keeps them in sync after; seed
+    // once on first paint).
+    assignBlockIds();
+    // If user opened with a #hash, jump there
+    setTimeout(scrollToHash, 60);
     // Seed the undo stack with the initial state so the very first edit is
     // undoable. Wait a tick so renderAll's async paths settle first.
     setTimeout(() => snapNow('initial'), 50);
