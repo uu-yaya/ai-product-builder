@@ -221,11 +221,31 @@
     .md-heading h3 { font-size: 26px; letter-spacing: -0.3px; margin: var(--sp-xxl) 0 var(--sp-md); }
     .md-heading h4 {
       font-family: var(--font-sans);
-      font-size: 17px;
+      font-size: 19px;
       font-weight: 600;
       letter-spacing: 0;
       margin: var(--sp-xl) 0 var(--sp-sm);
       color: var(--body-strong);
+    }
+    /* H5 / H6 — give them explicit sizes too so they don't fall through to
+       browser defaults (Chrome's <h5>=0.83em ≈ 13px, smaller than paragraph). */
+    .md-heading h5 {
+      font-family: var(--font-sans);
+      font-size: 17px;
+      font-weight: 600;
+      letter-spacing: 0;
+      margin: var(--sp-lg) 0 var(--sp-sm);
+      color: var(--body-strong);
+    }
+    .md-heading h6 {
+      font-family: var(--font-sans);
+      font-size: 16px;
+      font-weight: 600;
+      letter-spacing: 0;
+      margin: var(--sp-lg) 0 var(--sp-sm);
+      color: var(--body);
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
     }
 
     /* Paragraph */
