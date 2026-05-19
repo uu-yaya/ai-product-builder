@@ -512,7 +512,7 @@ sequenceDiagram
 
 | 字段 | 含义 | 数据对象 | 触发时机（trigger_cause + delivery_mode） | 优先级 |
 | --- | --- | --- | --- | --- |
-| `audio_mood_tag` | 系统音频派生的情绪标签（节拍 / 能量 / 调式聚合） —— 仅在 `privacy_grants.system_audio_music_context.granted=true` | source_record | `scheduled (digest)` + `aggregated`；mood 跨档时 `threshold_crossed` | P1 |
+| `audio_mood_tag` | 系统音频派生的情绪标签（节拍 / 能量 / 调式聚合） —— 仅在 `privacy_grants.system_audio_music_context.granted=true` | source_record | `scheduled (digest)` + `aggregated`； <br>mood 跨档时 `threshold_crossed` | P1 |
 | `audio_bpm_signal` | 系统音频派生的 BPM 信号 | source_record | `scheduled (digest)` + `aggregated` | P1 |
 | `now_playing.app` | 当前播放音乐 / 视频的来源 app（macOS MediaRemote / Windows SMTC） | source_record | `threshold_crossed`（曲目切换） | P1 |
 | `now_playing.track_title` | 当前播放标题 | source_record | `threshold_crossed` | P1 |
