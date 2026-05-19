@@ -1223,7 +1223,7 @@ sequenceDiagram
 
 ### 4.2 用户控制状态 pull response（user_control_state）
 
-记忆系统对 `user_control_state` 是**只持久化、不加工**。客户端通过 `preferences_state` query 一次性拿到全套。
+`user_control_state` 对于数据的改变具有最高优先级
 
 | 字段族 | 主要字段 | 优先级 |
 | --- | --- | --- |
