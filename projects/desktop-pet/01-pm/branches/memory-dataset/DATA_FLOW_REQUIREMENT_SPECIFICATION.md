@@ -136,7 +136,7 @@ flowchart LR
 
 ### 2.2 上报 Envelope 通用字段
 
-> 所有 source_record 和 mutation 都用同一外壳，但不要求所有数据合成一个大包。客户端按业务时机分别上报。
+> 所有 source_record 和 mutation 都用同一envelope，客户端按业务时机分别上报。
 
 | 字段 | 含义 | 格式 | 必填 | 优先级 | 说明 |
 | --- | --- | --- | --- | --- | --- |
@@ -174,15 +174,15 @@ flowchart LR
 
 > **设计变更（v2.1）**：v2 的"六类触发时机"行业术语混乱（state_change / 周期心跳 / digest 周期 / 60s 内 ≥5 次 / 跨级时上报 互相混用）。统一收敛为**两维度枚举**：`trigger_cause` × `delivery_mode`。
 
-#### 2.3.1 `trigger_cause`（触发因，5 选 1）
+#### 2.3.1 `trigger_cause`（触发因）
 
-| `trigger_cause` | 含义 | 典型 record_type |
-| --- | --- | --- |
-| `event_driven` | 离散事件触发 | `chat_message` / `game_event (realtime_push)` / `game_launch` / `session_start` / `session_end` / `pet_runtime_event` |
-| `threshold_crossed` | 字段值跨阈值 / 枚举切换 | `pc_signal.active_app_change` / `pc_signal.idle_signal` 跨档 / `app_switch_burst` / `now_playing_change` |
-| `scheduled` | 按固定或可配频率周期采集 | `idip_snapshot` 心跳 / `pc_signal_heartbeat` / `pc_signal.input_digest` / `vlm_observation` 弱感知 |
-| `user_action` | 用户主动触发（mutation） | 所有 `user_action` (mutation=true) |
-| `external_push` | 外部系统主动推入 | MCP app 主动通知客户端 → `mcp_observation` |
+| `trigger_cause` | 含义 | 举例 | 典型 record_type |
+| --- | --- | --- | --- |
+| `event_driven` | 具体离散事件触发 | 用户发一条消息 / 游戏 SDK 推一条事件 / 用户启动游戏 | `chat_message` / `game_event (realtime_push)` / `game_launch` / `session_start` / `session_end` / `pet_runtime_event` |
+| `threshold_crossed` | 字段值跨阈值 / 枚举切换 | active_app 从 Steam 切到 Chrome / idle_signal 从 active 跳到 idle_5min | `pc_signal.active_app_change` / `pc_signal.idle_signal` 跨档 / `app_switch_burst` / `now_playing_change` |
+| `scheduled` | 按固定或可配频率周期采集 | idip 心跳 60s 上报 / 弱感知 VLM 每 10min 截图 / PC 信号 30s 心跳 | `idip_snapshot` 心跳 / `pc_signal_heartbeat` / `pc_signal.input_digest` / `vlm_observation` 弱感知 |
+| `user_action` | 用户主动触发（mutation） | 用户点赞回复/ 用户撤回授权 / 用户说"我不喜欢这个形容“ | 所有 `user_action` (mutation=true) |
+| `external_push` | 外部系统主动推入 | MCP app（如飞书）主动通知"你有新待办" | MCP app 主动通知客户端 → `mcp_observation` |
 
 #### 2.3.2 `delivery_mode`（传输模式，默认 `realtime`）
 
@@ -287,6 +287,7 @@ flowchart LR
 | `extra` | 业务自定义扩展（强感知会话审计的 duration_sec / app_scope 等放这里） | object | 否 | { "duration_sec": 1200 } | P1 |
 
 ##### 3.1.1.4 `client_scene` 枚举清单 
+
 ​
 
 **类别 A：用户主动聊天场景**（`chat_message` 用，speaker=user 或 pet 回应）
@@ -329,16 +330,18 @@ flowchart LR
 
 ##### 3.1.2.1 通用事件清单
 
-| `event_type` | `event_mode` | 触发时机（trigger_cause） | 必含 `common_fields` | 优先级 |
+> **说明（v2.1 调整）**：v2 文档曾使用 `event_mode`（lifecycle / realtime_push / snapshot）字段描述事件性质，与 `trigger_cause` 概念重叠且让客户端重复标注。v2.1 已**删除** `event_mode`，事件性质完全由 `record_type` + `trigger_cause` 推导：lifecycle 类 = `record_type=game_event` 中以 `game_launch / game_close / session_start / session_end / settlement` 等生命周期 `event_type` 标识；snapshot 类 = `record_type=idip_snapshot`；其他实时事件统一 `record_type=game_event` + `trigger_cause=event_driven`。
+
+| `event_type` | 性质 | 触发因（trigger_cause） | 必含 `common_fields` | 优先级 |
 | --- | --- | --- | --- | --- |
-| `game_launch` | `lifecycle` | `event_driven`（游戏进程拉起 / 桌宠绑定游戏） | `client_version` / `game_version` / `launch_id` / `initial_idip_snapshot` | P0 |
-| `game_close` | `lifecycle` | `event_driven`（游戏退出 / 用户终止） | `launch_id` / `session_ids[]` / `close_reason` / `final_idip_snapshot` | P0 |
-| `session_start` | `lifecycle` | `event_driven`（一局 / 一段游戏开始） | `session_id` / `session_type` / `map_id`?/ `team_size`? / `idip_snapshot` | P0 |
-| `session_end` | `lifecycle` | `event_driven`（一局 / 一段游戏结束） | `session_id` / `session_type` / `session_result`（win/lose/draw/quit）/ `duration_sec` / `idip_snapshot` | P0 |
-| `settlement` | `lifecycle` | `event_driven`（结算页打开） | `session_id` / `score`? / `rewards`? | P0 |
-| `objective_progress` | `realtime_push` | `event_driven`（目标进度变化） | `session_id` / `objective_id` / `progress_value` | P0 |
-| `success` | `realtime_push` | `event_driven`（通用成功事件：通关 / 杀敌 / 任务完成等业务集合） | `session_id` / `success_category` | P0 |
-| `fail` | `realtime_push` | `event_driven`（通用失败事件：死亡 / 卡关 / 任务失败等） | `session_id` / `fail_category` | P0 |
+| `game_launch` | 生命周期 | `event_driven`（游戏进程拉起 / 桌宠绑定游戏） | `client_version` / `game_version` / `launch_id` / `initial_idip_snapshot` | P0 |
+| `game_close` | 生命周期 | `event_driven`（游戏退出 / 用户终止） | `launch_id` / `session_ids[]` / `close_reason` / `final_idip_snapshot` | P0 |
+| `session_start` | 生命周期 | `event_driven`（一局 / 一段游戏开始） | `session_id` / `session_type` / `map_id`?/ `team_size`? / `idip_snapshot` | P0 |
+| `session_end` | 生命周期 | `event_driven`（一局 / 一段游戏结束） | `session_id` / `session_type` / `session_result`（win/lose/draw/quit）/ `duration_sec` / `idip_snapshot` | P0 |
+| `settlement` | 生命周期 | `event_driven`（结算页打开） | `session_id` / `score`? / `rewards`? | P0 |
+| `objective_progress` | 实时事件 | `event_driven`（目标进度变化） | `session_id` / `objective_id` / `progress_value` | P0 |
+| `success` | 实时事件 | `event_driven`（通用成功事件：通关 / 杀敌 / 任务完成等业务集合） | `session_id` / `success_category` | P0 |
+| `fail` | 实时事件 | `event_driven`（通用失败事件：死亡 / 卡关 / 任务失败等） | `session_id` / `fail_category` | P0 |
 
 ##### 3.1.2.2 IDIP 心跳与服务端 diff（所有游戏适用）
 
@@ -389,7 +392,7 @@ sequenceDiagram
 
 ##### 3.1.2.3 游戏自定义事件
 
-游戏有 SDK 的，可在通用事件之外追加自定义 `event_type`（`event_mode=realtime_push`），通过 `custom_fields` 携带特定字段。`custom_fields`禁止承载真实账号、付费记录、实名信息。
+游戏有 SDK 的，可在通用事件之外追加自定义 `event_type`（envelope 字段 `trigger_cause=event_driven`），通过 `custom_fields` 携带特定字段。`custom_fields` 禁止承载真实账号、付费记录、实名信息。
 
 **示例**：
 
@@ -398,7 +401,6 @@ sequenceDiagram
   "record_type": "game_event",
   "payload_schema_version": "game_event.v1",
   "payload": {
-    "event_mode": "realtime_push",
     "event_type": "boss_defeated",
     "session_id": "sess_001",
     "match_id": "match_789",
@@ -417,16 +419,9 @@ sequenceDiagram
 }
 ```
 
-##### 3.1.2.4 `event_mode` 取值
+> envelope 外层 `trigger_cause=event_driven` 已表达"实时事件性质"，payload 内**不再**重复使用 `event_mode` 字段。客户端不应在 payload 中携带 `event_mode`。
 
-| `event_mode` | 含义 | 来源 |
-| --- | --- | --- |
-| `lifecycle` | 生命周期事件 | Game SDK / 客户端推断进程边界 |
-| `realtime_push` | 游戏 SDK 实时推送 | Game SDK |
-| `snapshot` | 客户端心跳上报的 idip 快照 | 客户端定时器 |
-| `derived_by_memory` | 服务端 diff 生成（仅用于 `idip_delta` / `idip_milestone` 等 derived_memory，不出现在 source_record） | Memory |
-
-##### 3.1.2.5 `common_fields` 字段表
+##### 3.1.2.4 `common_fields` 字段表
 
 > `common_fields` 是 game_event payload 内的固定子对象，承载跨游戏共有的会话 / 关卡 / 难度 / 区服等结构化字段。`custom_fields` 才允许游戏自定义。
 
