@@ -170,9 +170,24 @@ flowchart LR
 }
 ```
 
-### 2.3 触发因术语表
+#### 2.2.1 `record_type` 枚举清单
 
-> **设计变更（v2.1）**：v2 的"六类触发时机"行业术语混乱（state_change / 周期心跳 / digest 周期 / 60s 内 ≥5 次 / 跨级时上报 互相混用）。统一收敛为**两维度枚举**：`trigger_cause` × `delivery_mode`。
+> `record_type` 决定 envelope 的 payload schema 长什么样、由谁加工、走哪条业务管道。
+
+| `record_type` | 含义 | 数据对象 | 典型 trigger_cause | 详细定义 | 优先级 |
+| --- | --- | --- | --- | --- | --- |
+| `chat_message` | 用户与桌宠的单条对话消息（文本，含 STT 转写） | source_record | `event_driven` | §3.1.1.2 | P0 |
+| `pet_runtime_event` | 桌宠运行时事件（消息送达 / 用户忽略 / 主动表达 / 强感知会话审计 / 离线丢弃汇总 等） | source_record | `event_driven` | §3.1.1.3 + §3.1.1.4（event_type 枚举） | P0 |
+| `game_event` | 游戏内事件（含 8 通用事件 + 游戏自定义事件，如 boss_defeated） | source_record | `event_driven` | §3.1.2.1 / §3.1.2.3 | P0 |
+| `idip_snapshot` | 游戏状态完整快照（生命周期边界 + 周期心跳） | source_record | `scheduled` 心跳 / `event_driven` 生命周期 | §3.1.2.2 | P0 |
+| `pc_signal` | PC 环境信号（active_app / 输入派生 / 音频 / now_playing / 浏览器 tab / OSA Bridge） | source_record | `threshold_crossed` / `scheduled` | §3.1.3 | P1 |
+| `vlm_observation` | 弱感知 VLM 语义观察结果（**强感知不入记忆**） | source_record | `scheduled` | §3.1.5.2 | P1 |
+| `mcp_observation` | 授权 MCP app 经客户端中转的白名单字段 | source_record | `scheduled` / `external_push` | §3.1.4 | P1 |
+| `user_action` | 用户主动触发的 mutation（save / update / delete / restore / correct / confirm / request / feedback） | 跨系统 mutation 载体（不是单纯 source_record） | `user_action` | §3.2 | P0 |
+
+> **判别规则**：客户端发任何一条 envelope，必须先确定 `record_type`，再按对应子节填充 payload。`record_type` 与 `payload_schema_version` 配对使用（如 `record_type=chat_message` ⇒ `payload_schema_version=chat_message.v1`）。
+
+### 2.3 触发因术语表
 
 #### 2.3.1 `trigger_cause`（触发因）
 
@@ -272,21 +287,62 @@ flowchart LR
 | `speaker` | 发言方枚举 | enum (`user` / `pet`) | 是 | "user" | P0 |
 | `message_type` | 消息形态 | enum (`text` / `voice_transcribed`) | 是 | "text" | P0 |
 | `content` | 干净文本（无 markdown / 无格式 / 不区分输入通道） | string | 是 | "刚才那把翻盘了！" | P0 |
-| `client_scene` | 客户端业务场景（枚举完整清单见 §3.1.1.4） | enum | 是 | "post_game_chat" | P0 |
+| `client_scene` | 客户端业务场景（枚举完整清单见 §3.1.1.5） | enum | 是 | "post_game_chat" | P0 |
 | `reply_to_message_id` | 回复对象（多轮对话的上下文锚点） | string | 否 | "msg_2026051821000" | P1 |
 
 ##### 3.1.1.3 `pet_runtime_event` payload 字段表
 
 | 字段 | 含义 | 数据类型 | 必填 | 示例值 | 优先级 |
 | --- | --- | --- | --- | --- | --- |
-| `event_type` | 运行事件类型（如 `message_delivered` / `message_ignored` / `proactive_speak` / `offline_drop_summary` / `vlm_strong_sensing_session_start`） | enum | 是 | "proactive_speak" | P0 |
-| `client_scene` | 触发该事件的客户端业务场景（枚举完整清单见 §3.1.1.4） | enum | 是 | "long_no_feedback" | P0 |
+| `event_type` | 运行事件类型（完整枚举见 §3.1.1.4） | enum | 是 | "proactive_speak" | P0 |
+| `client_scene` | 触发该事件的客户端业务场景（枚举完整清单见 §3.1.1.5） | enum | 是 | "long_no_feedback" | P0 |
 | `related_record_ids[]` | 与本事件相关的 source_record / mutation 引用 | array<string> | 否 | ["rec_pc_signal_001"] | P1 |
 | `message_template_id` | 若为桌宠主动表达，对应消息模板 ID | string | 否 | "tmpl_encourage_002" | P1 |
 | `user_interruption_level` | 该事件对用户的打扰级别（`low` / `mid` / `high`） | enum | 否 | "low" | P1 |
 | `extra` | 业务自定义扩展（强感知会话审计的 duration_sec / app_scope 等放这里） | object | 否 | { "duration_sec": 1200 } | P1 |
 
-##### 3.1.1.4 `client_scene` 枚举清单 
+##### 3.1.1.4 `pet_runtime_event.event_type` 枚举清单
+
+> `pet_runtime_event.event_type` 是 payload 内的字段，标识桌宠运行时的具体事件子类型。**封闭枚举，Engineering 不得自定义**。新事件类型新增需经 PM review。
+
+**类别 A：桌宠消息交付与用户反馈**
+
+| 值 | 含义 | 典型 client_scene | 优先级 |
+| --- | --- | --- | --- |
+| `message_delivered` | 桌宠输出的消息已送达用户（UI 渲染完成） | 全部聊天场景 | P0 |
+| `message_ignored` | 桌宠输出消息超过 N 秒用户未响应 | `idle_chat` / `post_game_chat` 等 | P0 |
+| `message_dismissed` | 用户主动关闭桌宠消息卡片 | 同上 | P1 |
+| `proactive_speak` | 桌宠主动开口（兜底通用） | `proactive_speak` / `proactive_comfort` / `proactive_congratulate` / `proactive_reminder` / `proactive_share_observation` | P0 |
+| `proactive_speak_skipped` | 桌宠想说但因打扰边界 / 用户偏好抑制了主动表达 | `long_no_feedback` | P1 |
+
+**类别 B：VLM 强感知会话审计**
+
+| 值 | 含义 | 典型 client_scene | 优先级 |
+| --- | --- | --- | --- |
+| `vlm_strong_sensing_session_start` | 用户开启屏幕共享，强感知会话开始 | `user_initiated_screen_share` | P0 |
+| `vlm_strong_sensing_session_end` | 用户关闭屏幕共享，强感知会话结束（extra.duration_sec 必填） | `user_initiated_screen_share` | P0 |
+
+**类别 C：授权与隐私审计**
+
+| 值 | 含义 | 典型 client_scene | 优先级 |
+| --- | --- | --- | --- |
+| `consent_change_audit` | 用户授权变更后客户端落地审计事件（与 mutation `update + consent.*` 配套，用于跨端审计） | `consent_change` | P0 |
+
+**类别 D：系统与离线**
+
+| 值 | 含义 | 典型 client_scene | 优先级 |
+| --- | --- | --- | --- |
+| `offline_drop_summary` | 离线缓存超出 24h / 5000 条上限丢弃事件汇总（extra.dropped_count / extra.oldest_dropped_at） | `offline_drop` | P0 |
+| `mcp_pull_error` | MCP app 拉取失败 / 鉴权失效（extra.mcp_app_id / extra.error_code） | `mcp_event` | P1 |
+| `network_recovered` | 客户端网络从离线恢复，准备启动 batched_recovery 补传 | `offline_drop` | P1 |
+
+**类别 E：桌宠程序生命周期**
+
+| 值 | 含义 | 典型 client_scene | 优先级 |
+| --- | --- | --- | --- |
+| `pet_lifecycle_event` | 桌宠程序生命周期事件，具体子类型由 extra.lifecycle_subtype 携带（`pet_started` / `pet_exited` / `pet_minimized` / `pet_restored`） | `idle_chat` 或独立 | P1 |
+
+##### 3.1.1.5 `client_scene` 枚举清单 
 
 ​
 
