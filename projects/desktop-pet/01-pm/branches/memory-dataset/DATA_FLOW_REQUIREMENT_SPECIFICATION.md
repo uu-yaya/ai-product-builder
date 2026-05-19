@@ -9,12 +9,11 @@
 - [§2 统一传输契约](#2-%E7%BB%9F%E4%B8%80%E4%BC%A0%E8%BE%93%E5%A5%91%E7%BA%A6)
 - [§3 Client → Memory 上报](#3-client--memory-%E4%B8%8A%E6%8A%A5)
 - [§4 Memory → Client 返回](#4-memory--client-%E8%BF%94%E5%9B%9E)
-- [§5 Mutation / Ack 双向闭环](#5-mutation--ack-%E5%8F%8C%E5%90%91%E9%97%AD%E7%8E%AF)
-- [§6 业务场景接力图](#6-%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF%E6%8E%A5%E5%8A%9B%E5%9B%BE)
-- [§7 优先级建议](#7-%E4%BC%98%E5%85%88%E7%BA%A7%E5%BB%BA%E8%AE%AE)
-- [§8 隐私与排除项](#8-%E9%9A%90%E7%A7%81%E4%B8%8E%E6%8E%92%E9%99%A4%E9%A1%B9)
-- [§9 待确认问题](#9-%E5%BE%85%E7%A1%AE%E8%AE%A4%E9%97%AE%E9%A2%98)
-- [§10 验收标准](#10-%E9%AA%8C%E6%94%B6%E6%A0%87%E5%87%86)
+- [§5 业务场景接力图](#6-%E4%B8%9A%E5%8A%A1%E5%9C%BA%E6%99%AF%E6%8E%A5%E5%8A%9B%E5%9B%BE)
+- [§6 优先级建议](#7-%E4%BC%98%E5%85%88%E7%BA%A7%E5%BB%BA%E8%AE%AE)
+- [§7 隐私与排除项](#8-%E9%9A%90%E7%A7%81%E4%B8%8E%E6%8E%92%E9%99%A4%E9%A1%B9)
+- [§8 待确认问题](#9-%E5%BE%85%E7%A1%AE%E8%AE%A4%E9%97%AE%E9%A2%98)
+- [§9 验收标准](#10-%E9%AA%8C%E6%94%B6%E6%A0%87%E5%87%86)
 
 ---
 
@@ -94,8 +93,9 @@ flowchart LR
 | 2 | **加工结果可解释** | 每条 `derived_memory` 必须带 `source_record_ids[]` 或 `evidence_ids[]`，让客户端可以反查证据。 |
 | 3 | **用户控制最高优先级** | <ul><li>`user_control_state` 不会被任何加工覆盖；</li><li>用户 mutation 永远优先于 AI 推断。</li></ul> |
 | 4 | **双向字段必拆名** | 同一业务概念若客户端和记忆系统都要写，拆成两个字段（如 `emotion_signal_observed` / `emotion_signal_derived`，`playstyle_tags_user_set` / `playstyle_tags_inferred`），避免方向歧义。 |
-| 5 | **授权快照贯穿全链** | <ul><li>每条 `source_record` 必带当时的 `consent_snapshot_id`；</li><li>用户撤回授权时，记忆系统沿这条链反向溅透清理（详见 §5.4）。</li></ul> |
+| 5 | **授权快照贯穿全链** | <ul><li>每条 `source_record` 必带当时的 `consent_snapshot_id`；</li><li>用户撤回授权时，记忆系统沿这条链反向清理受影响的 `derived_memory`，24 小时内全部标 `is_active=false, inactive_reason=consent_revoked`（详见 §7 隐私表与 §5.6 授权变更场景）。</li></ul> |
 | 6 | **本地合成不回写完整对象** | 客户端的 `current_context` 是临时决策包，只回写支撑它的 raw `source_record` 或用户明确确认的 mutation，永不回写整个 context。 |
+| 7 | **证据链贯穿** | 任何 `derived_memory` 都能反查源头：`record_id`（事实源 ID）→ `source_record_ids[]` / `evidence_ids[]`（被引用的事实源）→ `target_resource_id`（用户操作的对象）→ `updated_resource_refs[]`（ack 返回的影响范围）。具体字段定义散落在 §2.2 / §3.2 / §3.2.6 / §4.1.3.15。 |
 
 ### 1.5 总体数据流
 
@@ -113,7 +113,7 @@ flowchart LR
   Memory -->|"§4.1 加工记忆 pull response<br/>profile / episode / highlight / assessment"| Client
   Memory -->|"§4.2 控制状态 pull response<br/>preferences / consent"| Client
   Memory -->|"§4.3 轻量 push<br/>resource_refs + summary"| Client
-  Memory -->|"§5 ack<br/>mutation 处理结果"| Client
+  Memory -->|"§3.2.6 ack 回执<br/>mutation 处理结果"| Client
 
   classDef ext fill:#eef,stroke:#88a;
   classDef local fill:#fff5e6,stroke:#d99;
@@ -144,10 +144,11 @@ flowchart LR
 | `record_id` | 事实源唯一 ID | string | 是 | P0 | 客户端生成；本地去重 |
 | `record_type` | 事实源类型 | enum | 是 | P0 | 见 §3.1 各子节 |
 | `game_id` | 游戏标识 | string | 是 | P0 | 不同游戏数据隔离 |
-| `game_user_id_pseudonym` | 用户脱敏 ID | string | 是 | P0 | 不存真实账号 |
+| `game_user_id_pseudonym` | 用户在**单个游戏**下的脱敏 ID（hash） | string | 是 | P0 | **每个游戏独立 pseudonym**（隐私优先），同一用户在不同游戏间不可关联；不存真实账号 |
+| `game_sub_account_id` | 用户在同一游戏内的**子账号 ID**（小号 / 大号 / 测试号区分） | string | 否 | P1 | 用户在同游戏切换不同账号时上报；空表示主账号或游戏无多账号机制；同一 `game_user_id_pseudonym` 下不同 `game_sub_account_id` 的画像默认**互不合并** |
 | `occurred_at` | 事件实际发生时间 | ISO 8601 | 是 | P0 | 排序、时间线、衰减 |
 | `sent_at` | 客户端发送时间 | ISO 8601 | 是 | P0 | 排查延迟、离线补传 |
-| `consent_snapshot_id` | 当时授权快照 ID | string | 是 | P0 | 反向溅透清理用（§5.4） |
+| `consent_snapshot_id` | 当时授权快照 ID | string | 是 | P0 | 反向清理用（§5.6 业务场景 + §7.1 数据约束） |
 | `payload_schema_version` | payload schema 版本 | string | 是 | P0 | 兼容字段升级 |
 | `trigger_cause` | 触发因（详见 §2.3.1） | enum | 是 | P0 | `scheduled` / `event_driven`（**2 选 1**） |
 | `delivery_mode` | 传输模式（详见 §2.3.1） | enum | 是 | P0 | 默认 `realtime`；其余：`aggregated` / `batched_recovery` / `batched_startup` |
@@ -162,6 +163,7 @@ flowchart LR
   "record_type": "<game_event | chat_message | pet_runtime_event | pc_signal | vlm_observation | mcp_observation | idip_snapshot | user_action>",
   "game_id": "game_abc",
   "game_user_id_pseudonym": "u_hash_123",
+  "game_sub_account_id": null,
   "occurred_at": "2026-05-18T21:10:00Z",
   "sent_at": "2026-05-18T21:10:01Z",
   "consent_snapshot_id": "consent_20260518_001",
@@ -183,6 +185,7 @@ flowchart LR
 | `pc_signal` | PC 环境信号（active_app / 输入派生 / 音频 / now_playing / 浏览器 tab / OSA Bridge） | source_record | 状态变化=`event_driven`；心跳/digest=`scheduled` | §3.1.3 | P1 |
 | `vlm_observation` | 弱感知 VLM 语义观察结果（**强感知不入记忆**） | source_record | `scheduled` | §3.1.5.2 | P1 |
 | `mcp_observation` | 授权 MCP app 经客户端中转的白名单字段 | source_record | 客户端定时拉=`scheduled`；MCP 主动推=`event_driven` | §3.1.4 | P1 |
+| `diary_reply` | 用户对桌宠日记的回信（关联 diary_id，带 reply_intent） | source_record | `event_driven` | §3.1.6 | P1 |
 | `user_action` | 用户主动触发的 mutation（save / update / delete / request / feedback） | 跨系统 mutation 载体（不是单纯 source_record） | `event_driven` | §3.2 | P0 |
 
 > **判别规则**：客户端发任何一条 envelope，必须先确定 `record_type`，再按对应子节填充 payload。`record_type` 与 `payload_schema_version` 配对使用（如 `record_type=chat_message` ⇒ `payload_schema_version=chat_message.v1`）。
@@ -239,7 +242,7 @@ flowchart LR
 | `mutation_async_max_wait_min` | **30** | 分钟 | 异步 mutation（request_*）最长等待时间，超时记录 `mutation_async_overdue` 告警 |
 | `pull_query_p99_ms` | **200** | 毫秒 | 实时 query（startup_context / conversation_context） |
 | `pull_query_batch_p99_ms` | **2000** | 毫秒 | 详情类（highlight_detail / episode_detail / assessment_result） |
-| `vlm_weak_sensing_interval_sec` | **600** | 秒 | 默认 10 分钟一次；用户可调档位：30 / 60 / 300 / 600 / 1800 / off |
+| `vlm_weak_sensing_interval_sec` | **600** | 秒 | 默认 10 分钟一次；普通用户档位 300 / 600 / 1800 / off；高级设置页另开放 30 / 60 |
 | `vlm_weak_sensing_cooldown_sec` | **60** | 秒 | 弱感知两次本地推理之间最小间隔（防同档过密） |
 | `mcp_pull_interval_sec` | **300** | 秒 | 客户端主动从 MCP app 拉取的最小间隔（每 app 独立） |
 | `consent_revoke_cleanup_max_hours` | **24** | 小时 | 撤回授权后受影响 `derived_memory` 失效完成时限 |
@@ -250,13 +253,15 @@ flowchart LR
 
 ### 3.0 章节预览
 
-| 子节 | 内容 | 优先级 |
-| --- | --- | --- |
-| §3.1 | 事实源记录（`source_record`），按 5 大类细分 | P0 |
-| §3.2 | 用户控制 mutation（保存 / 删除 / 纠错 / 授权 / 重新总结 / 反馈） | P0 |
-| §3.3 | 批量补传规则 | P1 |
+客户端 → 记忆系统的数据流分三类：**实时上报原始事实**、**回写用户操作**、**离线补传**。
 
-### 3.1 事实源记录 source_record
+| 子节 | 内容 | 主语 | 优先级 |
+| --- | --- | --- | --- |
+| §3.1 | **客户端上报：原始事实**（`source_record`，按 5 大类细分） | 客户端实时发起 | P0 |
+| §3.2 | **客户端上报：用户操作**（`mutation`：保存 / 修改 / 删除 / 反馈 / 请求） | 用户触发 | P0 |
+| §3.3 | **客户端补传：离线积压的数据** | 网络恢复 / 启动后发起 | P1 |
+
+### 3.1 客户端上报：原始事实（source_record）
 
 #### 3.1.1 聊天与桌宠运行事件
 
@@ -346,35 +351,35 @@ flowchart LR
 
 | 值 | 含义 | 触发时机 | 关联章节 | 优先级 |
 | --- | --- | --- | --- | --- |
-| `idle_chat` | 用户空闲时主动找桌宠聊天 | 用户点击桌宠 / 桌面双击发起 | §6 通用 | P0 |
-| `pre_game_chat` | 游戏启动后开局前的对话 | `game_launch` 之后、`session_start` 之前 | §6.1 | P0 |
-| `during_game_chat` | 对局中实时聊天（不打断游戏的轻量对话） | `session_start` 与 `session_end` 之间 | §6.2 | P0 |
-| `post_game_chat` | 结算后聊天 | `session_end` 之后 | §6.3 | P0 |
-| `diary_chat` | 日记页对话 | 用户进入日记页 | §6.4 | P1 |
-| `highlight_recall` | 高光回顾对话 | 用户进入高光页 | §6.4 | P1 |
-| `memory_review` | 个人画像页对话 | 用户进入个人画像页 | §6.5 | P1 |
-| `settings_chat` | 设置页对话（如询问关系定位、授权说明） | 用户在设置页与桌宠对话 | §6.6 | P1 |
-| `screen_share_chat` | 强感知屏幕共享期间的对话 | `vlm_strong_sensing` 开启期间 | §6.7.1 | P1 |
+| `idle_chat` | 用户空闲时主动找桌宠聊天 | 用户点击桌宠 / 桌面双击发起 | §5 通用 | P0 |
+| `pre_game_chat` | 游戏启动后开局前的对话 | `game_launch` 之后、`session_start` 之前 | §5.1 | P0 |
+| `during_game_chat` | 对局中实时聊天（不打断游戏的轻量对话） | `session_start` 与 `session_end` 之间 | §5.2 | P0 |
+| `post_game_chat` | 结算后聊天 | `session_end` 之后 | §5.3 | P0 |
+| `diary_chat` | 日记页对话 | 用户进入日记页 | §5.4 | P1 |
+| `highlight_recall` | 高光回顾对话 | 用户进入高光页 | §5.4 | P1 |
+| `memory_review` | 个人画像页对话 | 用户进入个人画像页 | §5.5 | P1 |
+| `settings_chat` | 设置页对话（如询问关系定位、授权说明） | 用户在设置页与桌宠对话 | §5.6 | P1 |
+| `screen_share_chat` | 强感知屏幕共享期间的对话 | `vlm_strong_sensing` 开启期间 | §5.7.1 | P1 |
 
 **类别 B：桌宠主动表达场景**（`chat_message` 用，speaker=pet）
 
 | 值 | 含义 | 触发时机 | 关联章节 | 优先级 |
 | --- | --- | --- | --- | --- |
-| `proactive_speak` | 桌宠主动开口（通用，未细分） | 各种主动表达兜底 | §6 通用 | P0 |
-| `proactive_comfort` | 连败 / 卡关时主动安慰 | `idip_anomaly` 触发 / `fail` 事件多次 | §6.2 / §6.3 | P1 |
-| `proactive_congratulate` | 里程碑 / 高光达成主动祝贺 | `idip_milestone` / `highlight_ready` push | §6.3 / §6.4 | P1 |
-| `proactive_reminder` | 任务 / 待办主动提醒（来自 MCP） | `mcp_summary_ready` push | §6.9 | P1 |
-| `proactive_share_observation` | 弱感知发现"用户在干什么"后主动评论 | `vlm_observation` 弱感知触发 | §6.7.2 | P1 |
+| `proactive_speak` | 桌宠主动开口（通用，未细分） | 各种主动表达兜底 | §5 通用 | P0 |
+| `proactive_comfort` | 连败 / 卡关时主动安慰 | `idip_anomaly` 触发 / `fail` 事件多次 | §5.2 / §5.3 | P1 |
+| `proactive_congratulate` | 里程碑 / 高光达成主动祝贺 | `idip_milestone` / `highlight_ready` push | §5.3 / §5.4 | P1 |
+| `proactive_reminder` | 任务 / 待办主动提醒（来自 MCP） | `mcp_summary_ready` push | §3.1.4 MCP 通道 | P1 |
+| `proactive_share_observation` | 弱感知发现"用户在干什么"后主动评论 | `vlm_observation` 弱感知触发 | §5.7.2 | P1 |
 
 **类别 C：运行事件场景**（`pet_runtime_event` 用，不出现在 `chat_message`）
 
 | 值 | 含义 | 触发时机 | 关联章节 | 优先级 |
 | --- | --- | --- | --- | --- |
-| `long_no_feedback` | 用户长时无反馈触发弱感知或主动判断 | 用户超 5min 无操作 | §6.7.2 | P1 |
-| `user_initiated_screen_share` | 用户开 / 关强感知屏幕共享 | `update + consent.vlm_strong_sensing` | §6.7.1 | P1 |
-| `consent_change` | 授权变更（开 / 关某类授权） | `update + consent.*` | §6.6 | P0 |
+| `long_no_feedback` | 用户长时无反馈触发弱感知或主动判断 | 用户超 5min 无操作 | §5.7.2 | P1 |
+| `user_initiated_screen_share` | 用户开 / 关强感知屏幕共享 | `update + consent.vlm_strong_sensing` | §5.7.1 | P1 |
+| `consent_change` | 授权变更（开 / 关某类授权） | `update + consent.*` | §5.6 | P0 |
 | `offline_drop` | 离线缓存满 / 超时丢弃事件 | offline_buffer 超限 | §3.3 | P1 |
-| `mcp_event` | MCP app 主动通知客户端 | MCP 主动推入（`record_type=mcp_observation` + `trigger_cause=event_driven`） | §6.9 | P1 |
+| `mcp_event` | MCP app 主动通知客户端 | MCP 主动推入（`record_type=mcp_observation` + `trigger_cause=event_driven`） | §3.1.4 MCP 通道 | P1 |
 
 #### 3.1.2 游戏数据
 
@@ -712,10 +717,15 @@ sequenceDiagram
 
 | 字段 | 含义 | 数据类型 | 默认值 |
 | --- | --- | --- | --- |
-| `privacy_grants.vlm_visual.granted` | 是否授权 VLM 访问屏幕画面（强 / 弱共用根开关） | boolean | false |
-| `privacy_grants.vlm_strong_sensing.granted` | 强感知（实时陪伴）单独开关 | boolean | false |
-| `privacy_grants.vlm_weak_sensing_interval_sec` | 弱感知采样档位（30 / 60 / 300 / 600 / 1800 / 0=off） | integer | 600 |
+| `privacy_grants.vlm_visual.granted` | 是否授权"客户端获取屏幕画面"（强 / 弱感知 + Diary 本地截图保存 三者共用的**根开关**） | boolean | false |
+| `privacy_grants.vlm_strong_sensing.granted` | 强感知（实时陪伴）子开关 | boolean | false |
+| `privacy_grants.vlm_visual.allow_local_save_for_diary` | **新增**。是否允许 Diary 模块在高光时刻**本地保存截图**作为日记插图（原图永不上传记忆系统，仅本地保留为客户端 asset） | boolean | false |
+| `privacy_grants.vlm_weak_sensing_interval_sec` | 弱感知采样档位（300 / 600 / 1800 / 0=off）；**30 / 60 仅在"高级设置页"开放**（需用户二次确认） | integer | 600 |
 | `privacy_grants.vlm_weak_sensing_app_blacklist[]` | 弱感知不采集的 app 列表（bundle_id 或 AUMID） | array&lt;string&gt; | 默认含金融 / 密码 / 视频会议类 |
+
+> **UI 约束**（v2.1）：普通用户在设置页可见档位为 **300s / 600s（默认）/ 1800s / off**。`30s` 和 `60s` 两档因为对电池 / 性能 / 隐私感知压力大，仅在"高级设置页"开放，并需要弹窗二次确认提示用户"高频采集可能影响电池续航和隐私感知"。
+>
+> **截图三种用途的授权层次**（v2.1）：根开关 `vlm_visual.granted` 控制"客户端能否获取屏幕画面"；其下三个子开关分别控制三种具体用途 —— `vlm_strong_sensing` 强感知实时陪伴 / 弱感知（开根开关 + `vlm_weak_sensing_interval_sec != 0` 自动启用）/ `vlm_visual.allow_local_save_for_diary` 高光时刻本地截图作日记插图。**任何一个子开关都依赖根开关**；根开关关闭则三种用途全部失效。所有用途**原图永不上传记忆系统**。
 
 ##### 3.1.5.5 envelope 示例
 
@@ -762,13 +772,79 @@ sequenceDiagram
 
 对应的 session_end 事件含 `duration_sec` 字段，记录强感知会话实际持续时长。
 
-### 3.2 用户控制 mutation
+#### 3.1.6 日记回信 diary_reply（对接 Diary PRD §七.4）
+
+> **新增于 v2.1**。用户在日记详情页对桌宠日记的回信文本作为**独立 source_record** 持久化，默认进入长期记忆。与 §3.1.1.2 chat_message 的关键区别：①必须关联 `diary_id`；②带 `reply_intent` enum；③记忆系统应据 `reply_intent` 决定是否派生 feedback / 触发 derived_memory 更新。
+
+##### 3.1.6.1 `record_type`
+
+`diary_reply`
+
+##### 3.1.6.2 `diary_reply` payload 字段表
+
+| 字段 | 含义 | 数据类型 | 必填 | 示例值 | 优先级 |
+| --- | --- | --- | --- | --- | --- |
+| `reply_id` | 回信唯一 ID（客户端生成） | string | 是 | "reply_2026051921001" | P0 |
+| `diary_id` | 对应日记 ID（指向 diary_entry 的 target_resource_id） | string | 是 | "diary_2026051820001" | P0 |
+| `reply_text` | 用户回信文本内容 | string | 是 | "嗯，今天打得是有点累" | P0 |
+| `reply_intent` | 回信意图分类（影响记忆系统派生 feedback / 偏好学习） | enum (`positive` / `negative` / `correction` / `preference` / `casual` / `delete_request`) | 是 | "casual" | P0 |
+| `created_at` | 回信时间 | ISO 8601 | 是 | "2026-05-19T21:05:00Z" | P0 |
+| `client_scene` | 回信发生时的客户端场景（一般固定为 `diary_chat`） | enum (见 §3.1.1.5) | 否 | "diary_chat" | P1 |
+| `replied_to_pet_reaction_id` | 若回信是对桌宠某条反应的回复，关联 reaction_id；否则空 | string \| null | 否 | null | P1 |
+
+##### 3.1.6.3 触发因与传输模式
+
+| 字段 | 取值 |
+| --- | --- |
+| `trigger_cause` | `event_driven` |
+| `delivery_mode` | `realtime`（离线时进入 `batched_recovery`） |
+| 隐私授权依赖 | `privacy_grants.chat_content.granted=true`（与 chat_message 共用，回信本质是用户首方文本） |
+
+##### 3.1.6.4 reply_intent 与记忆系统派生行为的关系
+
+| `reply_intent` | 记忆系统派生 |
+| --- | --- |
+| `positive` | 派生 feedback：feedback_value=`like`，target_resource_id=diary_id；提升对应 diary 来源组合的偏好权重 |
+| `negative` | 派生 feedback：feedback_value=`dislike`，feedback_reason 由 LLM 从 reply_text 推断（如 `not_accurate` / `too_private` / `boring`） |
+| `correction` | 派生 feedback：feedback_value=`inaccurate` + 触发 derived_memory 重加工（如纠正画像 / episode 标题） |
+| `preference` | 不派生 feedback，但触发 `companion_profile_inferred.preferred_conversation_topics` / `avoided_conversation_topics` 加工 |
+| `casual` | 仅持久化为 source_record，**不**派生 feedback / 不影响偏好权重 |
+| `delete_request` | 不自动删除；记忆系统 push 一条 `delete_intent_detected` 通知到客户端，由客户端弹"是否删除这篇日记"确认弹窗，用户确认后客户端发 `delete + diary_entry` mutation |
+
+##### 3.1.6.5 envelope 示例
+
+```json
+{
+  "envelope_version": "1.0",
+  "record_id": "rec_diary_reply_001",
+  "record_type": "diary_reply",
+  "game_id": "wangzhe",
+  "game_user_id_pseudonym": "u_hash_123",
+  "game_sub_account_id": null,
+  "occurred_at": "2026-05-19T21:05:00Z",
+  "sent_at": "2026-05-19T21:05:01Z",
+  "consent_snapshot_id": "consent_20260519_001",
+  "trigger_cause": "event_driven",
+  "delivery_mode": "realtime",
+  "payload_schema_version": "diary_reply.v1",
+  "payload": {
+    "reply_id": "reply_2026051921001",
+    "diary_id": "diary_2026051820001",
+    "reply_text": "嗯，今天打得是有点累",
+    "reply_intent": "casual",
+    "created_at": "2026-05-19T21:05:00Z",
+    "client_scene": "diary_chat"
+  }
+}
+```
+
+### 3.2 客户端上报：用户操作（mutation）
 
 #### 3.2.1 五个通用 action
 
 | `action` | 含义 | 是否异步 | 适用 target_type 范围 | 优先级 |
 | --- | --- | --- | --- | --- |
-| `save` | **保存对象到长期记忆**。target_type 范围**开放**：任何支持"被用户主动创建"语义的对象都可作为 save 目标 | 同步 | **开放**：`highlight` / `rule.do_not_remember` / `free_form_note` / `diary_entry` / 未来扩展类型 | P0 |
+| `save` | **保存对象到长期记忆**。target_type 范围**开放**：任何支持"被用户主动创建"语义的对象都可作为 save 目标 | 同步 | **开放**：`highlight` / `rule.do_not_remember` / `free_form_note` / `diary_entry`（Diary 模块用） / 未来扩展类型 | P0 |
 | `update` | **修改已有对象的字段**。覆盖原 `update` / `correct`（纠错）/ `restore`（恢复 is_active=true）三种语义；用 `is_correction` / `new_value.is_active` 等子参数区分意图 | 同步 | `highlight` / `profile_field.*` / `preference.*` / `consent.*` / `assessment.use_for_companion` / `episode` / 任意可改字段对象 | P0 |
 | `delete` | 标 `is_active=false`，记 `inactive_reason=user_deleted`（不物理删除，保留审计） | 同步 | 任意可失效对象 | P0 |
 | `request` | 触发**后台异步流程**，必带 `request_type` | **异步** | `request_type=``character_similarity_assessment` | P0 |
@@ -782,7 +858,7 @@ sequenceDiagram
 | `update` | `target_resource_id` + `new_value` | `original_value`（留痕）、`is_correction`（true 时锁定字段不被 AI 后续覆盖）；如恢复 `is_active`：`new_value={is_active: true, ...}` | `feedback_value` |
 | `delete` | `target_resource_id` | `delete_reason` | `new_value` |
 | `request` | `request_type` | `request_params` | `target_resource_id`（除非流程指向具体对象，如 profile_reset 指向某 game_id 下的 profile） |
-| `feedback` | `target_resource_id` + `feedback_value` | `feedback_reason`（**enum**，v2.1 对齐 user-portrait PRD：`accurate` / `not_accurate` / `not_like_me` / `wrong_tone` / `too_private` / `other`） | `new_value` |
+| `feedback` | `target_resource_id` + `feedback_value` | `feedback_reason`（**enum**，`accurate` / `not_accurate` / `not_like_me` / `wrong_tone` / `too_private` / `boring`/ `other`） | `new_value` |
 
 #### 3.2.3 target_type
 
@@ -793,7 +869,8 @@ sequenceDiagram
 | `highlight` | 单条高光对象 | `save` 创建 / Memory 系统自动生成候选 | `update` / `delete` / `feedback` |
 | `rule.do_not_remember` | 不可记忆规则 | `save` 创建 | `delete` |
 | `free_form_note` | 用户对桌宠说"记一下这件事"产生的自由备忘 | `save` 创建 | `update` / `delete` |
-| `diary_entry` | 用户保存的日记成品（未来扩展） | `save` 创建 | `update` / `delete` |
+| `diary_entry` | 用户保存的日记成品（含 30+ 字段，详见 Diary PRD §七.2；DFRS 视为开放 schema，由 Diary 模块定义具体 payload） | `save` 创建（payload = 完整 diary_entry 对象） | `update`（改 is_favorited / mailbox_status / privacy_level 等）/ `delete`（标 is_active=false） / `feedback`（feedback_value=like/dislike，feedback_reason 含 `boring`） |
+| `diary_reply` | 用户日记回信（独立 source_record，详见 §3.1.6） | 通过 `diary_reply` record_type 直接上报（不走 save action） | `delete` 删除单条回信 |
 | `profile_field.playstyle_profile.playstyle_tags_inferred` | 玩法画像 → 玩法标签（AI 推断版本） | Memory 后台加工 | `update` / `feedback (confirm)` / `feedback (inaccurate)` |
 | `profile_field.profile_identity.preferred_call_name_candidate` | 桌宠对用户的称呼候选（AI 推断版本） | Memory 后台加工 | `update` / `feedback (confirm)` |
 | `consent.vlm_visual` | 隐私授权 → VLM 弱感知访问屏幕画面 | 用户首次启用 / `update` | `update` |
@@ -904,9 +981,50 @@ sequenceDiagram
 }
 ```
 
-> 异步 action 的 ack 序列：`pending → in_progress → applied/rejected`，详见 §5.2。
+> 异步 action 的 ack 序列：`pending → in_progress → applied/rejected`。
 
-### 3.3 批量补传
+#### 3.2.6 Ack 回执（Memory → Client）
+
+每条 mutation 都必须收到记忆系统的 ack 回执。Ack 是 Memory → Client 方向的小包，承载本次 mutation 的处理结果。
+
+**Ack envelope 字段**：
+
+| 字段 | 含义 | 数据类型 | 必填 |
+| --- | --- | --- | --- |
+| `mutation_id` | 对应客户端发起 mutation 的 ID | string | 是 |
+| `status` | 处理状态（见 ack_status 枚举） | enum | 是 |
+| `processed_at` | 记忆系统处理完成时间 | ISO 8601 | 是 |
+| `updated_resource_refs[]` | 本次 mutation 影响的 derived_memory 资源 ID 数组（客户端按 ref 重新 pull 详情） | array&lt;string&gt; | 否（仅 `applied` 时有意义） |
+| `reject_reason` | 拒绝原因（见 reject_reason 枚举） | enum | 仅 `status=rejected` 时必填 |
+| `retry_after_sec` | 建议重试间隔 | number | 仅 `status=deferred` 时必填 |
+
+**`ack_status` 6 个枚举值**：
+
+| `ack_status` | 含义 | 适用 action 类别 |
+| --- | --- | --- |
+| `applied` | 已完成变更 | 同步 / 异步 / 批量 |
+| `rejected` | 拒绝执行，必带 `reject_reason` 子类型 | 同步 / 异步 / 批量 |
+| `deferred` | 系统繁忙暂缓，必带 `retry_after_sec` | 同步 / 异步 |
+| `pending` | 已入队，未开始处理 | 仅异步 `request` |
+| `in_progress` | 后台已开始处理 | 仅异步 `request` |
+| `partial_success` | 批量中只有部分成功 | 仅批量 |
+
+**`reject_reason` 8 个枚举值**：
+
+| `reject_reason` | 触发场景 |
+| --- | --- |
+| `permission_denied` | 当前授权不足（如 `privacy_grants.profile_inference=false` 时尝试 `request resummarize_profile`） |
+| `target_not_found` | `target_resource_id` 在记忆系统不存在 |
+| `target_inactive` | 目标资源已 `is_active=false`（除"恢复"操作 `update + new_value.is_active=true` 外） |
+| `schema_violation` | payload schema 不合法（如 `update` 缺 `new_value` / `feedback` 带 `new_value`） |
+| `version_conflict` | （v2.2 引入并发控制后）客户端版本号过期 |
+| `policy_violation` | 违反 `mutability_policy`（如 AI 流程尝试 `update` 一个 `user_only` 字段） |
+| `unrecoverable_state` | 目标处于不可恢复状态（如尝试恢复一个 `inactive_reason=conflict_with_newer_evidence` 的对象） |
+| `consent_cascade_blocked` | mutation 在授权撤回反向清理期间被阻塞 |
+
+> Ack 状态机的具体流程（同步 / 异步 / 批量三套 mermaid 图）属于工程实施细节，交由 Engineering Thread 在工程文档中定义；本数据需求文档只规定字段值清单与触发场景。
+
+### 3.3 客户端补传：离线积压的数据
 
 | 场景 | 触发 | 规则 |
 | --- | --- | --- |
@@ -951,13 +1069,15 @@ sequenceDiagram
 
 ### 4.0 章节地图
 
-| 子节 | 内容 |
-| --- | --- |
-| §4.1 | 加工记忆 pull response（按 `query_type` 列） |
-| §4.2 | 用户控制状态 pull response（preferences / consent / deletion_policy） |
-| §4.3 | 轻量 push 通知 |
+记忆系统 → 客户端的数据流分两种方式：**客户端主动取（Pull）** 和 **记忆系统主动推（Push）**。
 
-### 4.1 加工记忆 pull response（derived_memory）
+| 子节 | 内容 | 主导方 |
+| --- | --- | --- |
+| §4.1 | **客户端主动取：桌宠能读到的记忆**（加工后的 derived_memory，按 `query_type` 分类） | 客户端发起 |
+| §4.2 | **客户端主动取：用户的设置与授权状态**（偏好 / 隐私授权 / 删除策略 等 user_control_state） | 客户端发起 |
+| §4.3 | **记忆系统主动推：变化轻通知**（只推 ref 和摘要，详情仍走 pull） | 记忆系统发起 |
+
+### 4.1 客户端主动取：桌宠能读到的记忆（derived_memory）
 
 #### 4.1.1 `Pull Query` 请求字段
 
@@ -983,11 +1103,15 @@ sequenceDiagram
 | `preferences_state` | 设置页 / 能力调用前 | `user_preferences` + `privacy_grants` + `deletion_policy` |
 | `mcp_context` | 外部 app 轻量提醒 | 已授权 MCP app 的 `metadata_summary` + `task_titles[]` + `app_generated_summary` |
 | `assessment_result` | 角色相似度结果页 | `game_character_similarity_assessment` 详情 |
+| `mailbox_summary` | 日记收信箱入口 / 桌宠头顶气泡判断 | 实时聚合返回：`unread_count`（未读日记数）/ `latest_unread_diary_id` / `has_new_diary_bubble` / `empty_state_type`（first_empty / no_new_today / generation_failed / quality_blocked）；**不持久化**，记忆系统每次 pull 时从 `diary_entry` 表实时 COUNT WHERE is_active=true AND mailbox_status='unread' |
+| `diary_list` | 日记列表页 | 当前游戏下 diary_entry refs 分页列表 + 基础元信息（diary_id / title / visible_date / mailbox_status / is_favorited / is_active） |
+| `diary_detail` | 日记详情页 | 单条 `diary_entry` 详情 + `evidence_ids[]` + `diary_reply[]` 列表 |
 | `resource_detail` | 收到 push 后按 `resource_refs[]` 拉详情 | 与 refs 对应的具体资源 |
 
-#### 4.1.3 加工记忆主要资源族（Memory → Client 字段映射）
+#### 4.1.3 桌宠能从记忆系统读到的内容（详细字段表）
 
-> **每个资源族给一张完整字段表**：字段名 / 含义 / 数据类型 / 示例值 / 触发返回的 query_type / 优先级。字段语义对齐 DRS §3。
+> **每一类内容给一张完整字段表**：字段名 / 含义 / 数据类型 / 示例值 / 触发返回的 query_type / 优先级。字段语义对齐 DRS §3。
+> 这些都是记忆系统**加工后**返回给桌宠 / 客户端的内容（derived_memory），不是原始事实源（source_record）。
 
 ##### 4.1.3.1 `atomic_facts[]`
 
@@ -1173,7 +1297,7 @@ sequenceDiagram
 | `meta.inactive_at` | 失效时间 | ISO 8601 | null | 随每条 derived | P0 |
 | `meta.decay_score` | 衰减分（用于排序，越低越旧） | number | 0.72 | 随每条 derived | P1 |
 | `meta.user_feedback` | 用户对该条的最近一次反馈（`feedback` action 写入） | enum (like / dislike / inaccurate / ignored / confirm / null) | null | 随每条 derived | P1 |
-| `meta.user_feedback_reason` | **新增**。用户反馈的细分原因（来自 `feedback.feedback_reason` enum，详见 §3.2.2） | enum (accurate / not_accurate / not_like_me / wrong_tone / too_private / other / null) | null | 随每条 derived | P1 |
+| `meta.user_feedback_reason` | **新增**。用户反馈的细分原因（来自 `feedback.feedback_reason` enum，详见 §3.2.2） | enum (accurate / not_accurate / not_like_me / wrong_tone / too_private / boring / other / null) | null | 随每条 derived | P1 |
 | `meta.user_attested` | 是否被用户 `feedback` action（`feedback_value=confirm`）确认过 | boolean | false | 随每条 derived | P1 |
 
 > **关键命名约定（实施 §1.4 D3）**：所有"既可能由客户端推导也可能由记忆系统加工"的概念字段都拆名。客户端上报版本以 `_observed` 结尾，记忆系统返回版本以 `_derived` 或 `_inferred` 结尾；用户显式设置版本以 `_user_set` 结尾。
@@ -1317,7 +1441,7 @@ def get_display_tier(field):
 }
 ```
 
-### 4.2 用户控制状态 pull response（user_control_state）
+### 4.2 客户端主动取：用户的设置与授权状态（user_control_state）
 
 `user_control_state` 对于数据的改变具有最高优先级
 
@@ -1334,7 +1458,7 @@ def get_display_tier(field):
 | `deletion_policy` | `delete_on_revoke` / `profile_reset_at` | P0 |
 | `memory_controls` | `resummarize_requested_at` / `do_not_remember_rules[]` | P0 |
 
-### 4.3 轻量 push 通知
+### 4.3 记忆系统主动推：变化轻通知（push）
 
 > **核心约束**：push 只带 `summary` 和 `resource_refs[]`，**不**推大对象。客户端按需 pull 详情。Push 的作用是"提醒"，不是替代 query response。
 
@@ -1383,169 +1507,11 @@ def get_display_tier(field):
 
 ---
 
-## 5. Mutation / Ack 双向闭环
+## 5. 业务场景接力图
 
-### 5.1 Mutation 契约
+> 每个场景统一三道泳道：`Game SDK` / `Client` / `Memory`，MCP 场景多一道 `MCP app`。所有接力图都对应前面 §3 / §4 的具体字段。
 
-mutation 复用 §2.2 通用 envelope，但 `payload.mutation = true`，且必含 `mutation_id`、`target_resource_id`（或同义字段）、`user_intent`（可读说明）。详见 §3.2 类型清单。
-
-### 5.2 Ack 状态机
-
-> **设计变更（v2.1）**：配合 §3.2 七 action 设计，Ack 状态机按 action 类型分化：
-
-#### 5.2.1 同步 action 状态机（`save` / `update` / `delete` / `feedback`）
-
-```mermaid
-stateDiagram-v2
-    [*] --> 已发送
-    已发送 --> applied: Memory 处理成功
-    已发送 --> rejected: 权限/目标不存在/已失效/schema 违规
-    已发送 --> deferred: 资源繁忙稍后重试（罕见）
-    applied --> [*]
-    rejected --> [*]
-    deferred --> [*]
-```
-
-#### 5.2.2 异步 action 状态机（`request`）
-
-```mermaid
-stateDiagram-v2
-    [*] --> 已发送
-    已发送 --> pending: 已入队
-    pending --> in_progress: 后台开始处理
-    in_progress --> applied: 完成
-    in_progress --> rejected: 后台失败
-    pending --> rejected: 入队前预检失败
-    已发送 --> deferred: 系统繁忙暂缓
-    applied --> [*]
-    rejected --> [*]
-    deferred --> [*]
-```
-
-#### 5.2.3 批量 action 状态机
-
-```mermaid
-stateDiagram-v2
-    [*] --> 已发送
-    已发送 --> applied: 全部成功
-    已发送 --> partial_success: 部分成功
-    已发送 --> rejected: 全部失败
-    applied --> [*]
-    partial_success --> [*]
-    rejected --> [*]
-```
-
-#### 5.2.4 `ack_status` 释义
-
-| `ack_status` | 适用场景 | 含义 | 客户端处理 |
-| --- | --- | --- | --- |
-| `applied` | 同步 / 异步 / 批量 | 已完成变更 | 刷新 UI；按 `updated_resource_refs[]` 重新 pull |
-| `rejected` | 同步 / 异步 / 批量 | 拒绝（无权限 / 目标不存在 / 资源已失效 / schema 违规 / 不可恢复 / 见下方 `reject_reason` 子类型） | 展示失败原因；不进入本地成功态 |
-| `deferred` | 同步 / 异步 | 系统繁忙暂缓，客户端按 `retry_after_sec` 重发 | 显示"稍后重试"或自动 backoff |
-| `pending` | 异步 | 已入队，未开始处理 | 显示"处理中"；等 push / 轮询 |
-| `in_progress` | 异步 | 后台已开始处理 | 显示"处理中"；可显示进度 |
-| `partial_success` | 批量 | 批量中部分成功 | 刷新成功部分；失败项提示或重试 |
-
-#### 5.2.5 `rejected` 子类型 `reject_reason`（**v2.1 新增**）
-
-`rejected` 时记忆系统必须返回 `reject_reason` 子类型，让客户端可解释 / 可重试：
-
-| `reject_reason` | 触发场景 | 客户端建议 |
-| --- | --- | --- |
-| `permission_denied` | 当前授权不足（如 `privacy_grants.profile_inference=false` 时尝试 `request resummarize_profile`） | 引导用户开启对应授权 |
-| `target_not_found` | `target_resource_id` 在记忆系统不存在 | 刷新 / 提示资源已失效 |
-| `target_inactive` | 目标资源已 `is_active=false`（除 `update` 改 `is_active=true` 的恢复操作外） | 不重试；提示用户资源已删除 |
-| `schema_violation` | payload schema 不合法（如 `update` 缺 new_value / `feedback` 带 new_value） | 客户端代码 bug，不应面向用户 |
-| `version_conflict` | （v2.2 引入 node_version 后）客户端 expected_version 与服务端不一致 | 拉取最新值后让用户选择覆盖或放弃 |
-| **`policy_violation`** | **v2.1 新增**。违反 `mutability_policy` —— 例如 AI 流程尝试 `update` 一个 `user_only` 字段（如 `update + privacy_grants.*`） | 不重试；记录日志；不应面向用户（这是 AI 流程的 bug） |
-| `unrecoverable_state` | 目标处于不可恢复状态（如 `restore` 一个 `inactive_reason=conflict_with_newer_evidence` 的对象） | 提示用户该对象不可恢复 |
-| `consent_cascade_blocked` | mutation 在授权撤回清理期间被阻塞 | 等待 `consent_cascade_completed` push 后重试 |
-
-**Ack envelope**：
-
-```json
-{
-  "ack_id": "ack_mut_update_001",
-  "request_record_id": "rec_user_action_update_001",
-  "mutation_id": "mut_update_001",
-  "status": "applied",
-  "processed_at": "2026-05-18T21:44:03Z",
-  "updated_resource_refs": ["profile_fact_001"],
-  "client_action": "refresh_affected_resources"
-}
-```
-
-### 5.3 证据链字段流转
-
-证据链不是单独的数据包，而是贯穿 source_record → derived_memory → mutation → ack 的引用关系。
-
-```mermaid
-flowchart LR
-    SR["source_record<br/>record_id"] -->|被加工时引用| DM["derived_memory<br/>source_record_ids[]<br/>evidence_ids[]"]
-    DM -->|用户操作时定位| MUT["mutation<br/>target_resource_id"]
-    MUT -->|执行后告知影响| ACK["ack<br/>updated_resource_refs[]"]
-    ACK -->|失效或重生成| INV["失效状态<br/>is_active=false<br/>inactive_reason<br/>inactive_at"]
-```
-
-| 阶段 | 字段 | 含义 | 谁写入 |
-| --- | --- | --- | --- |
-| 上报 | `record_id` | 每条 raw 事实源的唯一 ID | Client |
-| 上报 | `record_type` | 事实源类型 | Client |
-| 上报 | `consent_snapshot_id` | 事实发生时的授权快照 | Client |
-| 加工 | `source_record_ids[]` / `evidence_ids[]` | 这条加工结果引用了哪些事实源 | Memory |
-| 加工 | `evidence_summary` | 给用户看的证据短解释 | Memory |
-| Mutation | `target_resource_id` | 用户要操作的对象 | Client |
-| Ack | `updated_resource_refs[]` | 本次 mutation 影响了哪些结果 | Memory |
-| 失效 | `is_active` / `inactive_reason` / `inactive_at` | 加工结果是否还能用、为什么失效、何时失效 | Memory |
-
-### 5.4 授权撤回反向溅透清理（v2 新增）
-
-> **问题**：用户撤回某类授权后，记忆系统如何找出所有"依赖被撤回授权"的 derived_memory 并清理？
-
-#### 5.4.1 触发与流程
-
-```mermaid
-sequenceDiagram
-    participant U as 用户
-    participant C as Client
-    participant M as Memory
-
-    U->>C: 设置页关闭某类授权<br/>（如 vlm_visual）
-    C->>M: mutation: update + consent.*<br/>{ action: update, target_type: consent.*,<br/>  changed_scopes: [...disabled], delete_on_revoke: ask/delete_now }
-    M-->>M: 1. 持久化新 consent_snapshot
-    M-->>M: 2. 反向索引：sweep 所有 source_record<br/>WHERE consent_snapshot.scope=disabled
-    M-->>M: 3. 找出引用这些 source_record 的 derived_memory
-    M-->>M: 4. 按 delete_on_revoke 策略处理：<br/>delete_now → 标 is_active=false, inactive_reason=consent_revoked<br/>ask → 暂保留但停止加工，标 pending_user_decision
-    M->>C: ack { status: applied, updated_resource_refs[] }
-    M->>C: push: resource_invalidated × N<br/>（按 dedup 合并）
-    C-->>C: 刷新受影响 UI / 缓存
-```
-
-#### 5.4.2 必备机制
-
-| 机制 | 说明 | 责任 |
-| --- | --- | --- |
-| **`consent_snapshot_id` 反向索引** | 每条 source_record 都有 `consent_snapshot_id`；记忆系统维护 `consent_snapshot → source_record_ids[]` 反向索引 | Memory |
-| **`derived_memory.source_record_ids[]` 强制非空** | 每条 derived_memory 必须挂证据 ID；没有证据链的 derived_memory 拒绝写入 | Memory |
-| **`delete_on_revoke` 用户偏好** | `delete_now` / `ask` / `keep_silent` 三档；记录在 `deletion_policy` 中 | Client → Memory |
-| **失效完成时限** | `consent_revoke_cleanup_max_hours=24`，超时记录 `consent_revoke_overdue` 告警 | Memory |
-| **审计日志** | 每次撤回清理生成审计记录，记录 `revoked_scope` / `affected_count` / `completed_at`，可在 Memory Center 查看 | Memory |
-
-#### 5.4.3 边界情况
-
-| 情况 | 处理 |
-| --- | --- |
-| derived_memory 同时引用了多类授权的 source_record，其中一类被撤回 | 默认整条标失效；若 derived_memory 可仅基于剩余授权重新加工，触发"重新加工"任务 |
-| 用户重新开启同类授权 | 不自动恢复已失效 derived_memory；用户可在 Memory Center 手动"恢复"或"重新生成" |
-| user_action mutation（如 `save + highlight`）已用户确认 | 即使依赖的 vlm_observation 因撤回失效，也保留 `is_active=true`（用户确认权重高于源失效）；但 evidence_summary 中标注"原画面证据已不可用" |
-
----
-
-## 6. 业务场景接力图
-
-> 每个场景统一三道泳道：`Game SDK` / `Client` / `Memory`，MCP 场景多一道 `MCP app`。所有接力图都对应前面 §3 / §4 / §5 的具体字段。
-
-### 6.1 游戏启动
+### 5.1 游戏启动
 
 ```mermaid
 sequenceDiagram
@@ -1567,9 +1533,9 @@ sequenceDiagram
 | 3 | pull `startup_context` | 返回 digest + profile + consent | query response | 否 |
 | 4 | 本地合成 `current_context` | 不参与 | — | 否（不回写完整对象） |
 
-### 6.2 对局中
+### 5.2 对局中
 
-#### 6.2.1 有 SDK 实时事件（A 类游戏）
+#### 5.2.1 有 SDK 实时事件（A 类游戏）
 
 ```mermaid
 sequenceDiagram
@@ -1585,7 +1551,7 @@ sequenceDiagram
     M->>C: push: episode_ready / highlight_ready
 ```
 
-#### 6.2.2 无 SDK 实时事件（B 类游戏，靠 idip 心跳 diff）
+#### 5.2.2 无 SDK 实时事件（B 类游戏，靠 idip 心跳 diff）
 
 ```mermaid
 sequenceDiagram
@@ -1612,7 +1578,7 @@ sequenceDiagram
 | 3 | — | 服务端对比相邻快照，差异显著时生成 derived_memory | 否 |
 | 4 | 收到 push 后 pull session_memory | 返回 delta / milestone / anomaly | 否 |
 
-### 6.3 结算与复盘
+### 5.3 结算与复盘
 
 ```mermaid
 sequenceDiagram
@@ -1635,7 +1601,7 @@ sequenceDiagram
     end
 ```
 
-### 6.4 日记 / 高光生成与保存
+### 5.4 日记 / 高光生成与保存
 
 | 步骤 | 客户端 | 记忆系统 | 数据 / 回执 |
 | --- | --- | --- | --- |
@@ -1646,7 +1612,7 @@ sequenceDiagram
 | 5 | mutation: `save + highlight` 或 `update + profile_field.*` | 持久化 + 加工 | ack applied |
 | 6 | 若引用原话：检查 `atomic_facts.quote_eligible=true` 且 `privacy_grants.diary_quote.granted=true` | 仅当两个条件都成立才允许引用 | — |
 
-### 6.5 用户主动纠错 / 删除 / 重新总结
+### 5.5 用户主动纠错 / 删除 / 重新总结
 
 ```mermaid
 sequenceDiagram
@@ -1667,9 +1633,26 @@ sequenceDiagram
     M-->>C: ack applied（异步 action 完成）
 ```
 
-### 6.6 授权变更（含撤回反向清理）
+### 5.6 授权变更（含撤回反向清理）
 
-详见 §5.4 流程图。补充表格：
+**问题**：用户撤回某类授权后，记忆系统如何找出所有"依赖被撤回授权"的 derived_memory 并清理？数据约束见 §7.1，本节给完整时序。
+
+```mermaid
+sequenceDiagram
+    participant U as 用户
+    participant C as Client
+    participant M as Memory
+
+    U->>C: 设置页关闭某类授权<br/>（如 vlm_visual）
+    C->>M: mutation: update + consent.*<br/>{ action: update, target_type: consent.*,<br/>  changed_scopes: [...disabled], delete_on_revoke: ask/delete_now }
+    M-->>M: 1. 持久化新 consent_snapshot
+    M-->>M: 2. 反向索引：sweep 所有 source_record<br/>WHERE consent_snapshot.scope=disabled
+    M-->>M: 3. 找出引用这些 source_record 的 derived_memory
+    M-->>M: 4. 按 delete_on_revoke 策略处理：<br/>delete_now → 标 is_active=false, inactive_reason=consent_revoked<br/>ask → 暂保留但停止加工，标 pending_user_decision
+    M->>C: ack { status: applied, updated_resource_refs[] }
+    M->>C: push: consent_cascade_started → resource_invalidated × N → consent_cascade_completed<br/>（按 dedup 合并）
+    C-->>C: 刷新受影响 UI / 缓存
+```
 
 | 步骤 | 客户端 | 记忆系统 | 是否对用户可见 |
 | --- | --- | --- | --- |
@@ -1679,13 +1662,21 @@ sequenceDiagram
 | 4 | — | 持久化新 consent_snapshot | — |
 | 5 | — | 沿反向索引找出受影响 source_record + derived_memory | 后台 |
 | 6 | — | 按策略标 `is_active=false, inactive_reason=consent_revoked` 或 `pending_user_decision` | 后台 |
-| 7 | 收到 ack + push: `resource_invalidated` × N | — | 否（合并后只一次提示） |
+| 7 | 收到 ack + push: `consent_cascade_started / completed` | — | 否（合并后只一次提示） |
 | 8 | 刷新设置页 + 受影响页面 | — | 是 |
 | 9 | （可选）Memory Center 审计页显示清理记录 | 提供 audit log | 是 |
 
-### 6.7 VLM 强 / 弱感知
+**边界情况**：
 
-#### 6.7.1 强感知（实时陪伴，不入记忆）
+| 情况 | 处理 |
+| --- | --- |
+| derived_memory 同时引用了多类授权的 source_record，其中一类被撤回 | 默认整条标失效；若 derived_memory 可仅基于剩余授权重新加工，触发"重新加工"任务 |
+| 用户重新开启同类授权 | 不自动恢复已失效 derived_memory；用户可在 Memory Center 手动 `update + new_value.is_active=true` 或"重新生成" |
+| user_action mutation（如 `save + highlight`）已用户确认 | 即使依赖的 vlm_observation 因撤回失效，也保留 `is_active=true`（用户确认权重高于源失效）；但 evidence_summary 中标注"原画面证据已不可用" |
+
+### 5.7 VLM 强 / 弱感知
+
+#### 5.7.1 强感知（实时陪伴，不入记忆）
 
 ```mermaid
 sequenceDiagram
@@ -1709,7 +1700,7 @@ sequenceDiagram
 
 > 强感知期间画面语义只服务实时对话，**不**写 `vlm_observation`。跨系统只留两类事件：①`update + consent.vlm_strong_sensing` mutation；②`pet_runtime_event` 会话起止审计。
 
-#### 6.7.2 弱感知（长期数据源，入记忆）
+#### 5.7.2 弱感知（长期数据源，入记忆）
 
 ```mermaid
 sequenceDiagram
@@ -1736,7 +1727,7 @@ sequenceDiagram
 
 > 弱感知是 PC 端"画面层"的长期低频环境信号，完整字段（含 semantic_tags / user_visible_summary）入记忆作为长期数据源。原图永不出本地。
 
-### 6.8 离线 → 网络恢复 → 批量补传
+### 5.8 离线 → 网络恢复 → 批量补传
 
 ```mermaid
 sequenceDiagram
@@ -1754,7 +1745,7 @@ sequenceDiagram
 
 ---
 
-## 7. 优先级建议
+## 6. 优先级建议
 
 | 优先级 | 数据 / 能力 | 原因 |
 | --- | --- | --- |
@@ -1780,7 +1771,7 @@ sequenceDiagram
 
 ---
 
-## 8. 隐私与排除项
+## 7. 隐私与排除项
 
 | 数据 | 是否进入跨系统 | 说明 |
 | --- | --- | --- |
@@ -1803,9 +1794,20 @@ sequenceDiagram
 | **VLM 原图 / 帧 hash 可反查原图的引用** | **否** | 强 / 弱感知均永禁；客户端本地处理后即丢弃（`raw_frame_uploaded=false`，`raw_frame_stored=false`） |
 | **真实账号 / 实名信息 / 付费记录** | **否** | 永禁；只用 `game_user_id_pseudonym` |
 
+### 7.1 授权撤回的数据约束
+
+| 约束 | 触发场景 | 时限 |
+| --- | --- | --- |
+| 撤回任一 `privacy_grants.*` 后，受影响 `derived_memory` 必须标 `is_active=false, inactive_reason=consent_revoked` | 用户在隐私设置页关闭某类授权 → `update + consent.*` mutation 写入新 consent_snapshot | **24 小时内**完成；记忆系统沿 `consent_snapshot_id` 反向索引 `source_record` → 反向索引引用它的 `derived_memory` → 批量失效 |
+| 客户端必须收到 `consent_cascade_started` push（提示"正在清理 N 条受影响记忆"）和 `consent_cascade_completed` push（完成提示） | 同上 | push 时机由记忆系统决定，建议清理开始 / 完成时各推一次 |
+| `delete_on_revoke` 用户偏好（`delete_now` / `ask` / `keep_silent`） | 用户首次撤回授权时弹窗询问 | 存储于 `user_control_state.deletion_policy.delete_on_revoke` |
+| 反向清理超时告警 `consent_revoke_overdue` | 清理超过 24h 未完成 | 记忆系统记录审计日志，可投递给用户（详见 §7 待确认问题 #7） |
+
+> 反向清理的具体技术机制（反向索引设计、清理流程图）属于工程实施细节，由 Engineering Thread 在工程文档定义；本数据需求文档只规定数据约束与时限。流程时序图见 §5 业务场景接力图的"授权变更场景"。
+
 ---
 
-## 9. 待确认问题
+## 8. 待确认问题
 
 | # | 问题 | 建议 |
 | --- | --- | --- |
@@ -1825,7 +1827,7 @@ sequenceDiagram
 
 ---
 
-## 10. 验收标准
+## 9. 验收标准
 
 | # | 标准 | 验收方式 |
 | --- | --- | --- |
@@ -1842,24 +1844,24 @@ sequenceDiagram
 | 11 | **`feedback` vs `update` schema 区分** | `feedback` schema **禁止**带 `new_value`（违反即 `rejected: invalid_payload`，`feedback_value=confirm` 也不例外）；`update` schema **必带** `new_value`；`feedback_value=confirm` 仅提升 `profile_meta.confidence` + `user_attested=true`，不改 `generation_method`；schema lint 强制校验 |
 | 12 | **Ack 状态机按 action 分化** | 同步 action（`save` / `update` / `delete` / `feedback`）用 `applied / rejected / deferred`；异步 action（`request`）用 `pending / in_progress / applied / rejected / deferred`；批量用 `applied / partial_success / rejected` |
 | 13 | **证据链可串通** | 任选一条 derived_memory，能反查到 source_record；任选一条 mutation 能找到 target_resource_id 与 updated_resource_refs |
-| 14 | **授权撤回有反向清理机制** | 撤回任一 `privacy_grants.*` 后，§5.4 流程完成，受影响 derived_memory 在 24h 内标失效 |
+| 14 | **授权撤回有反向清理机制** | 撤回任一 `privacy_grants.*` 后，§5.6 流程完成，受影响 derived_memory 在 24h 内标失效 |
 | 15 | **运营参数有默认推荐值** | §2.4 全部参数都有起点值与单位，标"Engineering 可调优" |
-| 16 | **场景接力图覆盖核心流程** | §6 八个场景的 Mermaid 图与表格能让读者一眼看完闭环；所有 mutation 写法已对齐新 `action × target_type` |
+| 16 | **场景接力图覆盖核心流程** | §5 八个场景的 Mermaid 图与表格能让读者一眼看完闭环；所有 mutation 写法已对齐新 `action × target_type` |
 | 17 | **字段权限策略 `mutability_policy` 落地** | 每条 derived_memory 字段 `profile_meta.mutability_policy` 必填且属 `user_only` / `user_primary_ai_candidate` / `ai_inferred_writable` 三选一；AI 后台流程尝试写入 `user_only` 字段时记忆系统返回 `rejected: policy_violation`；详见 §4.1.3.16 |
 | 18 | **`review_status` 状态机落地** | `user_only` 字段无 review；`user_primary_ai_candidate` 字段 AI 写入强制 `pending_user_review`，用户 `feedback=confirm` / `update` 后升 `accepted`；`ai_inferred_writable` 字段 AI 写入直接 `accepted`；客户端 / 画像服务由 review_status 派生主 / 缓冲页归属，**不持久化** display_tier |
 | 19 | **时间戳三元组语义独立** | `last_user_edited_at`（仅 update / correct 触发）/ `last_confirmed_at`（仅 feedback=confirm 触发）/ `last_system_processed_at`（系统后台触发）三者独立，记忆系统加工时**保留 `last_user_edited_at` 非空字段的当前值** |
 | 20 | **`feedback_reason` 对齐 user-portrait PRD** | `feedback_reason` 为 enum：`accurate` / `not_accurate` / `not_like_me` / `wrong_tone` / `too_private` / `other`；与 PRD §七.5 portrait_feedback.reason 一致 |
-| 21 | **`reject_reason` 子类型完整** | 所有 `rejected` ack 必带 `reject_reason` 子类型（permission_denied / target_not_found / target_inactive / schema_violation / version_conflict / policy_violation / unrecoverable_state / consent_cascade_blocked），详见 §5.2.5 |
+| 21 | **`reject_reason` 子类型完整** | 所有 `rejected` ack 必带 `reject_reason` 子类型（permission_denied / target_not_found / target_inactive / schema_violation / version_conflict / policy_violation / unrecoverable_state / consent_cascade_blocked），详见 §3.2.6 |
 
 ---
 
 > **变更说明（v2.1）**：本版本相对 v2 做了围绕 mentor 反馈与审查员清单的**精准修订**，主要变化：
 >
 > **v2.1 新增（mentor 反馈 + 审查员清单）**：
-> 1. **VLM 角色翻转**（mentor 反馈）：强感知 = 实时陪伴**不入记忆**；弱感知 = 用户可调档位（30/60/300/600/1800s）定时采集**入记忆作为长期数据源**。重写 §3.1.5 + §6.7。
+> 1. **VLM 角色翻转**（mentor 反馈）：强感知 = 实时陪伴**不入记忆**；弱感知 = 用户可调档位（30/60/300/600/1800s）定时采集**入记忆作为长期数据源**。重写 §3.1.5 + §5.7。
 > 2. **触发时机精简（v2.1 终版）**：原 9 个混杂术语 → 中间过渡 5 个 `trigger_cause` → 最终精简为 **2 个 `trigger_cause`**（`scheduled` / `event_driven`，2 选 1）+ 4 个 `delivery_mode`（`realtime` / `aggregated` / `batched_recovery` / `batched_startup`）。"是否 mutation""数据来源""阈值跨越"等维度交由 `record_type` 区分。详见 §2.3。
 > 3. **Mutation 通用化**：13 个枚举式 `mutation_type` → 中间版 7 个 → 最终精简为 **5 个通用 `action`**（`save` / `update` / `delete` / `request` / `feedback`）× N 个 `target_type`；`correct` / `restore` 合并入 `update`（用 `is_correction` / `new_value.is_active` 子参数区分意图），`confirm` 合并入 `feedback`（作为 `feedback_value` 之一）。详见 §3.2。
-> 4. **Ack 状态机分化**：同步 / 异步 / 批量三类各自的可达状态分别定义。详见 §5.2。
+> 4. **Ack 状态机分化**：同步 / 异步 / 批量三类各自的可达状态分别定义。详见 §3.2.6 Ack 回执。
 > 5. **§4.1.3 详细化**：15 个加工记忆资源族每族一张完整字段表，含字段名 / 含义 / 数据类型 / 示例值 / 触发返回的 query_type / 优先级。
 > 6. **§3.1.3 所有 PC 信号子表补"含义"列**，便于读者快速理解字段语义。
 > 7. **§3.1.1 chat / pet_runtime_event payload 字段表新增**（§3.1.1.2 / §3.1.1.3），不再只给 enum 概述。
@@ -1871,14 +1873,27 @@ sequenceDiagram
 > 13. **profile 字段权限策略（对齐 user-portrait PRD）**：profile_meta 新增 `mutability_policy`（user_only / user_primary_ai_candidate / ai_inferred_writable 三档）、`review_status`（accepted / pending_user_review / rejected 状态机）、`last_user_edited_at` 三个字段；§4.1.3.4 / §4.1.3.5 `profile_identity` / `pet_relationship` 改为 user_only 类（删除 inferred 候选子表，指向 §4.2 user_control_state）。
 > 14. **时间戳三元组**：`last_user_edited_at` / `last_confirmed_at`（语义收窄）/ `last_system_processed_at` 拆分独立，三者不互相覆盖。
 > 15. **`feedback_reason` 改为 enum**：`accurate` / `not_accurate` / `not_like_me` / `wrong_tone` / `too_private` / `other`，对齐 user-portrait PRD §七.5。
-> 16. **`reject_reason` 子类型新增 §5.2.5**：所有 `rejected` ack 必带子类型，含 `policy_violation`（违反 mutability_policy）等 8 个子类型，便于客户端可解释 / 可重试。
+> 16. **`reject_reason` 子类型并入 §3.2.6**：所有 `rejected` ack 必带子类型，含 `policy_violation`（违反 mutability_policy）等 8 个子类型，便于客户端可解释 / 可重试。
 > 17. **`memory_digest` 删除**：原 v2 设计的"周期摘要预计算缓存"与 `episode` / `profile.summary` / `emotion_signal_derived.recent_distribution` 字段存在数据冗余，且未达成本/性能引入门槛。改为客户端 / 记忆系统在 `query_type=startup_context` 时**实时聚合**，不持久化 digest；相应删除 `push_type=memory_digest_ready`。详见 §4.1.3.12。
+> 18. **原 §5 Mutation / Ack 双向闭环整章删除**：v2 的 §5 包含 mermaid 状态机图、客户端处理建议等**工程实施细节**，不属于"数据需求文档"范畴。整章删除后做四处补丁：①ack envelope 字段定义并入 §3.2.6（mutation 配套小节）；②证据链贯穿合并为 §1.4 数据流原则第 7 条；③授权撤回 mermaid 时序图并入 §5.6 授权变更业务场景；④授权撤回的数据约束（24h 清理时限）汇总在 §7.1 隐私撤回数据约束。**后续 §6-§10 全部 -1**（场景接力图 §5、优先级 §6、隐私 §7、待确认 §8、验收 §9）。工程实施细节（状态机 mermaid、客户端处理建议）交由 Engineering Thread 在工程文档另行定义。
+> 19. **隐私 / 账号 / 弱感知补丁（基于 §8 待确认问题二次审视）**：
+>     - **`game_user_id_pseudonym` 每游戏独立**（隐私优先）：同一用户在不同游戏间的 pseudonym 不同，记忆系统不可跨游戏关联画像。详见 §2.2 envelope 字段表说明。
+>     - **envelope 新增 `game_sub_account_id` 字段**（P1，可选）：用户在同一游戏内的小号 / 大号 / 测试号区分；空表示主账号或游戏无多账号机制；同一 game_user_id_pseudonym 下不同 game_sub_account_id 的画像**互不合并**。
+>     - **弱感知 30s / 60s 档位限制**：普通用户在设置页可见档位为 300 / 600（默认）/ 1800 / off；30s 和 60s 因电池 / 性能 / 隐私感知压力大，仅在"高级设置页"开放并需弹窗二次确认。详见 §3.1.5.4 + §2.4。
+>     - **不补的待确认项**：①数据保留期限（不属本文档，由记忆系统团队内部决定）；②MCP MVP 14 app 具体优先级（保持 §3.1.4 已写的 5 领域顺序）；③character_resonance_assessment 与 user-portrait PRD 字段对齐（PRD 多出字段由画像服务派生，不入记忆系统）；④多 OS 账户共用桌宠（桌宠按 OS 账户独立安装配置，envelope 不加 os_user_id_hash）。
+> 20. **Diary 模块对接补丁（基于 Diary PRD 二次审视）**：
+>     - **`feedback_reason` enum 加 `boring`**：日记特有的"内容无聊"反馈选项，§3.2.2 + §4.1.3.15 同步。
+>     - **`vlm_visual.allow_local_save_for_diary` 子开关**：合并 Diary `privacy_grants.diary_screenshot` 到 vlm_visual 根开关下，作为子开关控制"高光时刻本地截图保存为日记插图"（原图永不上传，仅本地保留）。§3.1.5.4 新增。
+>     - **`mailbox_summary` / `diary_list` / `diary_detail` 三个 query_type 新增**：客户端 pull 时记忆系统实时聚合 `unread_count` / `latest_unread_diary_id` / `has_new_diary_bubble`，**不持久化** mailbox_status。§4.1.2 新增。
+>     - **`diary_reply` 新增 source_record**：作为独立 record_type，含 `reply_id` / `diary_id` / `reply_text` / `reply_intent`（positive/negative/correction/preference/casual/delete_request） / `created_at` 字段。记忆系统据 `reply_intent` 派生 feedback / 触发 derived_memory 更新。§3.1.6 新增。
+>     - **`diary_entry` target_type 升级**：从"未来扩展"升级为稳定，作为 `save` action 的标准 target_type；payload schema 由 Diary PRD §七.2 提供（含 30+ 字段，DFRS 视为开放 schema）。§3.2.3 同步。
+>     - **不补的 Diary 概念**：`mailbox_status`（实时聚合）/ `pet_reaction`（客户端现场生成）/ `diary_entry` UI 字段（card_visual_type / detail_layout_type 等）/ `character_config`（合作游戏接入资产）。
 >
 > **v2 → v1 既有变化（保留）**：
 > 1. 骨架从"传输契约 + 数据类别 + 场景"三层并列改为"按数据流向（上报 / 返回 / mutation）单线索"。
 > 2. 删除 v1 §4.8 `current_context` 字段表（纯本地对象不在本文档范围）。
 > 3. v1 §4.x 13 个业务类别表合并入 §3.1（事实源）/ §4.1（加工记忆）/ §4.2（控制状态），同一数据只讲一次。
-> 4. 新增 §1.2 客户端数据来源全貌图、§2.4 运营参数推荐值表、§5.4 授权撤回反向清理机制、§6 八个场景接力图。
+> 4. 新增 §1.2 客户端数据来源全貌图、§2.4 运营参数推荐值表、§5.6 授权撤回业务场景 + §7.1 数据约束、§5 八个场景接力图。
 > 5. 双向字段全部拆名（`emotion_signal_observed` / `_derived`，`playstyle_tags_user_set` / `_inferred` 等）。
 > 6. 游戏数据明确"通用事件清单 + 自定义事件 + IDIP 心跳 + 服务端 diff"四件套。
 > 7. MCP 路径明确"经客户端中转"。
