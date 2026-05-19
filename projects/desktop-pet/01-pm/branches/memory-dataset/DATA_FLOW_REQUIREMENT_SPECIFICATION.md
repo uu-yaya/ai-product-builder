@@ -81,7 +81,7 @@ flowchart LR
 | 分类 | 含义 | 谁写入 | 能否被自动覆盖 | 例子 |
 | --- | --- | --- | --- | --- |
 | **`source_record`**（事实源记录） | 客户端采集到的 raw 事实，原样上报给记忆系统。 | Client → Memory | 不会被自动覆盖；只能被失效（`is_active=false`）。 | `chat_message` / `game_event` / `pc_signal` / `vlm_observation` / `mcp_observation` |
-| **`derived_memory`**（加工记忆） | 记忆系统基于多条 `source_record` 后台加工出的可消费记忆。 | Memory → Client | 会被记忆系统重新加工而刷新；用户通过 `update` action（带 `is_correction=true`）可锁定。 | `atomic_facts` / `episode` / `profile.*` / `highlight_event` / `assessment` / `memory_digest` / `idip_delta` |
+| **`derived_memory`**（加工记忆） | 记忆系统基于多条 `source_record` 后台加工出的可消费记忆。 | Memory → Client | 会被记忆系统重新加工而刷新；用户通过 `update` action（带 `is_correction=true`）可锁定。 | `atomic_facts` / `episode` / `profile.*` / `highlight_event` / `assessment` / `idip_delta` |
 | **`user_control_state`**（用户控制状态） | 用户显式设置的授权 / 偏好 / 删除策略 / 称呼等；记忆系统持久化，客户端读取并严格执行。 | Client → Memory（mutation） | 永不被自动覆盖；只有用户 mutation 才能改。 | `privacy_grants.*` / `display_name` / `disturbance_boundaries` / `do_not_remember_rules[]` / `deletion_policy` |
 
 > **规则**：一条字段只能属于一类。如果一个业务概念既需要"客户端推导"又需要"记忆系统加工"，**拆成两个字段**（详见 §1.4 D3）。
@@ -782,7 +782,7 @@ sequenceDiagram
 | `update` | `target_resource_id` + `new_value` | `original_value`（留痕）、`is_correction`（true 时锁定字段不被 AI 后续覆盖）；如恢复 `is_active`：`new_value={is_active: true, ...}` | `feedback_value` |
 | `delete` | `target_resource_id` | `delete_reason` | `new_value` |
 | `request` | `request_type` | `request_params` | `target_resource_id`（除非流程指向具体对象，如 profile_reset 指向某 game_id 下的 profile） |
-| `feedback` | `target_resource_id` + `feedback_value` | `feedback_reason`（自由文本） | `new_value` |
+| `feedback` | `target_resource_id` + `feedback_value` | `feedback_reason`（**enum**，v2.1 对齐 user-portrait PRD：`accurate` / `not_accurate` / `not_like_me` / `wrong_tone` / `too_private` / `other`） | `new_value` |
 
 #### 3.2.3 target_type
 
@@ -803,26 +803,6 @@ sequenceDiagram
 | `assessment.use_for_companion` | 角色相似度测定 → 是否允许测定结果影响陪伴策略 | `update` | `update` |
 | `episode` | 单条情节摘要 | Memory 后台加工 | `update` / `delete` / `feedback` |
 | `atomic_fact` | 单条原子事实 | Memory 后台加工 | `update` / `delete` / `feedback` |
-
-#### 3.2.4 v2 → v2.1 mutation_type 映射
-
-| v2 mutation_type | v2.1 action | v2.1 target_type | 子参数 |
-| --- | --- | --- | --- |
-| `save_highlight` | `save` | `highlight` | — |
-| `add_do_not_remember_rule` | `save` | `rule.do_not_remember` | — |
-| `update_highlight` | `update` | `highlight` | new_value |
-| `update_profile_field` | `update` | `profile_field.*` | new_value |
-| `update_preferences` | `update` | `preference.*` | new_value |
-| `update_consent` | `update` | `consent.*` | new_value |
-| `set_assessment_use_for_companion` | `update` | `assessment.use_for_companion` | new_value |
-| `correct_memory` | `update` | `profile_field.*` / `episode` / ... | new_value + `is_correction=true` + original_value |
-| —（用户恢复已删除对象） | `update` | 任意失效对象 | new_value={is_active: true} |
-| —（用户接受 AI 推断） | `feedback` | `profile_field.*` 等推断结果 | feedback_value=`confirm` |
-| `delete_memory` | `delete` | 任意 | — |
-| `submit_feedback` | `feedback` | 任意 | feedback_value |
-| `request_resummarize` | `request` | — | request_type=resummarize_profile |
-| `request_character_similarity_assessment` | `request` | — | request_type=character_similarity_assessment |
-| `reset_profile` | `request` | — | request_type=profile_reset |
 
 #### 3.2.5 envelope 示例
 
@@ -994,7 +974,7 @@ sequenceDiagram
 
 | `query_type` | 客户端场景 | 返回内容（derived_memory） |
 | --- | --- | --- |
-| `startup_context` | 游戏 / 客户端启动 | 当前游戏下近期 `memory_digest` + 关键 `profile.summary` + 未处理提醒清单 + `consent_snapshot` |
+| `startup_context` | 游戏 / 客户端启动 | 当前游戏下近期 episode refs（实时聚合的 top N）+ 关键 `profile.summary` + 未处理提醒清单 + `consent_snapshot`；客户端按需现场聚合 top_events / top_emotions，不依赖持久化 digest |
 | `conversation_context` | 桌宠准备回应前 | 当前 `profile` 关键字段 + 近期 `atomic_facts[]` + `episode` refs + `disturbance_boundaries` |
 | `session_memory` | 一局结束 / 结算页 | 本 session 的 `episode` + `idip_delta` + `highlight_event` refs + 事件摘要 |
 | `profile_detail` | 画像页 / 对话前 | `profile.*` 全量 + `profile_meta`（含 evidence_ids） |
@@ -1038,19 +1018,19 @@ sequenceDiagram
 | `profile.summary.value` | 当前画像的整体一句话总结（AI 生成，用户可 request 重新总结） | string | "喜欢稳定策略型玩家，目前主玩排位刺客线" | startup_context / profile_detail | P0 |
 | `profile.summary.meta` | profile_meta（含 evidence_summary） | object | (同 4.1.3.15) | 同上 | P0 |
 
-##### 4.1.3.4 `profile_identity_inferred`
+##### 4.1.3.4 `profile_identity`（用户身份基本信息）
 
-| 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
-| --- | --- | --- | --- | --- | --- |
-| `profile_identity_inferred.preferred_call_name_candidate.value` | 由 chat 推断的桌宠对用户的称呼候选 | string | "队长" | profile_detail / conversation_context | P0 |
-| `profile_identity_inferred.preferred_call_name_candidate.meta` | profile_meta（含 generation_method=inferred） | object | { confidence:0.7, generation_method:"inferred", evidence_ids:[...] } | 同上 | P0 |
+> **本资源族字段 mutability_policy = `user_only`**（详见 §4.1.3.16）。即"用户希望桌宠如何称呼自己"等身份字段由用户**独占**设置，AI 不参与推断，不存在 `_inferred` 候选版本。
+>
+> 字段实际持久化值见 §4.2 `profile_identity_user_set`（`display_name` / `preferred_call_name`）。
+>
+> 客户端如需提示用户填写称呼，应通过 UI 引导用户主动 `update` mutation 写入，**不**应由 AI 推断后塞给用户确认。
 
-##### 4.1.3.5 `pet_relationship_inferred`
+##### 4.1.3.5 `pet_relationship`（用户对桌宠的关系定位）
 
-| 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
-| --- | --- | --- | --- | --- | --- |
-| `pet_relationship_inferred.relationship_mode_candidate.value` | 由互动推断的桌宠角色模式（朋友 / 助理 / 教练 等） | string | "coach" | profile_detail / conversation_context | P0 |
-| `pet_relationship_inferred.relationship_mode_candidate.meta` | profile_meta | object | (同 4.1.3.15) | 同上 | P0 |
+> **本资源族字段 mutability_policy = `user_only`**（详见 §4.1.3.16）。即"用户希望和桌宠是什么关系（朋友 / 助理 / 教练 等）"由用户**独占**选择，AI 不参与推断，不存在 `_inferred` 候选版本。
+>
+> 字段实际持久化值见 §4.2 `pet_relationship_user_set.relationship_mode`。
 
 ##### 4.1.3.6 `game_profile_inferred`
 
@@ -1129,16 +1109,16 @@ sequenceDiagram
 | `highlight_event.inactive_reason` | 失效原因（user_deleted / consent_revoked / expired 等） | enum | null | highlight_detail | P0 |
 | `highlight_event.inactive_at` | 失效时间 | ISO 8601 | null | highlight_detail | P0 |
 
-##### 4.1.3.12 `memory_digest`
+##### 4.1.3.12 `memory_digest`（**v2.1 终版：已删除，改为客户端现场聚合**）
 
-| 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
-| --- | --- | --- | --- | --- | --- |
-| `memory_digest.digest_id` | 摘要主键 | string | "digest_2026w20" | startup_context / profile_detail | P1 |
-| `memory_digest.period` | 摘要时间段 | object { start, end, granularity } | { start:"...", end:"...", granularity:"week" } | 同上 | P1 |
-| `memory_digest.profile_summary_ref` | 引用本期 profile.summary 的 ref | string | "profile_summary_ref_..." | startup_context | P1 |
-| `memory_digest.recent_episodes_ref` | 本期关键 episode refs | array&lt;string&gt; | ["episode_...","episode_..."] | startup_context | P1 |
-| `memory_digest.top_events` | 本期 top 事件文本概览 | array&lt;string&gt; | [...] | startup_context | P1 |
-| `memory_digest.top_emotions` | 本期主导情绪 | array&lt;string&gt; | ["excitement","frustration"] | startup_context | P1 |
+> **v2.1 决策**：原 v2 设计中 `memory_digest` 作为"周期摘要的预计算缓存"持久化，但其内容（top_events / top_emotions / recent_episodes_ref）均可从 `episode` + `emotion_signal_derived` + `profile.summary` 现场聚合得到，**与上述字段存在数据冗余**。
+>
+> v2.1 终版**取消 memory_digest 作为持久化 derived_memory**：
+> - 客户端 pull `query_type=startup_context` 时，记忆系统**实时**聚合 top N 个最近 `episode` refs + 当前 `profile.summary` + 当前 `emotion_signal_derived.recent_distribution`，组合返回；不存预计算 digest。
+> - 客户端如需"本周回顾 / 本月回顾"类视图，pull `query_type=session_memory` 或 `episode_detail` 后**本地聚合**生成 UI 文案，不要求记忆系统持久化。
+> - 相应地，§4.3.2 `push_type=memory_digest_ready` 也删除（见下节）；记忆系统不再主动推 digest 通知。
+>
+> 如未来 episode 数量过大导致 startup p99 超过 §2.4 的 200ms SLA，再评估是否引入 digest 缓存（届时作为 v2.2 增量）。
 
 ##### 4.1.3.13 `emotion_signal_derived`
 
@@ -1180,18 +1160,134 @@ sequenceDiagram
 | `meta.confidence` | 置信度 0-1（user_attested=true 时为 1.0） | number | 0.85 | 随每条 derived | P0 |
 | `meta.source_category[]` | 证据来源大类（chat / game_event / pc_signal / vlm / mcp / user_set） | array&lt;string&gt; | ["chat","game_event"] | 随每条 derived | P0 |
 | `meta.generation_method` | 生成方式（inferred / derived / user_set / hybrid） | enum | "inferred" | 随每条 derived | P0 |
+| `meta.mutability_policy` | **新增**。字段的 AI 可改性策略，决定 AI 流程能否写入 / 覆盖该字段（详见 §4.1.3.16） | enum (`user_only` / `user_primary_ai_candidate` / `ai_inferred_writable`) | "user_primary_ai_candidate" | 随每条 derived | **P0** |
+| `meta.review_status` | **新增**。字段当前在用户视角的审查状态（详见 §4.1.3.16 状态机） | enum (`accepted` / `pending_user_review` / `rejected`) | "accepted" | 随每条 derived | **P0** |
 | `meta.evidence_ids[]` | 强证据链：直接被引用的 source_record / episode IDs | array&lt;string&gt; | ["rec_...","episode_..."] | 随每条 derived | P0 |
 | `meta.evidence_summary` | 给用户看的证据短解释 | string | "源于近 30 天的 12 条聊天和 8 局排位" | 随每条 derived | P0 |
 | `meta.first_seen_at` | 首次出现时间 | ISO 8601 | "2026-04-21T10:00:00Z" | 随每条 derived | P0 |
-| `meta.last_confirmed_at` | 最近一次被新证据确认时间 | ISO 8601 | "2026-05-18T20:00:00Z" | 随每条 derived | P0 |
+| `meta.last_user_edited_at` | **新增**。用户最后一次 `update` / `correct` 该字段的时间；`null` 表示用户从未编辑过；记忆系统后台加工时必须保留 `last_user_edited_at` 非空字段的当前值不被覆盖 | ISO 8601 \| null | "2026-05-15T22:01:00Z" | 随每条 derived | **P0** |
+| `meta.last_confirmed_at` | **语义收窄（v2.1 终版）**。用户最后一次 `feedback` action 且 `feedback_value=confirm` 的时间，**不再**包含系统后台加工时间；`null` 表示用户从未 confirm 过 | ISO 8601 \| null | "2026-05-18T20:00:00Z" | 随每条 derived | P0 |
+| `meta.last_system_processed_at` | **新增**。记忆系统后台最近一次重新加工 / refresh 该字段的时间 | ISO 8601 | "2026-05-19T03:00:00Z" | 随每条 derived | P1 |
 | `meta.is_active` | 是否仍生效 | boolean | true | 随每条 derived | P0 |
 | `meta.inactive_reason` | 失效原因 | enum (user_deleted / user_rejected / expired / consent_revoked / conflict_with_newer_evidence) | null | 随每条 derived | P0 |
 | `meta.inactive_at` | 失效时间 | ISO 8601 | null | 随每条 derived | P0 |
 | `meta.decay_score` | 衰减分（用于排序，越低越旧） | number | 0.72 | 随每条 derived | P1 |
-| `meta.user_feedback` | 用户对该条的反馈（feedback action 写入） | enum (like / dislike / inaccurate / ignored / null) | null | 随每条 derived | P1 |
-| `meta.user_attested` | 是否被用户 `confirm` action 确认过 | boolean | false | 随每条 derived | P1 |
+| `meta.user_feedback` | 用户对该条的最近一次反馈（`feedback` action 写入） | enum (like / dislike / inaccurate / ignored / confirm / null) | null | 随每条 derived | P1 |
+| `meta.user_feedback_reason` | **新增**。用户反馈的细分原因（来自 `feedback.feedback_reason` enum，详见 §3.2.2） | enum (accurate / not_accurate / not_like_me / wrong_tone / too_private / other / null) | null | 随每条 derived | P1 |
+| `meta.user_attested` | 是否被用户 `feedback` action（`feedback_value=confirm`）确认过 | boolean | false | 随每条 derived | P1 |
 
 > **关键命名约定（实施 §1.4 D3）**：所有"既可能由客户端推导也可能由记忆系统加工"的概念字段都拆名。客户端上报版本以 `_observed` 结尾，记忆系统返回版本以 `_derived` 或 `_inferred` 结尾；用户显式设置版本以 `_user_set` 结尾。
+>
+> **时间戳三元组（v2.1 终版）**：
+> - `last_user_edited_at` —— 仅用户 `update` / `correct` 触发；用于"重新整理 / 加工时保留用户改过的字段"
+> - `last_confirmed_at` —— 仅用户 `feedback.feedback_value=confirm` 触发；用于"用户已认可，提升 confidence"
+> - `last_system_processed_at` —— 记忆系统后台加工触发；用于审计 / 排序衰减
+> 三者独立，不互相覆盖。
+
+##### 4.1.3.16 `mutability_policy` 字段权限策略与 `review_status` 状态机
+
+> **设计目的**：明确每条 derived_memory 字段"AI 能不能改、什么时候改、改完是否要等用户确认"，避免 AI 静默覆盖用户基本信息。
+
+###### A. `mutability_policy` 三档
+
+| 策略 | 含义 | 用户能写 | AI 能写 | AI 写入后的 review_status |
+| --- | --- | --- | --- | --- |
+| **`user_only`** | 用户独占字段。AI 流程**完全不能**写入，记忆系统拒绝来自 AI 推断流程的 mutation（返回 `rejected: policy_violation`） | ✅ user `update` / `delete` | ❌ AI 不能写 | — |
+| **`user_primary_ai_candidate`** | 用户主导。用户 `update` 直接覆盖且写入 `accepted`；AI 后台推断可写入新候选值但**强制** `review_status=pending_user_review`，必须等用户 `feedback.feedback_value=confirm` 才能升格为 `accepted` | ✅ 直接覆盖 + accepted | 🟡 写入候选 + pending_user_review | `pending_user_review` |
+| **`ai_inferred_writable`** | AI 可自由推断 / 覆盖；用户仍可 `update` 介入，且 `update + is_correction=true` 锁定后 AI 不再覆盖 | ✅ 任意时刻覆盖 | ✅ 后台加工随时覆盖 | `accepted` |
+
+###### B. 各资源族 `mutability_policy` 映射
+
+| 资源族 / 字段 | mutability_policy |
+| --- | --- |
+| `profile_identity.*`（user_set） | **user_only** |
+| `pet_relationship.relationship_mode`（user_set） | **user_only** |
+| `privacy_grants.*` | **user_only** |
+| `diary_style.*` | **user_only** |
+| `content_type.*` | **user_only** |
+| `companion_profile_user_set.disturbance_boundaries` | **user_only** |
+| `companion_profile_user_set.emotion_support_preference` | **user_only** |
+| `game_profile_inferred.favorite_roles_inferred` | **user_primary_ai_candidate** |
+| `game_profile_inferred.favorite_modes_inferred` | **user_primary_ai_candidate** |
+| `game_profile_inferred.game_goals_inferred` | **user_primary_ai_candidate** |
+| `playstyle_profile_inferred.playstyle_tags_inferred` | **user_primary_ai_candidate** |
+| `playstyle_profile_inferred.risk_preference_inferred` | **user_primary_ai_candidate** |
+| `playstyle_profile_inferred.learning_stage_inferred` | **user_primary_ai_candidate** |
+| `companion_profile_inferred.preferred_conversation_topics_inferred` | **user_primary_ai_candidate** |
+| `companion_profile_inferred.avoided_conversation_topics_inferred` | **user_primary_ai_candidate** |
+| `progress_profile_derived.current_goal_inferred` | **ai_inferred_writable** |
+| `progress_profile_derived.stuck_points_inferred` | **ai_inferred_writable** |
+| `progress_profile_derived.recent_achievements_inferred` | **ai_inferred_writable** |
+| `progress_profile_derived.long_term_milestones_derived` | **ai_inferred_writable** |
+| `social_profile.social_preference_inferred` | **ai_inferred_writable** |
+| `emotion_signal_derived.*` | **ai_inferred_writable** |
+| `profile.summary` | **ai_inferred_writable**（但用户可 `request { request_type: resummarize_profile }` 强制重算） |
+| `atomic_facts[]` / `episode` / `idip_delta` / `idip_anomaly` / `idip_milestone` / `highlight_event`（候选） | **ai_inferred_writable**（用户可 `delete` / `feedback`） |
+| `highlight_event`（用户保存版本） | **ai_inferred_writable** 但保存后 `is_correction=true` 锁定标题 / 标签 |
+
+###### C. `review_status` 状态机
+
+```
+                            ┌────────────────────────────────────────┐
+                            │           review_status 状态机          │
+                            └────────────────────────────────────────┘
+
+  ━━ user_only 字段 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        [字段初始未设置]
+              │
+              ▼
+        用户 update / save  ─────→  accepted
+              │
+              └─→ 用户 delete  ─────→  is_active=false（不进入 review 状态）
+
+  ━━ user_primary_ai_candidate 字段 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        [字段初始未设置]
+              │
+              ├─→ 用户 update  ────────────→  accepted（用户主动写入）
+              │
+              └─→ AI 后台推断写入  ─────────→  pending_user_review
+                                                      │
+                                       ┌──────────────┼──────────────┐
+                                       ▼              ▼              ▼
+                              feedback=confirm    feedback=dislike   用户 update
+                                  / like           / inaccurate     （直接改值）
+                                       │              │              │
+                                       ▼              ▼              ▼
+                                  accepted       rejected         accepted
+
+  ━━ ai_inferred_writable 字段 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+        [AI 后台推断 / 用户 update]
+              │
+              └────────────────────────→  accepted（直接生效，不进入 pending）
+                                              │
+                                              └─→ 用户 feedback=dislike  ─→  is_active=false
+```
+
+###### D. 客户端 / 画像服务派生规则
+
+记忆系统**只存** review_status；主页面 / 缓冲页面归属由客户端 / 画像服务现场派生，**不持久化**：
+
+```python
+def get_display_tier(field):
+    if field.meta.is_active == False:
+        return "hidden"
+    if field.meta.review_status == "rejected":
+        return "hidden"
+    if field.meta.review_status == "pending_user_review":
+        return "more_discovery"  # 缓冲区（PRD 的"更多发现"二级星图）
+    if field.meta.review_status == "accepted":
+        return "main"             # 主星图
+```
+
+###### E. `mutation` 与 `review_status` 的写入规则速查
+
+| mutation | 作用于 user_only 字段 | 作用于 user_primary_ai_candidate 字段 | 作用于 ai_inferred_writable 字段 |
+| --- | --- | --- | --- |
+| 用户 `update` | ✅ accepted；更新 `last_user_edited_at` | ✅ accepted；清空 pending_user_review；更新 `last_user_edited_at` | ✅ accepted；更新 `last_user_edited_at`；如带 `is_correction=true` 则锁定 |
+| 用户 `delete` | ✅ is_active=false | ✅ is_active=false | ✅ is_active=false |
+| 用户 `feedback (confirm)` | ✅ user_attested=true；不变 review_status | ✅ accepted（升格 pending → accepted） | ✅ user_attested=true；confidence→1.0 |
+| 用户 `feedback (dislike/inaccurate)` | — | ✅ rejected | ✅ is_active=false |
+| AI 流程写入 | ❌ **rejected: policy_violation** | ✅ pending_user_review；不覆盖 `last_user_edited_at` 非空字段（即用户改过的不动） | ✅ accepted；不覆盖 `last_user_edited_at` 非空 + `is_correction=true` 字段 |
 
 #### 4.1.4 Pull Response 示例（`session_memory`）
 
@@ -1257,7 +1353,6 @@ sequenceDiagram
 
 | `push_type` | 触发 | 客户端典型反应 | 优先级 |
 | --- | --- | --- | --- |
-| `memory_digest_ready` | 低频摘要生成或刷新 | 低打扰提示 + 必要时 pull `memory_digest` | P1 |
 | `episode_ready` | 新情节摘要可用 | 在对话 / 日记 / 复盘场景 pull `episode_detail` | P0 |
 | `profile_updated` | `profile` / `profile_meta` 有变化 | 画像页刷新 / 对话前 pull `profile_detail` | P0 |
 | `highlight_ready` | 新高光候选 / 高光详情可用 | 结算页 / 高光页 pull `highlight_detail` | P1 |
@@ -1271,7 +1366,7 @@ sequenceDiagram
 
 - 同 `resource_ref` 在 `push_dedup_window_sec=30` 秒内只推送一次。
 - `resource_invalidated` 不去重（强一致优先）。
-- 离线期间堆积的 push 在客户端上线后按 `created_at` 时序 replay，过期（>1h）的 `memory_digest_ready` 与 `mcp_summary_ready` 可丢弃。
+- 离线期间堆积的 push 在客户端上线后按 `created_at` 时序 replay，过期（>1h）的 `mcp_summary_ready` 可丢弃。
 
 **Push 示例**：
 
@@ -1345,11 +1440,26 @@ stateDiagram-v2
 | `ack_status` | 适用场景 | 含义 | 客户端处理 |
 | --- | --- | --- | --- |
 | `applied` | 同步 / 异步 / 批量 | 已完成变更 | 刷新 UI；按 `updated_resource_refs[]` 重新 pull |
-| `rejected` | 同步 / 异步 / 批量 | 拒绝（无权限 / 目标不存在 / 资源已失效 / schema 违规 / 不可恢复） | 展示失败原因；不进入本地成功态 |
+| `rejected` | 同步 / 异步 / 批量 | 拒绝（无权限 / 目标不存在 / 资源已失效 / schema 违规 / 不可恢复 / 见下方 `reject_reason` 子类型） | 展示失败原因；不进入本地成功态 |
 | `deferred` | 同步 / 异步 | 系统繁忙暂缓，客户端按 `retry_after_sec` 重发 | 显示"稍后重试"或自动 backoff |
 | `pending` | 异步 | 已入队，未开始处理 | 显示"处理中"；等 push / 轮询 |
 | `in_progress` | 异步 | 后台已开始处理 | 显示"处理中"；可显示进度 |
 | `partial_success` | 批量 | 批量中部分成功 | 刷新成功部分；失败项提示或重试 |
+
+#### 5.2.5 `rejected` 子类型 `reject_reason`（**v2.1 新增**）
+
+`rejected` 时记忆系统必须返回 `reject_reason` 子类型，让客户端可解释 / 可重试：
+
+| `reject_reason` | 触发场景 | 客户端建议 |
+| --- | --- | --- |
+| `permission_denied` | 当前授权不足（如 `privacy_grants.profile_inference=false` 时尝试 `request resummarize_profile`） | 引导用户开启对应授权 |
+| `target_not_found` | `target_resource_id` 在记忆系统不存在 | 刷新 / 提示资源已失效 |
+| `target_inactive` | 目标资源已 `is_active=false`（除 `update` 改 `is_active=true` 的恢复操作外） | 不重试；提示用户资源已删除 |
+| `schema_violation` | payload schema 不合法（如 `update` 缺 new_value / `feedback` 带 new_value） | 客户端代码 bug，不应面向用户 |
+| `version_conflict` | （v2.2 引入 node_version 后）客户端 expected_version 与服务端不一致 | 拉取最新值后让用户选择覆盖或放弃 |
+| **`policy_violation`** | **v2.1 新增**。违反 `mutability_policy` —— 例如 AI 流程尝试 `update` 一个 `user_only` 字段（如 `update + privacy_grants.*`） | 不重试；记录日志；不应面向用户（这是 AI 流程的 bug） |
+| `unrecoverable_state` | 目标处于不可恢复状态（如 `restore` 一个 `inactive_reason=conflict_with_newer_evidence` 的对象） | 提示用户该对象不可恢复 |
+| `consent_cascade_blocked` | mutation 在授权撤回清理期间被阻塞 | 等待 `consent_cascade_completed` push 后重试 |
 
 **Ack envelope**：
 
@@ -1709,6 +1819,9 @@ sequenceDiagram
 | 8 | MCP app 若客户端长期离线，是否允许 MCP server 端临时缓存？ | 默认不允许；客户端是数据流唯一节点 |
 | 9 | 服务端 idip diff 的"显著变化"阈值如何定义？ | 由 Memory 团队定可配置规则；建议起点：level / rank / chapter / gold > 阈值 |
 | 10 | 双向字段拆名（`_observed` / `_derived` / `_inferred` / `_user_set`）是否需要在 schema 检查工具中强制？ | 建议是；Engineering 实施时加 schema lint |
+| 11 | profile_meta 新增的 `node_version` / 并发控制是否 v2.2 引入？ | 当前桌宠单端使用，多端并发场景极少；v2.1 不引入；如未来上线多端（桌面 + 网页 + 移动）同步，v2.2 加 `node_version` + `version_conflict` ack 子类型 |
+| 12 | `mutability_policy` 字段映射是否需要在每个游戏接入时按游戏特性微调？ | 建议默认遵守 §4.1.3.16 映射表；单个游戏如有特殊需求（如某游戏的 `game_goals_inferred` 应升级为 `ai_inferred_writable`），由 PM + Engineering review 后写入该游戏接入配置 |
+| 13 | `review_status=pending_user_review` 的字段如果 30 天用户都没看 / 没反馈，怎么处理？ | 建议 30 天后自动转 `is_active=false, inactive_reason=expired`；记忆系统不再持续推送；用户在 Memory Center 仍可在审计页查看 |
 
 ---
 
@@ -1732,6 +1845,11 @@ sequenceDiagram
 | 14 | **授权撤回有反向清理机制** | 撤回任一 `privacy_grants.*` 后，§5.4 流程完成，受影响 derived_memory 在 24h 内标失效 |
 | 15 | **运营参数有默认推荐值** | §2.4 全部参数都有起点值与单位，标"Engineering 可调优" |
 | 16 | **场景接力图覆盖核心流程** | §6 八个场景的 Mermaid 图与表格能让读者一眼看完闭环；所有 mutation 写法已对齐新 `action × target_type` |
+| 17 | **字段权限策略 `mutability_policy` 落地** | 每条 derived_memory 字段 `profile_meta.mutability_policy` 必填且属 `user_only` / `user_primary_ai_candidate` / `ai_inferred_writable` 三选一；AI 后台流程尝试写入 `user_only` 字段时记忆系统返回 `rejected: policy_violation`；详见 §4.1.3.16 |
+| 18 | **`review_status` 状态机落地** | `user_only` 字段无 review；`user_primary_ai_candidate` 字段 AI 写入强制 `pending_user_review`，用户 `feedback=confirm` / `update` 后升 `accepted`；`ai_inferred_writable` 字段 AI 写入直接 `accepted`；客户端 / 画像服务由 review_status 派生主 / 缓冲页归属，**不持久化** display_tier |
+| 19 | **时间戳三元组语义独立** | `last_user_edited_at`（仅 update / correct 触发）/ `last_confirmed_at`（仅 feedback=confirm 触发）/ `last_system_processed_at`（系统后台触发）三者独立，记忆系统加工时**保留 `last_user_edited_at` 非空字段的当前值** |
+| 20 | **`feedback_reason` 对齐 user-portrait PRD** | `feedback_reason` 为 enum：`accurate` / `not_accurate` / `not_like_me` / `wrong_tone` / `too_private` / `other`；与 PRD §七.5 portrait_feedback.reason 一致 |
+| 21 | **`reject_reason` 子类型完整** | 所有 `rejected` ack 必带 `reject_reason` 子类型（permission_denied / target_not_found / target_inactive / schema_violation / version_conflict / policy_violation / unrecoverable_state / consent_cascade_blocked），详见 §5.2.5 |
 
 ---
 
@@ -1750,6 +1868,11 @@ sequenceDiagram
 > 10. **§3.1.3.5 PC 信号示例**按 4 个典型子类（active_app / input_digest / now_playing / tab + OSA Bridge）各给一个示例。
 > 11. **§3.1.4 MCP MVP 接入清单**扩展到 5 个领域：工作 / 购物 / 娱乐 / 音乐 / 社交。
 > 12. **§2.4 运营参数全部补单位**（秒 / 分钟 / 小时 / 毫秒 / 条），并新增弱感知 / MCP 拉取相关参数。
+> 13. **profile 字段权限策略（对齐 user-portrait PRD）**：profile_meta 新增 `mutability_policy`（user_only / user_primary_ai_candidate / ai_inferred_writable 三档）、`review_status`（accepted / pending_user_review / rejected 状态机）、`last_user_edited_at` 三个字段；§4.1.3.4 / §4.1.3.5 `profile_identity` / `pet_relationship` 改为 user_only 类（删除 inferred 候选子表，指向 §4.2 user_control_state）。
+> 14. **时间戳三元组**：`last_user_edited_at` / `last_confirmed_at`（语义收窄）/ `last_system_processed_at` 拆分独立，三者不互相覆盖。
+> 15. **`feedback_reason` 改为 enum**：`accurate` / `not_accurate` / `not_like_me` / `wrong_tone` / `too_private` / `other`，对齐 user-portrait PRD §七.5。
+> 16. **`reject_reason` 子类型新增 §5.2.5**：所有 `rejected` ack 必带子类型，含 `policy_violation`（违反 mutability_policy）等 8 个子类型，便于客户端可解释 / 可重试。
+> 17. **`memory_digest` 删除**：原 v2 设计的"周期摘要预计算缓存"与 `episode` / `profile.summary` / `emotion_signal_derived.recent_distribution` 字段存在数据冗余，且未达成本/性能引入门槛。改为客户端 / 记忆系统在 `query_type=startup_context` 时**实时聚合**，不持久化 digest；相应删除 `push_type=memory_digest_ready`。详见 §4.1.3.12。
 >
 > **v2 → v1 既有变化（保留）**：
 > 1. 骨架从"传输契约 + 数据类别 + 场景"三层并列改为"按数据流向（上报 / 返回 / mutation）单线索"。
