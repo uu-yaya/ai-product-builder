@@ -252,7 +252,7 @@ flowchart LR
 | `success` | `realtime_push` | 通用成功事件（通关 / 杀敌 / 任务完成等业务集合） | `session_id` / `success_category` | P0 |
 | `fail` | `realtime_push` | 通用失败事件（死亡 / 卡关 / 任务失败等） | `session_id` / `fail_category` | P0 |
 
-##### 3.1.2.2 IDIP 心跳与服务端 diff（无 SDK 实时事件的游戏方案）
+##### 3.1.2.2 IDIP 心跳与服务端 diff（无 SDK 实时事件的游戏获取数据方案）
 
 不是所有游戏都有 SDK 实时事件流。**统一方案**：客户端按 §2.4 推荐 60s 间隔上报完整 `idip_snapshot`，记忆系统服务端做相邻快照 diff，生成 `idip_delta` 推回客户端。客户端不做本地 diff，避免双端状态不一致。
 
@@ -296,7 +296,7 @@ sequenceDiagram
 
 ##### 3.1.2.3 游戏自定义事件
 
-游戏有 SDK 的，可在通用事件之外追加自定义 `event_type`（`event_mode=realtime_push`），通过 `custom_fields` 携带特定字段。`custom_fields` schema 由游戏接入方与 PM 共同 review，**白名单制**，禁止承载真实账号、付费记录、实名信息。
+游戏有 SDK 的，可在通用事件之外追加自定义 `event_type`（`event_mode=realtime_push`），通过 `custom_fields` 携带特定字段。`custom_fields`禁止承载真实账号、付费记录、实名信息。
 
 **示例**：
 
@@ -334,8 +334,6 @@ sequenceDiagram
 | `derived_by_memory` | 服务端 diff 生成（仅用于 `idip_delta` / `idip_milestone` 等 derived_memory，不出现在 source_record） | Memory |
 
 #### 3.1.3 PC 环境信号
-
-> 设计取舍（v2 决策）：原 v1 中"行为数据 - PC 进程"、"行为数据 - mac/win API"、"游戏外 PC 数据（音频/Now Playing/浏览器 tab/OSA Bridge）"合并为一节 **PC 环境信号**，按子表分四类。
 
 ##### 3.1.3.1 active_app 与 idle 信号
 
