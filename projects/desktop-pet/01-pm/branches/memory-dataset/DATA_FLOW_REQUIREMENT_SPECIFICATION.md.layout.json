@@ -759,6 +759,16 @@
           "row": 8,
           "col": 5,
           "align": "center"
+        },
+        {
+          "row": 9,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 9,
+          "col": 3,
+          "align": "center"
         }
       ]
     },
@@ -845,7 +855,7 @@
     {
       "index": 10,
       "cols": [
-        204,
+        340,
         172,
         351
       ],
