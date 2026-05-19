@@ -179,11 +179,9 @@ flowchart LR
 | **用户主动触发** | 所有 mutation，例如：`user_action.save_highlight` / `user_action.delete_memory` / `user_action.correct_memory` / `user_action.confirm_profile` / `user_action.request_resummarize` / `user_action.submit_feedback` / `consent_update` | 否 | 用户操作后 ≤ 1s | 必须有 ack |
 | **批量补传** | 离线期间积压的所有上述类型 | 是 | 网络恢复后 ≤ 30s 内启动 | 每条仍带独立 `record_id` / `occurred_at` / `consent_snapshot_id` |
 
-### 2.4 运营参数默认推荐值
+### 2.4 参数参考值
 
-> 以下为 PM 建议起点，最终由 Engineering Thread 根据真实压测结果调优；调优后回写到 `decisions/DECISION_LOG.md`。
-
-| 参数 | 推荐值 | 备注 |
+| 参数 | 参考值 | 备注 |
 | --- | --- | --- |
 | `idip_heartbeat_interval_sec` | **60** | 无 SDK 实时事件的游戏；快节奏游戏可降至 30，慢节奏可升至 120 |
 | `pc_signal_heartbeat_sec` | **30** | active_app / idle_signal / is_fullscreen_game 三字段最低频率 |
