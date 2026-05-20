@@ -826,6 +826,261 @@ sequenceDiagram
 
 **永禁字段重申**：第三方聊天正文 / 邮件正文 / 文档正文 / 会议正文 / 附件内容 / 朋友圈正文 / 私信内容 / 真实账号 / 财务详情 / 未授权 app 数据。
 
+##### 3.1.4.1 `mcp_observation` payload 字段表
+
+| 字段 | 含义 | 数据类型 | 必填 | 示例值 | 优先级 |
+| --- | --- | --- | --- | --- | --- |
+| `mcp_app_id` | MCP app 唯一标识（feishu / dida / netease_music / bilibili / taobao 等） | string | 是 | "feishu" | P0 |
+| `mcp_event_type` | 上报触发类型（区分客户端定时拉 vs MCP app 主动推） | enum (`scheduled_pull` / `push_notification`) | 是 | "scheduled_pull" | P0 |
+| `summary_source_type` | 数据维度类型（让 Memory 区分如何加工，见 §3.1.4.3 枚举清单） | enum | 是 | "task_summary" | P0 |
+| `app_generated_summary` | app **自生成**的一句话摘要（**非**客户端 AI 加工，是 MCP app 直接提供的短文本） | string | 否 | "今天有 3 个待办，2 个会议" | P1 |
+| `task_titles[]` | 任务 / 待办标题数组（**仅标题，永禁正文**） | array&lt;string&gt; | 否 | ["写周报", "提交报销"] | P1 |
+| `metadata_summary` | 结构化元数据（按 app 类型决定子字段，object 兜底） | object | 否 | `{ unread_count: 5, today_meetings: 2 }` | P1 |
+| `external_event_data` | MCP app **主动 push** 时携带的事件详情（仅 `mcp_event_type=push_notification` 时填） | object | 否 | `{ event: "new_message", from: "team_channel" }` | P1 |
+| `mcp_pull_metadata` | 客户端拉取元信息（拉取时间 / token 是否刷新 / 是否降级），用于审计 | object | 否 | `{ started_at: "...", auth_refreshed: false }` | P2 |
+
+##### 3.1.4.2 envelope JSON 示例
+
+**示例 1：飞书 `scheduled_pull`（工作类，客户端定时拉取）**
+
+```json
+{
+  "envelope_version": "1.0",
+  "record_id": "rec_mcp_feishu_20260520_001",
+  "record_type": "mcp_observation",
+  "game_id": "wangzhe",
+  "game_user_id_pseudonym": "u_hash_123",
+  "game_sub_account_id": null,
+  "occurred_at": "2026-05-20T09:30:00Z",
+  "sent_at": "2026-05-20T09:30:01Z",
+  "consent_snapshot_id": "consent_20260520_001",
+  "trigger_cause": "scheduled",
+  "delivery_mode": "realtime",
+  "payload_schema_version": "mcp_observation.v1",
+  "payload": {
+    "mcp_app_id": "feishu",
+    "mcp_event_type": "scheduled_pull",
+    "summary_source_type": "task_summary",
+    "app_generated_summary": "今天有 3 个待办，2 个会议，1 个逾期任务",
+    "task_titles": [
+      "写本周周报",
+      "提交 4 月报销",
+      "审核游戏接入合同"
+    ],
+    "metadata_summary": {
+      "unread_messages_count": 5,
+      "today_meetings_count": 2,
+      "today_first_meeting_time": "10:30",
+      "today_last_meeting_time": "16:00",
+      "overdue_tasks_count": 1,
+      "pending_approvals_count": 0
+    },
+    "mcp_pull_metadata": {
+      "started_at": "2026-05-20T09:29:58Z",
+      "completed_at": "2026-05-20T09:30:00Z",
+      "auth_refreshed": false
+    }
+  }
+}
+```
+
+**示例 2：网易云音乐 `scheduled_pull`（音乐类）**
+
+```json
+{
+  "envelope_version": "1.0",
+  "record_id": "rec_mcp_netease_20260520_001",
+  "record_type": "mcp_observation",
+  "game_id": "wangzhe",
+  "game_user_id_pseudonym": "u_hash_123",
+  "game_sub_account_id": null,
+  "occurred_at": "2026-05-20T22:15:00Z",
+  "sent_at": "2026-05-20T22:15:02Z",
+  "consent_snapshot_id": "consent_20260520_001",
+  "trigger_cause": "scheduled",
+  "delivery_mode": "realtime",
+  "payload_schema_version": "mcp_observation.v1",
+  "payload": {
+    "mcp_app_id": "netease_music",
+    "mcp_event_type": "scheduled_pull",
+    "summary_source_type": "playback_summary",
+    "app_generated_summary": "今天听了 18 首歌，主要是 Lofi 和 Chillhop 风格",
+    "metadata_summary": {
+      "tracks_played_count": 18,
+      "top_genres": ["lofi", "chillhop", "jazz_hiphop"],
+      "current_playing_title": "Lofi Study Beats",
+      "current_playing_artist": "Various Artists",
+      "playlist_id_used": "user_daily_recommend",
+      "session_duration_min": 95
+    }
+  }
+}
+```
+
+**示例 3：哔哩哔哩 `push_notification`（娱乐类，MCP app 主动推）**
+
+```json
+{
+  "envelope_version": "1.0",
+  "record_id": "rec_mcp_bilibili_20260520_001",
+  "record_type": "mcp_observation",
+  "game_id": "wangzhe",
+  "game_user_id_pseudonym": "u_hash_123",
+  "game_sub_account_id": null,
+  "occurred_at": "2026-05-20T21:08:30Z",
+  "sent_at": "2026-05-20T21:08:31Z",
+  "consent_snapshot_id": "consent_20260520_001",
+  "trigger_cause": "event_driven",
+  "delivery_mode": "realtime",
+  "payload_schema_version": "mcp_observation.v1",
+  "payload": {
+    "mcp_app_id": "bilibili",
+    "mcp_event_type": "push_notification",
+    "summary_source_type": "playback_summary",
+    "app_generated_summary": "用户开始看关注 UP 主的新视频",
+    "external_event_data": {
+      "event": "video_play_started",
+      "video_category": "knowledge_tech",
+      "uploader_subscribed": true,
+      "video_duration_min": 12
+    }
+  }
+}
+```
+
+**示例 4：淘宝 `push_notification`（购物类，MCP app 主动推订单状态变更）**
+
+```json
+{
+  "envelope_version": "1.0",
+  "record_id": "rec_mcp_taobao_20260520_001",
+  "record_type": "mcp_observation",
+  "game_id": "wangzhe",
+  "game_user_id_pseudonym": "u_hash_123",
+  "game_sub_account_id": null,
+  "occurred_at": "2026-05-20T14:25:00Z",
+  "sent_at": "2026-05-20T14:25:01Z",
+  "consent_snapshot_id": "consent_20260520_001",
+  "trigger_cause": "event_driven",
+  "delivery_mode": "realtime",
+  "payload_schema_version": "mcp_observation.v1",
+  "payload": {
+    "mcp_app_id": "taobao",
+    "mcp_event_type": "push_notification",
+    "summary_source_type": "order_summary",
+    "app_generated_summary": "您有 2 件商品已发货",
+    "external_event_data": {
+      "event": "shipment_status_changed",
+      "from_status": "preparing",
+      "to_status": "shipped",
+      "items_count": 2,
+      "items_categories": ["electronics", "books"]
+    },
+    "metadata_summary": {
+      "pending_shipments_count": 1,
+      "in_transit_count": 2,
+      "awaiting_pickup_count": 0,
+      "active_orders_total": 3
+    }
+  }
+}
+```
+
+> **约束**：永禁字段包括 —— ❌ 收件人姓名 / 收货地址 / 电话 / 支付方式 / 支付金额 / 具体商品标题（含商品 SKU 名）/ 卖家昵称 / 评价正文。**仅允许**：订单数量、状态枚举、商品**大类**（electronics / books / clothing / food 等粗类别）、时间戳。
+
+**示例 5：小红书 `scheduled_pull`（社交类，客户端定时拉取通知元数据）**
+
+```json
+{
+  "envelope_version": "1.0",
+  "record_id": "rec_mcp_xhs_20260520_001",
+  "record_type": "mcp_observation",
+  "game_id": "wangzhe",
+  "game_user_id_pseudonym": "u_hash_123",
+  "game_sub_account_id": null,
+  "occurred_at": "2026-05-20T20:00:00Z",
+  "sent_at": "2026-05-20T20:00:02Z",
+  "consent_snapshot_id": "consent_20260520_001",
+  "trigger_cause": "scheduled",
+  "delivery_mode": "realtime",
+  "payload_schema_version": "mcp_observation.v1",
+  "payload": {
+    "mcp_app_id": "xiaohongshu",
+    "mcp_event_type": "scheduled_pull",
+    "summary_source_type": "notification_summary",
+    "app_generated_summary": "今天有 3 条关注更新，5 个点赞，无未读私信",
+    "metadata_summary": {
+      "unread_messages_count": 0,
+      "new_followers_count": 2,
+      "today_new_posts_from_followed": 3,
+      "today_likes_received": 5,
+      "today_comments_received": 1,
+      "today_mentions_count": 0
+    },
+    "mcp_pull_metadata": {
+      "started_at": "2026-05-20T19:59:58Z",
+      "completed_at": "2026-05-20T20:00:00Z",
+      "auth_refreshed": false
+    }
+  }
+}
+```
+
+> **约束**：永禁字段 —— 私信正文 / 评论正文 / 笔记正文 / 朋友圈正文 / 关注者具体昵称 / 用户头像 / 群名 / 群成员列表 / 关键词搜索历史 / 浏览历史中的具体笔记 ID 或标题。 
+> ​**仅允许**：未读数量、关注 / 点赞 / 评论 / 提及的**纯计数**、时间戳。 
+> ​`app_generated_summary` 由 app 自生成（如"3 条更新 / 5 个点赞"这种聚合数字），**禁止**包含任何具体用户名 / 内容片段。
+
+**示例 6：微信 `push_notification`（社交类，最严边界 / 仅元数据）**
+
+```json
+{
+  "envelope_version": "1.0",
+  "record_id": "rec_mcp_wechat_20260520_001",
+  "record_type": "mcp_observation",
+  "game_id": "wangzhe",
+  "game_user_id_pseudonym": "u_hash_123",
+  "game_sub_account_id": null,
+  "occurred_at": "2026-05-20T19:30:00Z",
+  "sent_at": "2026-05-20T19:30:01Z",
+  "consent_snapshot_id": "consent_20260520_001",
+  "trigger_cause": "event_driven",
+  "delivery_mode": "realtime",
+  "payload_schema_version": "mcp_observation.v1",
+  "payload": {
+    "mcp_app_id": "wechat",
+    "mcp_event_type": "push_notification",
+    "summary_source_type": "notification_summary",
+    "app_generated_summary": "您有未读消息（来源：1 个群聊 + 2 位好友）",
+    "external_event_data": {
+      "event": "new_message_received",
+      "chat_type_distribution": {
+        "group": 1,
+        "friend": 2,
+        "official_account": 0
+      }
+    },
+    "metadata_summary": {
+      "unread_messages_total": 5,
+      "unread_chats_count": 3
+    }
+  }
+}
+```
+
+> **约束：**`app_generated_summary` 中**禁止**出现具体好友昵称 / 群名 / 消息片段。`external_event_data.chat_type_distribution` 仅传**类型计数**（group / friend / official_account 几个枚举），不传任何具体 ID / 名称。设计原则：桌宠只需要知道"用户在 IM 上忙不忙"，不需要知道"用户在跟谁说什么"。
+
+##### 3.1.4.3 `summary_source_type` enum 清单
+
+| enum 值 | 适用 app 类别 | 含义 | 典型 metadata_summary 子字段 |
+| --- | --- | --- | --- |
+| `task_summary` | 工作类（飞书 / 钉钉 / Trello / dida） | 任务 / 待办 / 会议 元数据 | unread_messages_count / today_meetings_count / overdue_tasks_count |
+| `playback_summary` | 音乐 / 娱乐类（网易云 / Spotify / B 站 / 抖音 / 优酷） | 播放历史 / 当前播放元数据 | tracks_played_count / top_genres / current_playing_title / session_duration_min |
+| `order_summary` | 购物类（淘宝 / 京东 / 拼多多） | 订单状态 / 收藏 / 待发货 元数据 | pending_shipments_count / favorites_count / unread_promotions_count |
+| `notification_summary` | 社交类（微信元数据 / 小红书 / 微博） | 未读数 / 关注更新 元数据 | unread_messages_count / new_followers_count / mention_count |
+| `other` | 兜底 | 其他类型 | 自由 object |
+
+> **数据边界（重申）**：`task_titles[]` 只列标题；`metadata_summary` 只承载**数量 / 时间 / 枚举类**元数据；`external_event_data` 只承载推送事件的**结构化元数据**。任何 app 的**正文 / 内容 / 用户私人数据**永禁出现。
+
 #### 3.1.5 VLM 语义观察
 
 > **核心约束**：强感知 = 实时陪伴，**不入记忆**；弱感知 = 长期数据源，**入记忆**
