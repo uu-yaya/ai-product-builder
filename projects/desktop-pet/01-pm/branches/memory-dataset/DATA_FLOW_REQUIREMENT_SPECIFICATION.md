@@ -95,7 +95,7 @@ flowchart LR
 | 4 | **双向字段必拆名** | 同一业务概念若客户端和记忆系统都要写，拆成两个字段（如 `emotion_signal_observed` / `emotion_signal_derived`，`playstyle_tags_user_set` / `playstyle_tags_inferred`），避免方向歧义。 |
 | 5 | **授权快照贯穿全链** | <ul><li>每条 `source_record` 必带当时的 `consent_snapshot_id`；</li><li>用户撤回授权时，记忆系统沿这条链反向清理受影响的 `derived_memory`，24 小时内全部标 `is_active=false, inactive_reason=consent_revoked`（详见 §7 隐私表与 §5.6 授权变更场景）。</li></ul> |
 | 6 | **本地合成不回写完整对象** | 客户端的 `current_context` 是临时决策包，只回写支撑它的 raw `source_record` 或用户明确确认的 mutation，永不回写整个 context。 |
-| 7 | **证据链贯穿** | 任何 `derived_memory` 都能反查源头：`record_id`（事实源 ID）→ `source_record_ids[]` / `evidence_ids[]`（被引用的事实源）→ `target_resource_id`（用户操作的对象）→ `updated_resource_refs[]`（ack 返回的影响范围）。具体字段定义散落在 §2.2 / §3.2 / §3.2.5 / §4.1.3.15。 |
+| 7 | **证据链贯穿** | 任何 `derived_memory` 都能反查源头：`record_id`（事实源 ID）→ `source_record_ids[]` / `evidence_ids[]`（被引用的事实源）→ `target_resource_id`（用户操作的对象）→ `updated_resource_refs[]`（ack 返回的影响范围）。具体字段定义散落在 §2.2 / §3.2 / §3.2.5 / §4.1.3.13。 |
 
 ### 1.5 总体数据流
 
@@ -297,7 +297,8 @@ flowchart LR
 | `message_type` | 消息形态 | enum (`text` / `voice_transcribed`) | 是 | "text" | P0 |
 | `content` | 干净文本（无 markdown / 无格式 / 不区分输入通道） | string | 是 | "刚才那把翻盘了！" | P0 |
 | `client_scene` | 客户端业务场景（枚举完整清单见 §3.1.1.5） | enum | 是 | "post_game_chat" | P0 |
-| `reply_to_message_id` | 回复对象（多轮对话的上下文锚点） | string | 否 | "msg_2026051821000" | P1 |
+| `game_session_id` | 关联的游戏对局 ID（**v2.1 新增**）。当 `client_scene ∈ {pre_game_chat, during_game_chat, post_game_chat, settings_chat}` 等与对局相关的场景时填写；纯闲聊（idle_chat）或对局外场景可空。让 Memory 能把"这条 chat"与"哪一局游戏事件"关联 | string \| null | 否 | "sess_2026051820001" | P1 |
+| `message_sequence` | 会话内序号（**v2.1 新增**）。同一 `conversation_id` 内单调递增（0 为会话首条）。用于离线 / 弱网情况下的乱序重排，比纯靠 `occurred_at` 排序更可靠 | integer | 否 | 5 | P1 |
 
 ##### 3.1.1.3 `pet_runtime_event` payload 字段表
 
@@ -1013,13 +1014,13 @@ sequenceDiagram
 | `episode` | B | 单条情节摘要（AI 聚合 chat segment） | ai_inferred_writable | §4.1.3.2 |
 | `atomic_fact` | B | 单条原子事实（AI 从聊天抽取） | ai_inferred_writable | §4.1.3.1 |
 | `diary_reply` | B' | 日记回信对象（**上报时**走 §3.1.6 独立 record_type；**仅作为 delete target_type** 使用） | ai_inferred_writable（用户 delete 自己的回信） | §3.1.6 |
-| `profile_field.<族>.<字段>_user_set` | C | 用户显式设置的画像字段（如 `profile_field.profile_identity.preferred_call_name`） | user_only | §4.1.3.4 / §4.1.3.5 + §4.1.3.16 |
-| `profile_field.<族>.<字段>_inferred` | C | AI 推断的画像字段（如 `profile_field.playstyle_profile.playstyle_tags_inferred`） | user_primary_ai_candidate 或 ai_inferred_writable | §4.1.3.6-§4.1.3.9 + §4.1.3.16 |
+| `profile_field.<族>.<字段>_user_set` | C | 用户显式设置的画像字段（如 `profile_field.profile_identity.preferred_call_name`） | user_only | §4.2.6 / §4.2.7 + §4.1.3.14 |
+| `profile_field.<族>.<字段>_inferred` | C | AI 推断的画像字段（如 `profile_field.playstyle_profile.playstyle_tags_inferred`） | user_primary_ai_candidate 或 ai_inferred_writable | §4.1.3.4-§4.1.3.7 + §4.1.3.14 |
 | `consent.<授权名>` | C | 隐私授权（12 项之一，如 `consent.vlm_visual` / `consent.chat_content`） | user_only | §4.2.1 |
 | `preference.<偏好族>.<字段>` | C | 用户偏好（如 `preference.diary_style.length` / `preference.notification.disturbance_boundaries`） | user_only | §4.2.2 / §4.2.4 / §4.2.5 |
-| `assessment.use_for_companion` | C | 角色相似度测定的"是否影响陪伴"开关 | user_only | §4.1.3.14 |
+| `assessment.use_for_companion` | C | 角色相似度测定的"是否影响陪伴"开关 | user_only | §4.1.3.12 |
 | `request_type=resummarize_profile` | request 专用 | "重新总结我"异步流程触发 | — | §3.2.4 envelope 示例 5 |
-| `request_type=character_similarity_assessment` | request 专用 | 用户主动触发角色相似度测定 | — | §4.1.3.14 |
+| `request_type=character_similarity_assessment` | request 专用 | 用户主动触发角色相似度测定 | — | §4.1.3.12 |
 | `request_type=profile_reset` | request 专用 | 用户清空画像异步流程 | — | §3.2.2 schema 约束表 |
 
 > **highlight_event 不在 target_type 表内**：v2.1 决策"高光完全后台化"，用户无任何 mutation 入口，highlight_event 仅作为 Memory 自动生成 / 自动失效的 derived_memory 存在（详见变更说明 #21）。
@@ -1079,13 +1080,15 @@ sequenceDiagram
     "mutation": true,
     "mutation_id": "mut_feedback_001",
     "action": "feedback",
-    "target_type": "profile_field.profile_identity.preferred_call_name_candidate",
-    "target_resource_id": "preferred_call_name_candidate",
+    "target_type": "profile_field.playstyle_profile.playstyle_tags_inferred",
+    "target_resource_id": "playstyle_tags_inferred",
     "feedback_value": "confirm",
-    "user_intent": "用户认可桌宠目前的称呼推断"
+    "user_intent": "用户认可 AI 推断的玩法风格标签"
   }
 }
 ```
+
+> **注意**：`feedback + confirm` 只能作用于 `_inferred` / `_candidate` 类字段（mutability_policy = `user_primary_ai_candidate` 或 `ai_inferred_writable`）。**不能**作用于 `user_only` 字段（如 `profile_identity.*` / `pet_relationship.*`），因为这类字段 AI 不会产生候选值。
 
 > `feedback_value=confirm` 时 Memory 把该字段的 `profile_meta.confidence` 升到 1.0 + `user_attested=true`，但 `generation_method` 仍是 `inferred`（如需把字段升级为 `user_set` 真源，应改用 `update` action）。
 
@@ -1282,7 +1285,7 @@ sequenceDiagram
 | --- | --- | --- | --- | --- | --- |
 | `atomic_facts[].fact` | AI 从聊天 segment 抽取的单条事实陈述 | string | "用户喜欢稳定策略" | conversation_context / session_memory / episode_detail | P0 |
 | `atomic_facts[].quote_eligible` | 原话是否可被桌宠原文引用；由 PII 检测 + NER 决定 | boolean | true | 同上 | P0 |
-| `atomic_facts[].meta` | 该原子事实的 `profile_meta`（见 4.1.3.15） | object | { confidence:0.85, source_category:["chat"], generation_method:"inferred", evidence_ids:["chat_segment_2026042100012"] } | 同上 | P0 |
+| `atomic_facts[].meta` | 该原子事实的 `profile_meta`（见 4.1.3.13） | object | { confidence:0.85, source_category:["chat"], generation_method:"inferred", evidence_ids:["chat_segment_2026042100012"] } | 同上 | P0 |
 
 ##### 4.1.3.2 `episode`
 
@@ -1296,66 +1299,52 @@ sequenceDiagram
 | `episode.highlight_score` | 情节高光排序分（0-1） | number | 0.82 | episode_detail / diary_detail | P1 |
 | `episode.score_version` | 高光分版本号 | string | "highlight_score_default" | 同上 | P1 |
 | `episode.score_reason[]` | 高光分推理因子列表 | array&lt;string&gt; | ["milestone_hit","user_starred"] | 同上 | P1 |
-| `episode.meta` | profile_meta（见 4.1.3.15） | object | (同 4.1.3.15) | 同上 | P0 |
+| `episode.meta` | profile_meta（见 4.1.3.13） | object | (同 4.1.3.13) | 同上 | P0 |
 
 ##### 4.1.3.3 `profile.summary`
 
 | 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
 | --- | --- | --- | --- | --- | --- |
 | `profile.summary.value` | 当前画像的整体一句话总结（AI 生成，用户可 request 重新总结） | string | "喜欢稳定策略型玩家，目前主玩排位刺客线" | startup_context / profile_detail | P0 |
-| `profile.summary.meta` | profile_meta（含 evidence_summary） | object | (同 4.1.3.15) | 同上 | P0 |
+| `profile.summary.meta` | profile_meta（含 evidence_summary） | object | (同 4.1.3.13) | 同上 | P0 |
 
-##### 4.1.3.4 `profile_identity`（用户身份基本信息）
-
-> **本资源族字段 mutability_policy = `user_only`**（详见 §4.1.3.16）。即"用户希望桌宠如何称呼自己"等身份字段由用户**独占**设置，AI 不参与推断。
->
-> 字段实际持久化值见 §4.2 `profile_identity_user_set`（`display_name` / `preferred_call_name`）。
->
-> 客户端如需提示用户填写称呼，应通过 UI 引导用户主动 `update` mutation 写入，**不**应由 AI 推断后塞给用户确认。
-
-##### 4.1.3.5 `pet_relationship`（用户对桌宠的关系定位）
-
-> **本资源族字段 mutability_policy = `user_only`**（详见 §4.1.3.16）。即"用户希望和桌宠是什么关系（朋友 / 助理 / 教练 等）"由用户**独占**选择，AI 不参与推断。
->
-> 字段实际持久化值见 §4.2 `pet_relationship_user_set.relationship_mode`。
-
-##### 4.1.3.6 `game_profile_inferred`
+##### 4.1.3.4 `game_profile_inferred`
 
 | 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
 | --- | --- | --- | --- | --- | --- |
 | `game_profile_inferred.favorite_roles_inferred.value` | AI 推断的偏好角色 / 职业 | array&lt;string&gt; | ["assassin","mage"] | profile_detail | P0 |
-| `game_profile_inferred.favorite_roles_inferred.meta` | profile_meta | object | (同 4.1.3.15) | profile_detail | P0 |
+| `game_profile_inferred.favorite_roles_inferred.meta` | profile_meta | object | (同 4.1.3.13) | profile_detail | P0 |
 | `game_profile_inferred.favorite_modes_inferred.value` | AI 推断的偏好模式 | array&lt;string&gt; | ["ranked","arcade"] | profile_detail | P0 |
 | `game_profile_inferred.favorite_modes_inferred.meta` | profile_meta | object | (同上) | profile_detail | P0 |
 | `game_profile_inferred.game_goals_inferred.value` | AI 推断的游戏目标 | array&lt;string&gt; | ["上钻石","凑齐皮肤"] | profile_detail | P0 |
 | `game_profile_inferred.game_goals_inferred.meta` | profile_meta | object | (同上) | profile_detail | P0 |
 
-##### 4.1.3.7 `playstyle_profile_inferred`
+##### 4.1.3.5 `playstyle_profile_inferred`
 
 | 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
 | --- | --- | --- | --- | --- | --- |
 | `playstyle_profile_inferred.playstyle_tags_inferred.value` | 玩法风格标签（受限词表） | array&lt;string&gt; | ["steady","calculated"] | profile_detail | P0 |
-| `playstyle_profile_inferred.playstyle_tags_inferred.meta` | profile_meta | object | (同 4.1.3.15) | profile_detail | P0 |
+| `playstyle_profile_inferred.playstyle_tags_inferred.meta` | profile_meta | object | (同 4.1.3.13) | profile_detail | P0 |
 | `playstyle_profile_inferred.risk_preference_inferred.value` | 风险偏好（受限枚举：cautious / balanced / risk_taker） | enum | "balanced" | profile_detail | P0 |
 | `playstyle_profile_inferred.risk_preference_inferred.meta` | profile_meta | object | (同上) | profile_detail | P0 |
 | `playstyle_profile_inferred.learning_stage_inferred.value` | 学习阶段（新手 / 中阶 / 老手 等） | enum | "mid" | profile_detail | P0 |
 | `playstyle_profile_inferred.learning_stage_inferred.meta` | profile_meta | object | (同上) | profile_detail | P0 |
 
-##### 4.1.3.8 `companion_profile_inferred`
+##### 4.1.3.6 `companion_profile_inferred`
 
 | 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
 | --- | --- | --- | --- | --- | --- |
 | `companion_profile_inferred.preferred_conversation_topics_inferred.value` | AI 推断的偏好对话主题 | array&lt;string&gt; | ["职业天赋","赛季节奏"] | profile_detail / conversation_context | P0 |
-| `companion_profile_inferred.preferred_conversation_topics_inferred.meta` | profile_meta | object | (同 4.1.3.15) | 同上 | P0 |
+| `companion_profile_inferred.preferred_conversation_topics_inferred.meta` | profile_meta | object | (同 4.1.3.13) | 同上 | P0 |
 | `companion_profile_inferred.avoided_conversation_topics_inferred.value` | AI 推断的回避主题 | array&lt;string&gt; | ["现实工作压力"] | 同上 | P0 |
 | `companion_profile_inferred.avoided_conversation_topics_inferred.meta` | profile_meta | object | (同上) | 同上 | P0 |
 
-##### 4.1.3.9 `progress_profile_derived`
+##### 4.1.3.7 `progress_profile_derived`
 
 | 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
 | --- | --- | --- | --- | --- | --- |
 | `progress_profile_derived.current_goal_inferred.value` | 当前推断的近期目标 | string | "本赛季上钻石" | session_memory / profile_detail | P1 |
-| `progress_profile_derived.current_goal_inferred.meta` | profile_meta | object | (同 4.1.3.15) | 同上 | P1 |
+| `progress_profile_derived.current_goal_inferred.meta` | profile_meta | object | (同 4.1.3.13) | 同上 | P1 |
 | `progress_profile_derived.stuck_points_inferred.value` | 推断的卡点 | array&lt;string&gt; | ["小龙团战决策"] | session_memory / profile_detail | P1 |
 | `progress_profile_derived.stuck_points_inferred.meta` | profile_meta | object | (同上) | 同上 | P1 |
 | `progress_profile_derived.recent_achievements_inferred.value` | 近期成就 | array&lt;string&gt; | ["首杀 chapter_02 BOSS"] | session_memory / profile_detail | P1 |
@@ -1363,7 +1352,7 @@ sequenceDiagram
 | `progress_profile_derived.long_term_milestones_derived.value` | 长期里程碑（多源加工） | array&lt;object&gt; | [{ name:"全英雄熟练度A", achieved_at:"..." }] | profile_detail | P1 |
 | `progress_profile_derived.long_term_milestones_derived.meta` | profile_meta | object | (同上) | profile_detail | P1 |
 
-##### 4.1.3.10 `idip_delta` / `idip_anomaly` / `idip_milestone`
+##### 4.1.3.8 `idip_delta` / `idip_anomaly` / `idip_milestone`
 
 | 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
 | --- | --- | --- | --- | --- | --- |
@@ -1377,7 +1366,7 @@ sequenceDiagram
 | `idip_milestone[].achieved_at` | 达成时间 | ISO 8601 | "2026-05-18T21:30:00Z" | 同上 | P1 |
 | `idip_milestone[].evidence_ids[]` | 达成证据 | array&lt;string&gt; | [...] | 同上 | P1 |
 
-##### 4.1.3.11 `highlight_event`
+##### 4.1.3.9 `highlight_event`
 
 | 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
 | --- | --- | --- | --- | --- | --- |
@@ -1396,7 +1385,7 @@ sequenceDiagram
 | `highlight_event.inactive_reason` | 失效原因（consent_revoked / expired / superseded 等；用户无直接删除入口） | enum | null | diary_detail | P0 |
 | `highlight_event.inactive_at` | 失效时间 | ISO 8601 | null | diary_detail | P0 |
 
-##### 4.1.3.12 `memory_digest`（**v2.1 终版：已删除，改为客户端现场聚合**）
+##### 4.1.3.10 `memory_digest`（**v2.1 终版：已删除，改为客户端现场聚合**）
 
 > **v2.1 决策**：原 v2 设计中 `memory_digest` 作为"周期摘要的预计算缓存"持久化，但其内容（top_events / top_emotions / recent_episodes_ref）均可从 `episode` + `emotion_signal_derived` + `profile.summary` 现场聚合得到，**与上述字段存在数据冗余**。
 >
@@ -1407,16 +1396,16 @@ sequenceDiagram
 >
 > 如未来 episode 数量过大导致 startup p99 超过 §2.4 的 200ms SLA，再评估是否引入 digest 缓存（届时作为 v2.2 增量）。
 
-##### 4.1.3.13 `emotion_signal_derived`
+##### 4.1.3.11 `emotion_signal_derived`
 
 | 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
 | --- | --- | --- | --- | --- | --- |
 | `emotion_signal_derived.dominant_emotion.value` | Memory 基于 chat + game_event 聚合的主导情绪 | enum | "excitement" | session_memory / conversation_context | P0 |
-| `emotion_signal_derived.dominant_emotion.meta` | profile_meta | object | (同 4.1.3.15) | 同上 | P0 |
+| `emotion_signal_derived.dominant_emotion.meta` | profile_meta | object | (同 4.1.3.13) | 同上 | P0 |
 | `emotion_signal_derived.recent_distribution` | 近窗口情绪分布 | object | { excitement:0.6, neutral:0.3, frustration:0.1 } | 同上 | P0 |
 | `emotion_signal_derived.window` | 计算窗口 | object { from, to } | { from:"...", to:"..." } | 同上 | P0 |
 
-##### 4.1.3.14 `game_character_similarity_assessment`
+##### 4.1.3.12 `game_character_similarity_assessment`
 
 | 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
 | --- | --- | --- | --- | --- | --- |
@@ -1440,15 +1429,15 @@ sequenceDiagram
 | `inactive_reason` | 失效原因 | enum | null | assessment_result | P0 |
 | `inactive_at` | 失效时间 | ISO 8601 | null | assessment_result | P0 |
 
-##### 4.1.3.15 `profile_meta` 元字段（每条 derived_memory 必带）
+##### 4.1.3.13 `profile_meta` 元字段（每条 derived_memory 必带）
 
 | 字段名 | 含义 | 数据类型 | 示例值 | query_type | 优先级 |
 | --- | --- | --- | --- | --- | --- |
 | `meta.confidence` | 置信度 0-1（user_attested=true 时为 1.0） | number | 0.85 | 随每条 derived | P0 |
 | `meta.source_category[]` | 证据来源大类（chat / game_event / pc_signal / vlm / mcp / user_set） | array&lt;string&gt; | ["chat","game_event"] | 随每条 derived | P0 |
 | `meta.generation_method` | 生成方式（inferred / derived / user_set / hybrid） | enum | "inferred" | 随每条 derived | P0 |
-| `meta.mutability_policy` | **新增**。字段的 AI 可改性策略，决定 AI 流程能否写入 / 覆盖该字段（详见 §4.1.3.16） | enum (`user_only` / `user_primary_ai_candidate` / `ai_inferred_writable`) | "user_primary_ai_candidate" | 随每条 derived | **P0** |
-| `meta.review_status` | **新增**。字段当前在用户视角的审查状态（详见 §4.1.3.16 状态机） | enum (`accepted` / `pending_user_review` / `rejected`) | "accepted" | 随每条 derived | **P0** |
+| `meta.mutability_policy` | **新增**。字段的 AI 可改性策略，决定 AI 流程能否写入 / 覆盖该字段（详见 §4.1.3.14） | enum (`user_only` / `user_primary_ai_candidate` / `ai_inferred_writable`) | "user_primary_ai_candidate" | 随每条 derived | **P0** |
+| `meta.review_status` | **新增**。字段当前在用户视角的审查状态（详见 §4.1.3.14 状态机） | enum (`accepted` / `pending_user_review` / `rejected`) | "accepted" | 随每条 derived | **P0** |
 | `meta.evidence_ids[]` | 强证据链：直接被引用的 source_record / episode IDs | array&lt;string&gt; | ["rec_...","episode_..."] | 随每条 derived | P0 |
 | `meta.evidence_summary` | 给用户看的证据短解释 | string | "源于近 30 天的 12 条聊天和 8 局排位" | 随每条 derived | P0 |
 | `meta.first_seen_at` | 首次出现时间 | ISO 8601 | "2026-04-21T10:00:00Z" | 随每条 derived | P0 |
@@ -1471,7 +1460,7 @@ sequenceDiagram
 > - `last_system_processed_at` —— 记忆系统后台加工触发；用于审计 / 排序衰减
 > 三者独立，不互相覆盖。
 
-##### 4.1.3.16 `mutability_policy` 字段权限策略与 `review_status` 状态机
+##### 4.1.3.14 `mutability_policy` 字段权限策略与 `review_status` 状态机
 
 > **设计目的**：明确每条 derived_memory 字段"AI 能不能改、什么时候改、改完是否要等用户确认"，避免 AI 静默覆盖用户基本信息。
 
@@ -1483,9 +1472,9 @@ sequenceDiagram
 | **`user_primary_ai_candidate`** | 用户主导。用户 `update` 直接覆盖且写入 `accepted`；AI 后台推断可写入新候选值但**强制** `review_status=pending_user_review`，必须等用户 `feedback.feedback_value=confirm` 才能升格为 `accepted` | ✅ 直接覆盖 + accepted | 🟡 写入候选 + pending_user_review | `pending_user_review` |
 | **`ai_inferred_writable`** | AI 可自由推断 / 覆盖；用户仍可 `update` 介入，且 `update + is_correction=true` 锁定后 AI 不再覆盖 | ✅ 任意时刻覆盖 | ✅ 后台加工随时覆盖 | `accepted` |
 
-###### B. 各资源族 `mutability_policy` 映射
+###### B. 各字段族 `mutability_policy` 映射
 
-| 资源族 / 字段 | mutability_policy |
+| 字段族 / 字段 | mutability_policy |
 | --- | --- |
 | `profile_identity.*`（user_set） | **user_only** |
 | `pet_relationship.relationship_mode`（user_set） | **user_only** |
@@ -1610,8 +1599,8 @@ def get_display_tier(field):
 
 | 字段族 | 主要字段 | 优先级 |
 | --- | --- | --- |
-| `profile_identity_user_set` | `display_name` / `preferred_call_name` | P0 |
-| `pet_relationship_user_set` | `relationship_mode` | P0 |
+| `profile_identity_user_set` | `display_name` / `preferred_call_name`（详见 §4.2.6） | P0 |
+| `pet_relationship_user_set` | `relationship_mode`（详见 §4.2.7） | P0 |
 | `companion_profile_user_set` | `emotion_support_preference` / `disturbance_boundaries` / `preferred_conversation_topics[]` / `avoided_conversation_topics[]` | P0 |
 | `progress_profile_user_set` | `current_goal` / `stuck_points_user_marked[]` | P0 |
 | `game_profile_user_set` | `favorite_roles[]` / `favorite_modes[]` / `game_goals[]` | P0 |
@@ -1678,6 +1667,27 @@ Diary 模块的内容生成偏好（详见 Diary PRD 引用）。
 | `length` | 日记篇幅偏好 | enum (`short` ≤80 字 / `medium` 80-150 字 / `long` 150-300 字) | medium |
 | `focus` | 日记内容侧重 | enum (`game_companion` 游戏陪伴向 / `daily_observation` 日常观察向 / `pet_interaction` 桌宠互动向 / `solo_theater` 桌宠独处小剧场 / `mixed` 混合) | mixed |
 | `quote_user_original` | 是否允许日记引用用户原话（叠加 `privacy_grants.diary_quote.granted=true` 才生效）| boolean | false |
+
+#### 4.2.6 `profile_identity_user_set` 字段表
+
+> **mutability_policy = `user_only`**：用户身份基本信息字段由用户**独占**设置，AI 不参与推断。
+
+| 字段 | 含义 | 数据类型 | 默认值 |
+| --- | --- | --- | --- |
+| `display_name` | 用户在桌宠界面展示的昵称 | string | null（首启引导用户填写） |
+| `preferred_call_name` | 用户希望桌宠如何称呼自己（可与 display_name 不同，如"队长" / "老大"等亲昵称呼） | string | null（默认走桌宠 character_config 的通用称呼） |
+
+> 客户端如需提示用户填写称呼，应通过 UI 引导用户主动 `update + profile_field.profile_identity.display_name` / `update + profile_field.profile_identity.preferred_call_name` mutation 写入，**不**应由 AI 推断后塞给用户确认。
+
+#### 4.2.7 `pet_relationship_user_set` 字段表
+
+> **mutability_policy = `user_only`**：用户对桌宠的关系定位由用户**独占**选择，AI 不参与推断。
+
+| 字段 | 含义 | 数据类型 | 默认值 |
+| --- | --- | --- | --- |
+| `relationship_mode` | 用户希望和桌宠的关系定位 | enum：`friend`（朋友）/ `assistant`（助理）/ `mentor`（教练）/ `companion`（陪伴者）/ `partner`（搭档）等，具体枚举值由合作游戏 character_config 定义 | "friend"（默认朋友模式，首启引导用户主动选择） |
+
+> 客户端在首启或用户进入设置页时引导用户主动选择关系模式；用户通过 `update + profile_field.pet_relationship.relationship_mode` mutation 写入。
 
 ### 4.3 记忆系统主动推：变化轻通知（push）
 
@@ -2039,7 +2049,7 @@ sequenceDiagram
 | 9 | 服务端 idip diff 的"显著变化"阈值如何定义？ | 由 Memory 团队定可配置规则；建议起点：level / rank / chapter / gold > 阈值 |
 | 10 | 双向字段拆名（`_observed` / `_derived` / `_inferred` / `_user_set`）是否需要在 schema 检查工具中强制？ | 建议是；Engineering 实施时加 schema lint |
 | 11 | profile_meta 新增的 `node_version` / 并发控制是否 v2.2 引入？ | 当前桌宠单端使用，多端并发场景极少；v2.1 不引入；如未来上线多端（桌面 + 网页 + 移动）同步，v2.2 加 `node_version` + `version_conflict` ack 子类型 |
-| 12 | `mutability_policy` 字段映射是否需要在每个游戏接入时按游戏特性微调？ | 建议默认遵守 §4.1.3.16 映射表；单个游戏如有特殊需求（如某游戏的 `game_goals_inferred` 应升级为 `ai_inferred_writable`），由 PM + Engineering review 后写入该游戏接入配置 |
+| 12 | `mutability_policy` 字段映射是否需要在每个游戏接入时按游戏特性微调？ | 建议默认遵守 §4.1.3.14 映射表；单个游戏如有特殊需求（如某游戏的 `game_goals_inferred` 应升级为 `ai_inferred_writable`），由 PM + Engineering review 后写入该游戏接入配置 |
 | 13 | `review_status=pending_user_review` 的字段如果 30 天用户都没看 / 没反馈，怎么处理？ | 建议 30 天后自动转 `is_active=false, inactive_reason=expired`；记忆系统不再持续推送；用户在设置页审计入口仍可查看 |
 
 ---
@@ -2064,7 +2074,7 @@ sequenceDiagram
 | 14 | **授权撤回有反向清理机制** | 撤回任一 `privacy_grants.*` 后，§5.6 流程完成，受影响 derived_memory 在 24h 内标失效 |
 | 15 | **运营参数有默认推荐值** | §2.4 全部参数都有起点值与单位，标"Engineering 可调优" |
 | 16 | **场景接力图覆盖核心流程** | §5 八个场景的 Mermaid 图与表格能让读者一眼看完闭环；所有 mutation 写法已对齐新 `action × target_type` |
-| 17 | **字段权限策略 `mutability_policy` 落地** | 每条 derived_memory 字段 `profile_meta.mutability_policy` 必填且属 `user_only` / `user_primary_ai_candidate` / `ai_inferred_writable` 三选一；AI 后台流程尝试写入 `user_only` 字段时记忆系统返回 `rejected: policy_violation`；详见 §4.1.3.16 |
+| 17 | **字段权限策略 `mutability_policy` 落地** | 每条 derived_memory 字段 `profile_meta.mutability_policy` 必填且属 `user_only` / `user_primary_ai_candidate` / `ai_inferred_writable` 三选一；AI 后台流程尝试写入 `user_only` 字段时记忆系统返回 `rejected: policy_violation`；详见 §4.1.3.14 |
 | 18 | **`review_status` 状态机落地** | `user_only` 字段无 review；`user_primary_ai_candidate` 字段 AI 写入强制 `pending_user_review`，用户 `feedback=confirm` / `update` 后升 `accepted`；`ai_inferred_writable` 字段 AI 写入直接 `accepted`；客户端 / 画像服务由 review_status 派生主 / 缓冲页归属，**不持久化** display_tier |
 | 19 | **时间戳三元组语义独立** | `last_user_edited_at`（仅 update / correct 触发）/ `last_confirmed_at`（仅 feedback=confirm 触发）/ `last_system_processed_at`（系统后台触发）三者独立，记忆系统加工时**保留 `last_user_edited_at` 非空字段的当前值** |
 | 20 | **`feedback_reason` 对齐 user-portrait PRD** | `feedback_reason` 为 enum：`accurate` / `not_accurate` / `not_like_me` / `wrong_tone` / `too_private` / `boring` / `other`；与 PRD §七.5 portrait_feedback.reason 一致（含 Diary 引入的 `boring`）|
@@ -2079,7 +2089,7 @@ sequenceDiagram
 > 2. **触发时机精简（v2.1 终版）**：原 9 个混杂术语 → 中间过渡 5 个 `trigger_cause` → 最终精简为 **2 个 `trigger_cause`**（`scheduled` / `event_driven`，2 选 1）+ 4 个 `delivery_mode`（`realtime` / `aggregated` / `batched_recovery` / `batched_startup`）。"是否 mutation""数据来源""阈值跨越"等维度交由 `record_type` 区分。详见 §2.3。
 > 3. **Mutation 通用化**：13 个枚举式 `mutation_type` → 中间版 7 个 → 最终精简为 **5 个通用 `action`**（`save` / `update` / `delete` / `request` / `feedback`）× N 个 `target_type`；`correct` / `restore` 合并入 `update`（用 `is_correction` / `new_value.is_active` 子参数区分意图），`confirm` 合并入 `feedback`（作为 `feedback_value` 之一）。详见 §3.2。
 > 4. **Ack 状态机分化**：同步 / 异步 / 批量三类各自的可达状态分别定义。详见 §3.2.5 Ack 回执。
-> 5. **§4.1.3 详细化**：15 个加工记忆资源族每族一张完整字段表，含字段名 / 含义 / 数据类型 / 示例值 / 触发返回的 query_type / 优先级。
+> 5. **§4.1.3 详细化**：15 个加工记忆字段族每族一张完整字段表，含字段名 / 含义 / 数据类型 / 示例值 / 触发返回的 query_type / 优先级。
 > 6. **§3.1.3 所有 PC 信号子表补"含义"列**，便于读者快速理解字段语义。
 > 7. **§3.1.1 chat / pet_runtime_event payload 字段表新增**（§3.1.1.2 / §3.1.1.3），不再只给 enum 概述。
 > 8. **§3.1.2.5 `common_fields` 字段表新增**，承载跨游戏共有的会话 / 关卡 / 难度 / 区服等结构化字段。
@@ -2087,11 +2097,11 @@ sequenceDiagram
 > 10. **§3.1.3.5 PC 信号示例**按 4 个典型子类（active_app / input_digest / now_playing / tab + OSA Bridge）各给一个示例。
 > 11. **§3.1.4 MCP MVP 接入清单**扩展到 5 个领域：工作 / 购物 / 娱乐 / 音乐 / 社交。
 > 12. **§2.4 运营参数全部补单位**（秒 / 分钟 / 小时 / 毫秒 / 条），并新增弱感知 / MCP 拉取相关参数。
-> 13. **profile 字段权限策略（对齐 user-portrait PRD）**：profile_meta 新增 `mutability_policy`（user_only / user_primary_ai_candidate / ai_inferred_writable 三档）、`review_status`（accepted / pending_user_review / rejected 状态机）、`last_user_edited_at` 三个字段；§4.1.3.4 / §4.1.3.5 `profile_identity` / `pet_relationship` 改为 user_only 类（删除 inferred 候选子表，指向 §4.2 user_control_state）。
+> 13. **profile 字段权限策略（对齐 user-portrait PRD）**：profile_meta 新增 `mutability_policy`（user_only / user_primary_ai_candidate / ai_inferred_writable 三档）、`review_status`（accepted / pending_user_review / rejected 状态机）、`last_user_edited_at` 三个字段；§4.2.6 / §4.2.7 + §4.1.3.14 mutability_policy 表 `profile_identity` / `pet_relationship` 改为 user_only 类（删除 inferred 候选子表，指向 §4.2 user_control_state）。
 > 14. **时间戳三元组**：`last_user_edited_at` / `last_confirmed_at`（语义收窄）/ `last_system_processed_at` 拆分独立，三者不互相覆盖。
 > 15. **`feedback_reason` 改为 enum**：`accurate` / `not_accurate` / `not_like_me` / `wrong_tone` / `too_private` / `boring` / `other`，对齐 user-portrait PRD §七.5（含 Diary 引入的 `boring`）。
 > 16. **`reject_reason` 子类型并入 §3.2.5**：所有 `rejected` ack 必带子类型，含 `policy_violation`（违反 mutability_policy）等 8 个子类型，便于客户端可解释 / 可重试。
-> 17. **`memory_digest` 删除**：原 v2 设计的"周期摘要预计算缓存"与 `episode` / `profile.summary` / `emotion_signal_derived.recent_distribution` 字段存在数据冗余，且未达成本/性能引入门槛。改为客户端 / 记忆系统在 `query_type=startup_context` 时**实时聚合**，不持久化 digest；相应删除 `push_type=memory_digest_ready`。详见 §4.1.3.12。
+> 17. **`memory_digest` 删除**：原 v2 设计的"周期摘要预计算缓存"与 `episode` / `profile.summary` / `emotion_signal_derived.recent_distribution` 字段存在数据冗余，且未达成本/性能引入门槛。改为客户端 / 记忆系统在 `query_type=startup_context` 时**实时聚合**，不持久化 digest；相应删除 `push_type=memory_digest_ready`。详见 §4.1.3.10。
 > 18. **原 §5 Mutation / Ack 双向闭环整章删除**：v2 的 §5 包含 mermaid 状态机图、客户端处理建议等**工程实施细节**，不属于"数据需求文档"范畴。整章删除后做四处补丁：①ack envelope 字段定义并入 §3.2.5（mutation 配套小节，原 §3.2.6 在 §3.2 子节跳号修复后改为 §3.2.5）；②证据链贯穿合并为 §1.4 数据流原则第 7 条；③授权撤回 mermaid 时序图并入 §5.6 授权变更业务场景；④授权撤回的数据约束（24h 清理时限）汇总在 §7.1 隐私撤回数据约束。**后续 §6-§10 全部 -1**（场景接力图 §5、优先级 §6、隐私 §7、待确认 §8、验收 §9）。工程实施细节（状态机 mermaid、客户端处理建议）交由 Engineering Thread 在工程文档另行定义。
 > 19. **隐私 / 账号 / 弱感知补丁（基于 §8 待确认问题二次审视）**：
 >     - **`game_user_id_pseudonym` 每游戏独立**（隐私优先）：同一用户在不同游戏间的 pseudonym 不同，记忆系统不可跨游戏关联画像。详见 §2.2 envelope 字段表说明。
@@ -2099,16 +2109,18 @@ sequenceDiagram
 >     - **弱感知 30s / 60s 档位限制**：普通用户在设置页可见档位为 300 / 600（默认）/ 1800 / off；30s 和 60s 因电池 / 性能 / 隐私感知压力大，仅在"高级设置页"开放并需弹窗二次确认。详见 §3.1.5.4 + §2.4。
 >     - **不补的待确认项**：①数据保留期限（不属本文档，由记忆系统团队内部决定）；②MCP MVP 14 app 具体优先级（保持 §3.1.4 已写的 5 领域顺序）；③character_resonance_assessment 与 user-portrait PRD 字段对齐（PRD 多出字段由画像服务派生，不入记忆系统）；④多 OS 账户共用桌宠（桌宠按 OS 账户独立安装配置，envelope 不加 os_user_id_hash）。
 > 20. **Diary 模块对接补丁（基于 Diary PRD 二次审视）**：
->     - **`feedback_reason` enum 加 `boring`**：日记特有的"内容无聊"反馈选项，§3.2.2 + §4.1.3.15 同步。
+>     - **`feedback_reason` enum 加 `boring`**：日记特有的"内容无聊"反馈选项，§3.2.2 + §4.1.3.13 同步。
 >     - **`vlm_visual.allow_local_save_for_diary` 子开关**：合并 Diary `privacy_grants.diary_screenshot` 到 vlm_visual 根开关下，作为子开关控制"高光时刻本地截图保存为日记插图"（原图永不上传，仅本地保留）。§3.1.5.4 新增。
 >     - **`mailbox_summary` / `diary_list` / `diary_detail` 三个 query_type 新增**：客户端 pull 时记忆系统实时聚合 `unread_count` / `latest_unread_diary_id` / `has_new_diary_bubble`，**不持久化** mailbox_status。§4.1.2 新增。
 >     - **`diary_reply` 新增 source_record**：作为独立 record_type，含 `reply_id` / `diary_id` / `reply_text` / `reply_intent`（positive/negative/correction/preference/casual/delete_request） / `created_at` 字段。记忆系统据 `reply_intent` 派生 feedback / 触发 derived_memory 更新。§3.1.6 新增。
 >     - **`diary_entry` target_type 归类调整（v2.1 终版）**：原先列在 A 类（用户主动 save 创建），但 Diary PRD 实际流程是"每生理日 Diary 模块**自动生成 + 自动持久化**"，没有用户主动保存动作。已**移到 B 类**（Memory 自动加工的顶层资源，与 episode / atomic_fact 同类）；`save + diary_entry` mutation 路径**移除**；用户对日记的 mutation 入口仅剩 `update`（编辑标题/收藏/mailbox_status）/ `delete` / `feedback`。payload schema 仍由 Diary PRD §七.2 提供。
 >     - **不补的 Diary 概念**：`mailbox_status`（实时聚合）/ `pet_reaction`（客户端现场生成）/ `diary_entry` UI 字段（card_visual_type / detail_layout_type 等）/ `character_config`（合作游戏接入资产）。
-> 21. **高光页 UI 概念完全删除**：v2.1 决策"高光不作为独立 UI 页面，高光时刻通过日记自然提及"。具体修订：①删除 `highlight_recall` client_scene / `highlight_detail` query_type / `highlight_ready` push_type；②删除 save / update / delete / feedback + highlight 所有用户 mutation 入口（highlight 完全 ai_inferred_writable 后台化）；③§5.4 标题改为"日记生成与保存"，流程图删除"用户保存高光"步骤；④`proactive_congratulate` 桌宠主动祝贺改由 idip_milestone push 触发；⑤§4.1.3.11 highlight_event 字段表完整保留，但 query_type 列从 highlight_detail 改为 diary_detail（仅通过日记间接访问）；⑥highlight_event.source enum 去掉 `user_saved`。用户对高光的反馈通过对包含该高光的日记 feedback 间接传递。
+> 21. **高光页 UI 概念完全删除**：v2.1 决策"高光不作为独立 UI 页面，高光时刻通过日记自然提及"。具体修订：①删除 `highlight_recall` client_scene / `highlight_detail` query_type / `highlight_ready` push_type；②删除 save / update / delete / feedback + highlight 所有用户 mutation 入口（highlight 完全 ai_inferred_writable 后台化）；③§5.4 标题改为"日记生成与保存"，流程图删除"用户保存高光"步骤；④`proactive_congratulate` 桌宠主动祝贺改由 idip_milestone push 触发；⑤§4.1.3.9 highlight_event 字段表完整保留，但 query_type 列从 highlight_detail 改为 diary_detail（仅通过日记间接访问）；⑥highlight_event.source enum 去掉 `user_saved`。用户对高光的反馈通过对包含该高光的日记 feedback 间接传递。
 > 24. **强感知"整段不上报"约束 + 删除 screen_share_chat**：v2.1 之前 client_scene 枚举有 `screen_share_chat`（"强感知期间的对话"），暗示强感知期间 chat_message 仍上报。v2.1 终版收紧：**强感知会话期间客户端整段不上报任何 source_record**（chat_message / pc_signal / vlm_observation 等），全部仅本地存活于 current_context，强感知结束时丢弃。这与"强感知 = 临时陪伴 / 不留痕"原则一致（类比腾讯会议屏幕共享期间对话不进入会议记录）。如用户希望某次对话被记下来，应先关闭强感知再聊。具体修订：①§3.1.1.5 类别 A 删除 `screen_share_chat` 行；②§3.1.5.1 加"强感知下唯一进入跨系统的两类事件"表下的关键约束声明。
 > 23. **`game_category` 引入 + `common_fields` 分层重构**：解决原 common_fields 里 `match_id`（PvP）/ `level_id`（PvE）/ `difficulty` / `team_size` 等字段都标"否"必填、无法说清何时填的问题。①新增 **`game_category`** 字段（必填 enum：`pvp_battle` / `pve_quest` / `pve_roguelike` / `open_world` / `card_strategy` / `simulation` / `other`），游戏接入时固定，整个生命周期不变；②原 common_fields 拆为**三层**：§3.1.2.4 第一层（跨所有游戏通用，5 字段 session_id / game_category / game_mode / client_locale / game_version）+ §3.1.2.5 第二层（按 game_category 适用的字段示例，6 类 + other）+ §3.1.2.3 第三层 custom_fields（单游戏专属）；③明确 `game_category` 与 `game_mode` 的边界（前者接入时固定，后者运行时可变）；④第二层字段是 PM 推荐集，每游戏接入时三方 review schema。
 > 22. **§3.2.3 target_type 重构为三表**：原 §3.2.3 单表存在 8 个问题（diary_reply 混淆 / "谁创建"列维度混乱 / 标题过简 / 缺 mutability_policy 列 / 示例 vs 完整清单模糊 / 排序混乱 / 与 §3.2.1 关系不清 / assessment 命名不一致）。重构为三个小节：①§3.2.3.1 命名约定与三类划分（**A 类用户主动 save / B 类 Memory 加工 / C 类子命名空间字段**）；②§3.2.3.2 target_type 示例表（按 A/B/C 分组，含 mutability_policy + 详见章节列）；③§3.2.3.3 action × target_type 矩阵（5 action × 12 target 类型完整可达性）。同时声明 highlight_event 不在 target_type 表内（v2.1 完全后台化）。
+> 26. **chat_message 字段调整**：①删除 `reply_to_message_id`（桌宠对话是 1v1 + 时序线性，"引用回复历史某条"产品场景几乎不存在；日记回复已由 §3.1.6 `diary_reply.diary_id` 承载，无需在 chat 上再设字段）；②新增 `game_session_id`（关联当前游戏对局，让 Memory 能把"对局中聊的"与"具体哪一局"关联，跨对局复盘场景受益）；③新增 `message_sequence`（会话内单调递增序号，离线 / 弱网下防乱序，比纯 occurred_at 排序更可靠）。两个新字段都 P1 可选。
+> 25. **§4.1.3 / §4.2 分层修正：profile_identity / pet_relationship 移到 §4.2**：原 §4.1.3.4 / §4.1.3.5 是 `user_only` 类占位章节（用户独占设置，AI 不参与推断），与 §4.1.3 章节定位"桌宠能从记忆系统读到的内容（derived_memory）"不符。v2.1 终版修订：①删除 §4.1.3.4 / §4.1.3.5 占位章节；②§4.1.3.6-§4.1.3.16 章节号全部 -2 顺移到 §4.1.3.4-§4.1.3.14；③§4.2 新增 §4.2.6 `profile_identity_user_set` + §4.2.7 `pet_relationship_user_set` 详细字段表；④全文 §4.1.3.X 引用同步 -2；⑤清理"资源族"工程化措辞为"字段族"。修订后 §4.1.3 纯 derived_memory + §4.2 纯 user_control_state，分层清晰。
 >
 > **v2 → v1 既有变化（保留）**：
 > 1. 骨架从"传输契约 + 数据类别 + 场景"三层并列改为"按数据流向（上报 / 返回 / mutation）单线索"。
