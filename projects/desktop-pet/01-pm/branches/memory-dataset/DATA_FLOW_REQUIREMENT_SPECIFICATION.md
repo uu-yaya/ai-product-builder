@@ -1447,20 +1447,9 @@ sequenceDiagram
 
 > 异步 action 的 ack 序列：`pending → in_progress → applied/rejected`。
 
-#### 3.2.5 Ack 回执（Memory → Client）
+#### 3.2.5 Ack 状态与拒绝原因
 
-每条 mutation 都必须收到记忆系统的 ack 回执。Ack 是 Memory → Client 方向的小包，承载本次 mutation 的处理结果。
-
-**Ack envelope 字段**：
-
-| 字段 | 含义 | 数据类型 | 必填 |
-| --- | --- | --- | --- |
-| `mutation_id` | 对应客户端发起 mutation 的 ID | string | 是 |
-| `status` | 处理状态（见 ack_status 枚举） | enum | 是 |
-| `processed_at` | 记忆系统处理完成时间 | ISO 8601 | 是 |
-| `updated_resource_refs[]` | 本次 mutation 影响的 derived_memory 资源 ID 数组（客户端按 ref 重新 pull 详情） | array&lt;string&gt; | 否（仅 `applied` 时有意义） |
-| `reject_reason` | 拒绝原因（见 reject_reason 枚举） | enum | 仅 `status=rejected` 时必填 |
-| `retry_after_sec` | 建议重试间隔 | number | 仅 `status=deferred` 时必填 |
+每条 mutation 必须收到记忆系统的 ack 回执。本节定义 ack 的**产品语义层** —— `ack_status` 决定 UI 状态条 / 文案，`reject_reason` 决定错误提示与用户引导方向。
 
 **`ack_status` 6 个枚举值**：
 
@@ -1468,23 +1457,23 @@ sequenceDiagram
 | --- | --- | --- |
 | `applied` | 已完成变更 | 同步 / 异步 / 批量 |
 | `rejected` | 拒绝执行，必带 `reject_reason` 子类型 | 同步 / 异步 / 批量 |
-| `deferred` | 系统繁忙暂缓，必带 `retry_after_sec` | 同步 / 异步 |
+| `deferred` | 系统繁忙暂缓，UI 提示"稍后重试" | 同步 / 异步 |
 | `pending` | 已入队，未开始处理 | 仅异步 `request` |
 | `in_progress` | 后台已开始处理 | 仅异步 `request` |
 | `partial_success` | 批量中只有部分成功 | 仅批量 |
 
 **`reject_reason` 8 个枚举值**：
 
-| `reject_reason` | 触发场景 |
-| --- | --- |
-| `permission_denied` | 当前授权不足（如 `privacy_grants.profile_inference=false` 时尝试 `request resummarize_profile`） |
-| `target_not_found` | `target_resource_id` 在记忆系统不存在 |
-| `target_inactive` | 目标资源已 `is_active=false`（除"恢复"操作 `update + new_value.is_active=true` 外） |
-| `schema_violation` | payload schema 不合法（如 `update` 缺 `new_value` / `feedback` 带 `new_value`） |
-| `version_conflict` | 客户端版本号过期 |
-| `policy_violation` | 违反 `mutability_policy`（如 AI 流程尝试 `update` 一个 `user_only` 字段） |
-| `unrecoverable_state` | 目标处于不可恢复状态（如尝试恢复一个 `inactive_reason=conflict_with_newer_evidence` 的对象） |
-| `consent_cascade_blocked` | mutation 在授权撤回反向清理期间被阻塞 |
+| `reject_reason` | 触发场景 | 典型 UI 提示方向 |
+| --- | --- | --- |
+| `permission_denied` | 当前授权不足（如 `privacy_grants.profile_inference=false` 时尝试 `request resummarize_profile`） | 引导用户去授权页打开对应开关 |
+| `target_not_found` | `target_resource_id` 在记忆系统不存在 | "这条记忆已不存在"，不提供重试 |
+| `target_inactive` | 目标资源已 `is_active=false`（除"恢复"操作 `update + new_value.is_active=true` 外） | "这条记忆已被删除"，可提示恢复入口 |
+| `schema_violation` | payload schema 不合法（如 `update` 缺 `new_value` / `feedback` 带 `new_value`） | 客户端 bug，落 sentry，不暴露给用户 |
+| `version_conflict` | 客户端版本号过期 | "他人 / 后台已更新此项"，提示重新加载 |
+| `policy_violation` | 违反 `mutability_policy`（如 AI 流程尝试 `update` 一个 `user_only` 字段） | 客户端 bug，落 sentry，不暴露给用户 |
+| `unrecoverable_state` | 目标处于不可恢复状态（如尝试恢复一个 `inactive_reason=conflict_with_newer_evidence` 的对象） | "这条记忆已被更新的证据覆盖，不可恢复" |
+| `consent_cascade_blocked` | mutation 在授权撤回反向清理期间被阻塞 | "数据清理中，请稍后再试" |
 
 ### 3.3 客户端补传：离线积压的数据
 
