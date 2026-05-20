@@ -365,6 +365,7 @@ flowchart LR
 | `diary_chat` | 日记页对话 | 用户进入日记页 | §5.4 | P1 |
 | `memory_review` | 个人画像页对话 | 用户进入个人画像页 | §5.5 | P1 |
 | `settings_chat` | 设置页对话（如询问关系定位、授权说明） | 用户在设置页与桌宠对话 | §5.6 | P1 |
+| `screen_share_chat` | 强感知（屏幕共享）期间的对话 | 用户已开 `consent.vlm_strong_sensing` 且在与桌宠对话 | §3.1.5.1 | P1 |
 
 **类别 B：桌宠主动表达场景**（`chat_message` 用，speaker=pet）
 
@@ -1083,28 +1084,36 @@ sequenceDiagram
 
 #### 3.1.5 VLM 语义观察
 
-> **核心约束**：强感知 = 实时陪伴，**不入记忆**；弱感知 = 长期数据源，**入记忆**
+> **核心约束**：强感知 = 实时陪伴，**仅视觉数据（`vlm_observation`）不入记忆**（chat / pc_signal / user_action 等其他 record_type 照常上报）；弱感知 = 长期数据源，**入记忆**。
 
-##### 3.1.5.1 强感知（实时陪伴，不入记忆）
+##### 3.1.5.1 强感知（实时陪伴，**仅视觉数据**不入记忆）
 
 | 维度 | 设计 |
 | --- | --- |
 | 触发 | 用户在桌宠 UI 或设置页主动开启"桌宠看屏幕"，伴随明显可见的状态指示（ui_indicator_shown=true） |
-| 数据流 | 屏幕帧 → 客户端本地 VLM → 直接进入当前对话上下文（current_context.local_visual_hint）。**不**写 `vlm_observation`，**不**回写画面任何语义字段到记忆系统 |
+| **画面数据流（不入记忆）** | 屏幕帧 → 客户端本地 VLM → 直接进入当前对话上下文（current_context.local_visual_hint）。**不**写 `vlm_observation`，**不**回写画面任何语义字段到记忆系统 |
+| **其他数据（正常入记忆）** | 强感知期间用户的 `chat_message`（与桌宠的对话内容）/ `pc_signal`（行为信号）/ `user_action`（mutation）等**所有非视觉 record_type 正常上报记忆系统**，与是否开强感知无关 |
 | 关闭 | 用户主动关闭，或客户端检测到强感知会话超过 `vlm_strong_sensing_max_duration_sec`（默认 30 分钟）自动退出 |
 | 隐私指示 | 强感知期间必须显示可见 UI 指示器，OS 顶部状态栏也建议显示采集状态 |
-| 入记忆的字段 | **仅** 两类审计 / 控制事件（见下表） |
+| 强感知**专属**审计字段 | 见下表两类事件 |
 
-**强感知下唯一进入跨系统的两类事件**：
+**强感知**新增**入记忆的两类事件**（除常规 chat / pc_signal / 等 record_type 外）：
 
 | 事件 | record_type | 说明 |
 | --- | --- | --- |
 | ① 开关变化 | `user_action` (mutation) | `update + consent.vlm_strong_sensing`，记录开 / 关时刻和 app_scope |
 | ② 会话审计 | `pet_runtime_event` | `event_type=vlm_strong_sensing_session_start` / `vlm_strong_sensing_session_end`，含 duration_sec / app_scope / ui_indicator_shown |
 
-> **关键约束（v2.1 终版）**：强感知会话期间，客户端**整段不上报**任何 source_record 到记忆系统 —— 包括 `chat_message`（用户与桌宠对话）/ `pc_signal` / `vlm_observation` 等。所有数据**仅本地存活于 current_context**，强感知结束时丢弃。这与"强感知 = 临时陪伴 / 不留痕"的设计原则一致（类比腾讯会议屏幕共享：共享期间的对话不进入会议记录）。如用户希望强感知期间的某次对话被记下来，应**先关闭强感知**再继续对话；这种设计取舍换来用户对强感知的明确隐私预期。
+> **关键约束（v2.1 终版修订）**：强感知"不入记忆"的边界**只覆盖屏幕画面 / 视觉语义结果**（即 `vlm_observation` 不写入；原图、帧、画面 hash 永禁出本地）。**其他数据照常上报**：
+>
+> - ✅ 强感知期间用户对桌宠说的话 → 正常入 `chat_message`（`client_scene=screen_share_chat` 标识场景）
+> - ✅ 强感知期间用户的 app 切换 / 输入派生 / 鼠标活动 → 正常入 `pc_signal`
+> - ✅ 强感知期间用户在桌宠 UI 上的任何操作 → 正常入 `user_action`
+> - ❌ **仅**屏幕画面 / VLM 推理结果 / 帧 hash → 永不入记忆
+>
+> **设计直觉类比**：强感知 = "让朋友看一眼电脑屏幕"。朋友看完就走 —— **没拍照、没记录画面内容**；但你和朋友期间聊了什么、点了什么按钮，**照常作为你的记忆留存**。这与"屏幕共享 = 全程脱网"是两回事；强感知只对**视觉数据**留痕设防。
 
-> **`screen_share_chat` client_scene 不存在**（v2.1 终版）：基于上述约束，§3.1.1.5 client_scene 枚举里**不列**该值；强感知期间客户端不发任何 chat_message envelope。
+> **`screen_share_chat` client_scene 恢复**（v2.1 终版修订）：基于上述边界修正，§3.1.1.5 类别 A 重新列出 `screen_share_chat`（"强感知屏幕共享期间的对话"），用于标识 chat_message 发生在强感知期间的业务场景。详见 §3.1.1.5。
 
 ##### 3.1.5.2 弱感知（长期数据源，入记忆）
 
@@ -2198,7 +2207,7 @@ sequenceDiagram
 
 ### 5.7 VLM 强 / 弱感知
 
-#### 5.7.1 强感知（实时陪伴，不入记忆）
+#### 5.7.1 强感知（实时陪伴，**仅视觉数据**不入记忆）
 
 ```mermaid
 sequenceDiagram
@@ -2220,7 +2229,7 @@ sequenceDiagram
     M-->>C: ack
 ```
 
-> 强感知期间画面语义只服务实时对话，**不**写 `vlm_observation`。跨系统只留两类事件：①`update + consent.vlm_strong_sensing` mutation；②`pet_runtime_event` 会话起止审计。
+> 强感知期间画面语义只服务实时对话，**不**写 `vlm_observation`（即"视觉数据不入记忆"）。**其他 record_type 照常上报**：用户与桌宠的 `chat_message`（client_scene 用 `screen_share_chat` 标识）、`pc_signal`、`user_action` 等正常入记忆。强感知**专属新增**的跨系统审计事件有两类：①`update + consent.vlm_strong_sensing` mutation；②`pet_runtime_event` 会话起止审计。
 
 #### 5.7.2 弱感知（长期数据源，入记忆）
 
@@ -2381,7 +2390,7 @@ sequenceDiagram
 > **变更说明（v2.1）**：本版本相对 v2 做了围绕 mentor 反馈与审查员清单的**精准修订**，主要变化：
 >
 > **v2.1 新增（mentor 反馈 + 审查员清单）**：
-> 1. **VLM 角色翻转**（mentor 反馈）：强感知 = 实时陪伴**不入记忆**；弱感知 = 用户可调档位（30/60/300/600/1800s）定时采集**入记忆作为长期数据源**。重写 §3.1.5 + §5.7。
+> 1. **VLM 角色翻转**（mentor 反馈）：强感知 = 实时陪伴，**仅视觉数据（`vlm_observation`）不入记忆**（chat / pc_signal / user_action 等其他 record_type 在强感知期间照常上报，见变更说明 #24）；弱感知 = 用户可调档位（30/60/300/600/1800s）定时采集**入记忆作为长期数据源**。重写 §3.1.5 + §5.7。
 > 2. **触发时机精简（v2.1 终版）**：原 9 个混杂术语 → 中间过渡 5 个 `trigger_cause` → 最终精简为 **2 个 `trigger_cause`**（`scheduled` / `event_driven`，2 选 1）+ 4 个 `delivery_mode`（`realtime` / `aggregated` / `batched_recovery` / `batched_startup`）。"是否 mutation""数据来源""阈值跨越"等维度交由 `record_type` 区分。详见 §2.3。
 > 3. **Mutation 通用化**：13 个枚举式 `mutation_type` → 中间版 7 个 → 最终精简为 **5 个通用 `action`**（`save` / `update` / `delete` / `request` / `feedback`）× N 个 `target_type`；`correct` / `restore` 合并入 `update`（用 `is_correction` / `new_value.is_active` 子参数区分意图），`confirm` 合并入 `feedback`（作为 `feedback_value` 之一）。详见 §3.2。
 > 4. **Ack 状态机分化**：同步 / 异步 / 批量三类各自的可达状态分别定义。详见 §3.2.5 Ack 回执。
@@ -2412,7 +2421,7 @@ sequenceDiagram
 >     - **`diary_entry` target_type 归类调整（v2.1 终版）**：原先列在 A 类（用户主动 save 创建），但 Diary PRD 实际流程是"每生理日 Diary 模块**自动生成 + 自动持久化**"，没有用户主动保存动作。已**移到 B 类**（Memory 自动加工的顶层资源，与 episode / atomic_fact 同类）；`save + diary_entry` mutation 路径**移除**；用户对日记的 mutation 入口仅剩 `update`（编辑标题/收藏/mailbox_status）/ `delete` / `feedback`。payload schema 仍由 Diary PRD §七.2 提供。
 >     - **不补的 Diary 概念**：`mailbox_status`（实时聚合）/ `pet_reaction`（客户端现场生成）/ `diary_entry` UI 字段（card_visual_type / detail_layout_type 等）/ `character_config`（合作游戏接入资产）。
 > 21. **高光页 UI 概念完全删除**：v2.1 决策"高光不作为独立 UI 页面，高光时刻通过日记自然提及"。具体修订：①删除 `highlight_recall` client_scene / `highlight_detail` query_type / `highlight_ready` push_type；②删除 save / update / delete / feedback + highlight 所有用户 mutation 入口（highlight 完全 ai_inferred_writable 后台化）；③§5.4 标题改为"日记生成与保存"，流程图删除"用户保存高光"步骤；④`proactive_congratulate` 桌宠主动祝贺改由 idip_milestone push 触发；⑤§4.1.3.9 highlight_event 字段表完整保留，但 query_type 列从 highlight_detail 改为 diary_detail（仅通过日记间接访问）；⑥highlight_event.source enum 去掉 `user_saved`。用户对高光的反馈通过对包含该高光的日记 feedback 间接传递。
-> 24. **强感知"整段不上报"约束 + 删除 screen_share_chat**：v2.1 之前 client_scene 枚举有 `screen_share_chat`（"强感知期间的对话"），暗示强感知期间 chat_message 仍上报。v2.1 终版收紧：**强感知会话期间客户端整段不上报任何 source_record**（chat_message / pc_signal / vlm_observation 等），全部仅本地存活于 current_context，强感知结束时丢弃。这与"强感知 = 临时陪伴 / 不留痕"原则一致（类比腾讯会议屏幕共享期间对话不进入会议记录）。如用户希望某次对话被记下来，应先关闭强感知再聊。具体修订：①§3.1.1.5 类别 A 删除 `screen_share_chat` 行；②§3.1.5.1 加"强感知下唯一进入跨系统的两类事件"表下的关键约束声明。
+> 24. **强感知边界修正 —— 仅视觉数据不入记忆**：v2.1 中间版曾收紧到"强感知会话期间客户端整段不上报任何 source_record"（chat / pc_signal / vlm 全屏蔽）。v2.1 终版**复议后修正**：强感知"不入记忆"边界过宽，错误把"对桌宠说的话 / 用户在 UI 上的操作"也排除在外，与"桌宠是用户记忆"基本盘冲突。**最终边界**：强感知期间**仅 `vlm_observation`（屏幕画面 / 视觉语义结果）不入记忆**；`chat_message` / `pc_signal` / `user_action` 等其他 record_type **正常上报**，只是 chat 用 `client_scene=screen_share_chat` 标识场景。设计直觉类比从"屏幕共享 = 全程脱网"修正为"让朋友看一眼屏幕 —— 朋友没拍照、没记录画面，但你和朋友期间聊了什么、点了什么按钮照常作为你的记忆留存"。具体修订：①§3.1.1.5 类别 A 重新加入 `screen_share_chat` 行；②§3.1.5.1 改写"画面数据流 / 其他数据"两行 + 关键约束改为仅围绕 vlm_observation；③标题改为"强感知（实时陪伴，**仅视觉数据**不入记忆）"。
 > 23. **`game_category` 引入 + `common_fields` 分层重构**：解决原 common_fields 里 `match_id`（PvP）/ `level_id`（PvE）/ `difficulty` / `team_size` 等字段都标"否"必填、无法说清何时填的问题。①新增 **`game_category`** 字段（必填 enum：`pvp_battle` / `pve_quest` / `pve_roguelike` / `open_world` / `card_strategy` / `simulation` / `other`），游戏接入时固定，整个生命周期不变；②原 common_fields 拆为**三层**：§3.1.2.4 第一层（跨所有游戏通用，5 字段 session_id / game_category / game_mode / client_locale / game_version）+ §3.1.2.5 第二层（按 game_category 适用的字段示例，6 类 + other）+ §3.1.2.3 第三层 custom_fields（单游戏专属）；③明确 `game_category` 与 `game_mode` 的边界（前者接入时固定，后者运行时可变）；④第二层字段是 PM 推荐集，每游戏接入时三方 review schema。
 > 22. **§3.2.3 target_type 重构为三表**：原 §3.2.3 单表存在 8 个问题（diary_reply 混淆 / "谁创建"列维度混乱 / 标题过简 / 缺 mutability_policy 列 / 示例 vs 完整清单模糊 / 排序混乱 / 与 §3.2.1 关系不清 / assessment 命名不一致）。重构为三个小节：①§3.2.3.1 命名约定与三类划分（**A 类用户主动 save / B 类 Memory 加工 / C 类子命名空间字段**）；②§3.2.3.2 target_type 示例表（按 A/B/C 分组，含 mutability_policy + 详见章节列）；③§3.2.3.3 action × target_type 矩阵（5 action × 12 target 类型完整可达性）。同时声明 highlight_event 不在 target_type 表内（v2.1 完全后台化）。
 > 26. **chat_message 字段调整**：①删除 `reply_to_message_id`（桌宠对话是 1v1 + 时序线性，"引用回复历史某条"产品场景几乎不存在；日记回复已由 §3.1.6 `diary_reply.diary_id` 承载，无需在 chat 上再设字段）；②新增 `game_session_id`（关联当前游戏对局，让 Memory 能把"对局中聊的"与"具体哪一局"关联，跨对局复盘场景受益）；③新增 `message_sequence`（会话内单调递增序号，离线 / 弱网下防乱序，比纯 occurred_at 排序更可靠）。两个新字段都 P1 可选。
