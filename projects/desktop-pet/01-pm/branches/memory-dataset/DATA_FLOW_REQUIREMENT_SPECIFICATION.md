@@ -1297,11 +1297,11 @@ sequenceDiagram
 
 | 类别 | 特征 | 谁产生 | 典型 mutation |
 | --- | --- | --- | --- |
-| **A 类：用户主动创建的顶层资源** | 用户在 UI 上点保存 / 添加规则 / 备忘等 | 用户 `save` action 创建 | save / update / delete / feedback |
+| **A 类：用户主动设置的顶层资源** | 用户在 UI 上点保存 / 添加规则 / 备忘等 | 用户 `save` action 创建 | save / update / delete / feedback |
 | **B 类：Memory 自动加工的顶层资源** | 后台 LLM / 规则生成的 derived_memory 对象 | Memory 后台 | update / delete / feedback（不可 save） |
 | **C 类：子命名空间字段（点号路径）** | 通过 `<root>.<sub>.<field>` 形式定位 §4.1.3 / §4.2 字段族下的某具体字段 | 多源（用户 update / Memory 推断 / 初始默认） | update / feedback（视字段而定） |
 
-**点号路径规则**：根命名空间（`profile_field` / `preference` / `consent` / `assessment`） + `.` + 子族 + `.` + 字段名。Engineering 建议加 schema lint 强制路径合法。
+**点号路径规则**：根命名空间（`profile_field` / `preference` / `consent` / `assessment`） + `.` + 子族 + `.` + 字段名。
 
 > 下面 §3.2.3.2 列示例 target_type；不是完整清单。完整字段命名空间见 §4.1.3（derived_memory 族）+ §4.2.1-§4.2.5（user_control_state 族）。
 
@@ -1320,9 +1320,7 @@ sequenceDiagram
 | `consent.<授权名>` | C | 隐私授权（10 项之一，如 `consent.vlm_visual` / `consent.chat_content`） | user_only | §4.2.1 |
 | `preference.<偏好族>.<字段>` | C | 用户偏好（如 `preference.diary_style.length` / `preference.notification.disturbance_boundaries`） | user_only | §4.2.2 / §4.2.4 / §4.2.5 |
 | `assessment.use_for_companion` | C | 角色相似度测定的"是否影响陪伴"开关 | user_only | §4.1.3.12 |
-| `request_type=resummarize_profile` | request 专用 | "重新总结我"异步流程触发 | — | §3.2.4 envelope 示例 5 |
 | `request_type=character_similarity_assessment` | request 专用 | 用户主动触发角色相似度测定 | — | §4.1.3.12 |
-| `request_type=profile_reset` | request 专用 | 用户清空画像异步流程 | — | §3.2.2 schema 约束表 |
 
 ##### 3.2.3.3 action × target_type 矩阵
 
@@ -1333,11 +1331,11 @@ sequenceDiagram
 | `rule.do_not_remember` (A) | ✓ 创建 | — | ✓ | — | — |
 | `free_form_note` (A) | ✓ 创建 | ✓ 改文本 | ✓ | — | — |
 | `diary_entry` (B) | — | ✓ 改 favorited/mailbox_status 等 | ✓ | — | ✓ (含 boring) |
-| `episode` (B) | — | ✓ 纠错（is_correction）| ✓ | — | ✓ |
+| `episode` (B) | — | ✓ 纠错（is_correction） | ✓ | — | ✓ |
 | `atomic_fact` (B) | — | ✓ 纠错 | ✓ | — | ✓ |
 | `diary_reply` (B') | — | — | ✓ 删除单条回信 | — | — |
 | `profile_field.*_user_set` (C) | ✓ 首次设置 | ✓ 覆盖 | — | — | — |
-| `profile_field.*_inferred` (C) | — | ✓（含 `is_correction=true` 锁定）| ✓ | — | ✓ (confirm/inaccurate) |
+| `profile_field.*_inferred` (C) | — | ✓（含 `is_correction=true` 锁定） | ✓ | — | ✓ (confirm/inaccurate) |
 | `consent.*` (C) | — | ✓ | — | — | — |
 | `preference.*` (C) | — | ✓ | — | — | — |
 | `assessment.use_for_companion` (C) | — | ✓ | — | — | — |
@@ -1483,12 +1481,10 @@ sequenceDiagram
 | `target_not_found` | `target_resource_id` 在记忆系统不存在 |
 | `target_inactive` | 目标资源已 `is_active=false`（除"恢复"操作 `update + new_value.is_active=true` 外） |
 | `schema_violation` | payload schema 不合法（如 `update` 缺 `new_value` / `feedback` 带 `new_value`） |
-| `version_conflict` | （v2.2 引入并发控制后）客户端版本号过期 |
+| `version_conflict` | 客户端版本号过期 |
 | `policy_violation` | 违反 `mutability_policy`（如 AI 流程尝试 `update` 一个 `user_only` 字段） |
 | `unrecoverable_state` | 目标处于不可恢复状态（如尝试恢复一个 `inactive_reason=conflict_with_newer_evidence` 的对象） |
 | `consent_cascade_blocked` | mutation 在授权撤回反向清理期间被阻塞 |
-
-> Ack 状态机的具体流程（同步 / 异步 / 批量三套 mermaid 图）属于工程实施细节，交由 Engineering Thread 在工程文档中定义；本数据需求文档只规定字段值清单与触发场景。
 
 ### 3.3 客户端补传：离线积压的数据
 
