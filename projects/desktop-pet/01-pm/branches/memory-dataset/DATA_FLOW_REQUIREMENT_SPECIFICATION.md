@@ -1324,8 +1324,6 @@ sequenceDiagram
 | `request_type=character_similarity_assessment` | request 专用 | 用户主动触发角色相似度测定 | — | §4.1.3.12 |
 | `request_type=profile_reset` | request 专用 | 用户清空画像异步流程 | — | §3.2.2 schema 约束表 |
 
-> **highlight_event 不在 target_type 表内**：v2.1 决策"高光完全后台化"，用户无任何 mutation 入口，highlight_event 仅作为 Memory 自动生成 / 自动失效的 derived_memory 存在（详见变更说明 #21）。
-
 ##### 3.2.3.3 action × target_type 矩阵
 
 哪些 action 可作用于哪些 target_type：
