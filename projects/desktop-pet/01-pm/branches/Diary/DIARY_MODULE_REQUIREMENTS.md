@@ -499,7 +499,7 @@ example_lines: 2-5 条原创参考语气示例
 #### 7.4 场景 Prompt 示例
 
 | 场景 | Prompt 输入示例 | 输出示例 |
-|---|---|---|
+| --- | --- | --- |
 | 新日记提示 | `<scene>new_diary_available</scene><context>unread_count: 2; entry: pet_bubble</context>` | `{"reaction_text":"主人，我把昨天的小信藏好啦，要拆开看看吗？","emotion":"playful","should_speak":true,"memory_write_hint":"none"}` |
 | 打开日记详情 | `<scene>diary_opened</scene><context>diary_title: 昨天的小小胜利; content_angle: game_companion</context><evidence>用户昨天完成一局胜利，并与桌宠互动一次。</evidence>` | `{"reaction_text":"主人来了。这封信我已经捧好久啦。","emotion":"gentle","should_speak":true,"memory_write_hint":"none"}` |
 | 用户正向回信 | `<scene>diary_reply_positive</scene><user_input>写得好可爱，我喜欢</user_input>` | `{"reaction_text":"主人喜欢就好，我开心得要藏不住啦。","emotion":"excited","should_speak":true,"memory_write_hint":"positive_feedback"}` |
@@ -543,14 +543,6 @@ example_lines:
 
 
 ## 四、Feature List
-
-本节将日记模块拆成更细的产品功能点，用于评审范围、对齐体验规则和后续拆分研发任务。接口字段和数据结构不在本节展开，分别见 §五 和 §七。
-
-**列说明**：
-
-- **功能 ID**：`F-XX-XX`，跨章节唯一索引。
-- **使用角色**：本模块面向终端用户（桌宠玩家）；特殊场景标注差异（如"首次进入用户"、"低互动用户"）。
-- **优先级**：`P0` = Demo 验证 + V1.0 上线必须；`P1` = V1.0 必做但晚于 P0 集成。
 
 ### 1. 日记生成
 
@@ -1037,7 +1029,7 @@ example_lines:
 ### 1. 数据异常
 
 | 异常场景 | 系统响应 |
-|---|---|
+| --- | --- |
 | 用户生理日内没有开机、没有游戏、没有互动 | 不强行生成完整日记；生成短小独处小剧场，不能编造用户行为。 |
 | 生理日有效时长低于 30 分钟 | 不生成基于用户行为的完整日记；可生成短小独处小剧场或跳过。 |
 | 用户修改本地系统时间 | 当 `current_boot_time < latest_saved_diary_time` 时判定为时间倒流；当 `current_boot_time > expected_current_time + allowed_clock_drift` 时判定为时间跳跃到未来。日记日期仍以稳定服务端时间或会话时间为准，避免 AI 按错误时间线推理。时间倒流可生成一次“时空穿越”彩蛋，示例：“天哪！刚刚桌面上刮起了一阵数据风暴，时间怎么倒退回四年前了？难道主人是掌握了时间魔法的神秘大能吗？！”；时间跳到未来则只做轻量提示，不提前生成未来日期日记。 |
@@ -1083,12 +1075,11 @@ example_lines:
 ### 6. 用户操作边界
 
 | 异常场景 | 系统响应 |
-|---|---|
+| --- | --- |
 | 用户未读旧日记又产生新日记 | 不覆盖旧日记；收信箱保留未读状态，红点显示未读数量，列表按时间倒序展示。 |
 | 用户删除日记 | 执行软删除，日记不再展示、不再作为后续证据。 |
-| 用户删除日记后又要求恢复 | P0 不承诺恢复；如后续支持，需要单独定义恢复窗口。 |
+| 用户删除日记后又要求恢复 | P0不承诺恢复，不加入废纸框的概念。 |
 | 用户先喜欢后又说“不准” | 保留反馈历史，当前判断以最新反馈为准。 |
-| 用户要求重写单篇日记 | P0 不支持详情页主动重写；引导用户用回信或不喜欢表达问题，反馈影响后续日记。 |
 | 用户回信包含偏好或纠正 | 回信默认进入长期记忆；后续日记和桌宠陪伴可读取该信号。 |
 
 ### 7. 反馈使用边界
@@ -1109,7 +1100,7 @@ example_lines:
 | 合作游戏方更新素材库 | 已生成的日记不重新检索图片，保持视觉一致性。 |
 | 用户软删除日记 | 不需要清理素材库（资产仍归素材库所有）；仅 diary_entry.illustration_refs 失效即可。 |
 
-## 七、数据结构建议
+## 七、数据结构
 
 ### 1. 数据关系 ER 图
 
