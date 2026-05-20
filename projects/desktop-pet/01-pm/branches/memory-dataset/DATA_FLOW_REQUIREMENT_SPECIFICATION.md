@@ -1084,9 +1084,11 @@ sequenceDiagram
 
 #### 3.1.5 VLM 语义观察
 
-> **核心约束**：强感知 = 实时陪伴，**仅视觉数据（`vlm_observation`）不入记忆**（chat / pc_signal / user_action 等其他 record_type 照常上报）；弱感知 = 长期数据源，**入记忆**。
+> **核心约束**：强感知 = 实时陪伴，**视觉数据（`vlm_observation`）不入记忆**（chat / pc_signal / user_action 等其他 record_type 照常上报）；弱感知 = 长期数据源，**入记忆**。
 
-##### 3.1.5.1 强感知（实时陪伴，**仅视觉数据**不入记忆）
+##### 3.1.5.1 强感知
+
+> [!NOTE] 强感知强调实时陪伴，视觉数据量极大。桌宠将视觉数据推断为文本数据一定会存在gap，日积月累的gap会污染记忆系统，因此不存储，只在客户端使用即可。
 
 | 维度 | 设计 |
 | --- | --- |
@@ -1103,17 +1105,6 @@ sequenceDiagram
 | --- | --- | --- |
 | ① 开关变化 | `user_action` (mutation) | `update + consent.vlm_strong_sensing`，记录开 / 关时刻和 app_scope |
 | ② 会话审计 | `pet_runtime_event` | `event_type=vlm_strong_sensing_session_start` / `vlm_strong_sensing_session_end`，含 duration_sec / app_scope / ui_indicator_shown |
-
-> **关键约束（v2.1 终版修订）**：强感知"不入记忆"的边界**只覆盖屏幕画面 / 视觉语义结果**（即 `vlm_observation` 不写入；原图、帧、画面 hash 永禁出本地）。**其他数据照常上报**：
->
-> - ✅ 强感知期间用户对桌宠说的话 → 正常入 `chat_message`（`client_scene=screen_share_chat` 标识场景）
-> - ✅ 强感知期间用户的 app 切换 / 输入派生 / 鼠标活动 → 正常入 `pc_signal`
-> - ✅ 强感知期间用户在桌宠 UI 上的任何操作 → 正常入 `user_action`
-> - ❌ **仅**屏幕画面 / VLM 推理结果 / 帧 hash → 永不入记忆
->
-> **设计直觉类比**：强感知 = "让朋友看一眼电脑屏幕"。朋友看完就走 —— **没拍照、没记录画面内容**；但你和朋友期间聊了什么、点了什么按钮，**照常作为你的记忆留存**。这与"屏幕共享 = 全程脱网"是两回事；强感知只对**视觉数据**留痕设防。
-
-> **`screen_share_chat` client_scene 恢复**（v2.1 终版修订）：基于上述边界修正，§3.1.1.5 类别 A 重新列出 `screen_share_chat`（"强感知屏幕共享期间的对话"），用于标识 chat_message 发生在强感知期间的业务场景。详见 §3.1.1.5。
 
 ##### 3.1.5.2 弱感知（长期数据源，入记忆）
 
@@ -1156,7 +1147,7 @@ sequenceDiagram
 | `privacy_grants.vlm_weak_sensing_interval_sec` | 弱感知采样档位（300 / 600 / 1800 / 0=off）；**30 / 60 仅在"高级设置页"开放**（需用户二次确认） | integer | 600 |
 | `privacy_grants.vlm_weak_sensing_app_blacklist[]` | 弱感知不采集的 app 列表（bundle_id 或 AUMID） | array&lt;string&gt; | 默认含金融 / 密码 / 视频会议类 |
 
-> **UI 约束**（v2.1）：普通用户在设置页可见档位为 **300s / 600s（默认）/ 1800s / off**。`30s` 和 `60s` 两档因为对电池 / 性能 / 隐私感知压力大，仅在"高级设置页"开放，并需要弹窗二次确认提示用户"高频采集可能影响电池续航和隐私感知"。
+> **UI 约束**：普通用户在设置页可见档位为 **300s / 600s（默认）/ 1800s / off**。`30s` 和 `60s` 两档因为对电池 / 性能 / 隐私感知压力大，仅在"高级设置页"开放，并需要弹窗二次确认提示用户"高频采集可能影响电池续航和隐私感知"。
 >
 > **截图三种用途的授权层次**（v2.1）：根开关 `vlm_visual.granted` 控制"客户端能否获取屏幕画面"；其下三个子开关分别控制三种具体用途 —— `vlm_strong_sensing` 强感知实时陪伴 / 弱感知（开根开关 + `vlm_weak_sensing_interval_sec != 0` 自动启用）/ `vlm_visual.allow_local_save_for_diary` 高光时刻本地截图作日记插图。**任何一个子开关都依赖根开关**；根开关关闭则三种用途全部失效。所有用途**原图永不上传记忆系统**。
 
@@ -1205,9 +1196,9 @@ sequenceDiagram
 
 对应的 session_end 事件含 `duration_sec` 字段，记录强感知会话实际持续时长。
 
-#### 3.1.6 日记回信 diary_reply（对接 Diary PRD §七.4）
+#### 3.1.6 日记回信 diary_reply
 
-> **新增于 v2.1**。用户在日记详情页对桌宠日记的回信文本作为**独立 source_record** 持久化，默认进入长期记忆。与 §3.1.1.2 chat_message 的关键区别：①必须关联 `diary_id`；②带 `reply_intent` enum；③记忆系统应据 `reply_intent` 决定是否派生 feedback / 触发 derived_memory 更新。
+> 用户在日记详情页对桌宠日记的回信文本作为**独立 source_record** 持久化，默认进入长期记忆。与 §3.1.1.2 chat_message 的关键区别：①必须关联 `diary_id`；②带 `reply_intent` enum；③记忆系统应据 `reply_intent` 决定是否派生 feedback / 触发 derived_memory 更新。
 
 ##### 3.1.6.1 `record_type`
 
