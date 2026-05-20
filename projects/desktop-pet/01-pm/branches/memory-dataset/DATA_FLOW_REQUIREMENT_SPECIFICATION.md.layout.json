@@ -1952,12 +1952,50 @@
     {
       "index": 57,
       "cols": [
-        236,
+        278,
         468,
         94,
-        133,
+        246,
         173,
-        50
+        113
+      ],
+      "rows": [
+        {
+          "index": 0,
+          "height": 90
+        }
+      ],
+      "aligns": [
+        {
+          "row": 1,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 1,
+          "col": 3,
+          "align": "center"
+        },
+        {
+          "row": 2,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 2,
+          "col": 3,
+          "align": "center"
+        },
+        {
+          "row": 3,
+          "col": 0,
+          "align": "center"
+        },
+        {
+          "row": 3,
+          "col": 3,
+          "align": "center"
+        }
       ]
     }
   ]
