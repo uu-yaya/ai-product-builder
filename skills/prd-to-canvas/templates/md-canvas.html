@@ -3753,6 +3753,9 @@
       <button class="btn btn-secondary" id="comments-btn" title="评论面板">
         <span>评论</span> <span class="kbd">⌘⇧C</span> <span id="comments-btn-count" class="comments-btn-count" hidden>0</span>
       </button>
+      <button class="btn btn-secondary" data-open-ai-settings title="MiniMax API key / 模型设置">
+        <span>AI 设置</span>
+      </button>
       <button class="btn btn-secondary" id="edit-btn">
         <span id="edit-btn-label">编辑</span> <span class="kbd">E</span>
       </button>
@@ -8334,6 +8337,7 @@
         '<input type="text" class="pl-title" placeholder="实验标题（如：日记生成 v1 vs v2）" value="' + escapeHtml(p.title || '') + '">' +
         linkedBadgeHtml +
         '<select class="pl-model"></select>' +
+        '<button type="button" class="pl-icon-btn" data-open-ai-settings title="MiniMax API key / 模型设置">⚙</button>' +
         '<button type="button" class="pl-run" title="调真实大模型">跑</button>' +
         '<button type="button" class="pl-icon-btn pl-comment" title="给这块加评论">评</button>' +
         '<button type="button" class="pl-icon-btn pl-delete" title="删除此块">删</button>';
@@ -10401,6 +10405,15 @@
     document.getElementById('ai-open-settings').addEventListener('click', openAiSettings);
     document.getElementById('ai-settings-close').addEventListener('click', closeAiSettings);
     aiSettingsModal.addEventListener('click', e => { if (e.target === aiSettingsModal) closeAiSettings(); });
+    // Delegated handler — any button (top-nav, block heads, future entry
+    // points) with `data-open-ai-settings` opens the modal. Avoids having
+    // to wire every dynamically-built block's settings button individually.
+    document.addEventListener('click', e => {
+      const btn = e.target.closest && e.target.closest('[data-open-ai-settings]');
+      if (!btn) return;
+      e.preventDefault();
+      openAiSettings();
+    });
 
     function openAiSettings() {
       const s = loadAiSettings();
