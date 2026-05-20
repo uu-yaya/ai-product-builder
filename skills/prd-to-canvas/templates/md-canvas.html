@@ -4339,52 +4339,58 @@
 
     // Scrollspy — pick the topmost heading whose top is at or above a
     // fixed offset below the sticky nav, highlight its TOC link.
-    // (Earlier IntersectionObserver approach with a narrow rootMargin band
-    // missed cases where no heading sat inside the band at all → nothing
-    // ever highlighted.)
-    let _tocScrollHandler = null;
-    function observeTocScroll() {
-      const headings = Array.from(document.querySelectorAll(
+    //
+    // buildToc() gets called from many places (insert / delete / convert
+    // / sortable end / etc.) and rebuilds both the TOC link DOM and the
+    // heading IDs. Caching headings + links in a closure here means stale
+    // node references after any of those calls → setting .is-current on a
+    // detached <a> has zero visual effect. So query fresh in update().
+    const TOC_HEADER_OFFSET = 96; // top-nav (64) + comfort margin
+    let _tocScrollLastId = null;
+    let _tocScrollTicking = false;
+    let _tocScrollBound = false;
+
+    function updateTocActive() {
+      _tocScrollTicking = false;
+      const headings = document.querySelectorAll(
         '.md-heading h1, .md-heading h2, .md-heading h3, .md-heading h4'
-      )).filter(h => h.id);
-      const links = new Map();
-      document.querySelectorAll('#toc-list a').forEach(a => links.set(a.dataset.target, a));
-      const HEADER_OFFSET = 96; // top-nav (64) + comfort margin
-      let lastActiveId = null;
-      let ticking = false;
-
-      function update() {
-        ticking = false;
-        let active = null;
-        for (const h of headings) {
-          const top = h.getBoundingClientRect().top;
-          if (top - HEADER_OFFSET <= 0) active = h;
-          else break;
-        }
-        // Fallback: if we're scrolled above all headings, use the first one
-        if (!active && headings.length) active = headings[0];
-        const id = active ? active.id : null;
-        if (id === lastActiveId) return;
-        lastActiveId = id;
-        links.forEach(a => a.classList.remove('is-current'));
-        if (id) {
-          const link = links.get(id);
-          if (link) link.classList.add('is-current');
-        }
+      );
+      if (!headings.length) return;
+      let active = null;
+      for (const h of headings) {
+        if (!h.id) continue;
+        const top = h.getBoundingClientRect().top;
+        if (top - TOC_HEADER_OFFSET <= 0) active = h;
+        else break;
       }
-
-      function onScroll() {
-        if (ticking) return;
-        ticking = true;
-        requestAnimationFrame(update);
+      // Fallback: scrolled above every heading → highlight the first
+      if (!active) {
+        for (const h of headings) { if (h.id) { active = h; break; } }
       }
+      const id = active ? active.id : null;
+      if (id === _tocScrollLastId) return;
+      _tocScrollLastId = id;
+      document.querySelectorAll('#toc-list a').forEach(a => {
+        a.classList.toggle('is-current', a.dataset.target === id);
+      });
+    }
 
-      // Detach previous handler (renderAll may call us repeatedly)
-      if (_tocScrollHandler) window.removeEventListener('scroll', _tocScrollHandler);
-      _tocScrollHandler = onScroll;
-      window.addEventListener('scroll', onScroll, { passive: true });
-      // Seed initial state
-      update();
+    function _tocOnScroll() {
+      if (_tocScrollTicking) return;
+      _tocScrollTicking = true;
+      requestAnimationFrame(updateTocActive);
+    }
+
+    function observeTocScroll() {
+      // Bind once; queries are dynamic so we don't need to rebind on
+      // every buildToc() rebuild of the link DOM.
+      if (!_tocScrollBound) {
+        window.addEventListener('scroll', _tocOnScroll, { passive: true });
+        _tocScrollBound = true;
+      }
+      // Force a recompute on next frame so the new heading set seeds
+      _tocScrollLastId = null;
+      requestAnimationFrame(updateTocActive);
     }
 
     // ============================================================
