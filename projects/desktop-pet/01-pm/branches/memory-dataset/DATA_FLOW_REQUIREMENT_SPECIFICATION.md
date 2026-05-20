@@ -231,9 +231,9 @@ flowchart LR
 
 ### 2.4 参数参考值
 
-| 参数 | 推荐值 | 单位 | 备注 |
+| 参数 | 参考值 | 单位 | 备注 |
 | --- | --- | --- | --- |
-| `idip_heartbeat_interval_sec` | **60** | 秒 | A 类游戏（有 SDK 实时事件）兜底 120s，B 类（无 SDK 实时事件）主通道 60s |
+| `idip_heartbeat_interval_sec` | **60** | 秒 | 有 SDK 实时事件的游戏兜底 120s，无 SDK 实时事件的游戏主通道 60s |
 | `pc_signal_heartbeat_sec` | **30** | 秒 | active_app / idle_signal / is_fullscreen_game 三字段最低频率 |
 | `idle_signal_thresholds_sec` | **[60, 300, 1800]** | 秒 | active / idle_1min / idle_5min / idle_30min+ 跨档触发 |
 | `digest_aggregation_window_min` | **10** | 分钟 | 输入派生 / mouse / tab digest 的聚合窗口 |
@@ -259,8 +259,8 @@ flowchart LR
 
 | 子节 | 内容 | 主语 | 优先级 |
 | --- | --- | --- | --- |
-| §3.1 | **客户端上报：原始事实**（`source_record`，按 5 大类细分） | 客户端实时发起 | P0 |
-| §3.2 | **客户端上报：用户操作**（`mutation`：保存 / 修改 / 删除 / 反馈 / 请求） | 用户触发 | P0 |
+| §3.1 | **客户端上报：原始事实**（`source_record`） | 客户端实时发起 | P0 |
+| §3.2 | **客户端上报：用户操作**（`mutation`） | 用户触发 | P0 |
 | §3.3 | **客户端补传：离线积压的数据** | 网络恢复 / 启动后发起 | P1 |
 
 ### 3.1 客户端上报：原始事实（source_record）
@@ -299,8 +299,8 @@ flowchart LR
 | `message_type` | 消息形态 | enum (`text` / `voice_transcribed`) | 是 | "text" | P0 |
 | `content` | 干净文本（无 markdown / 无格式 / 不区分输入通道） | string | 是 | "刚才那把翻盘了！" | P0 |
 | `client_scene` | 客户端业务场景（枚举完整清单见 §3.1.1.5） | enum | 是 | "post_game_chat" | P0 |
-| `game_session_id` | 关联的游戏对局 ID（**v2.1 新增**）。当 `client_scene ∈ {pre_game_chat, during_game_chat, post_game_chat, settings_chat}` 等与对局相关的场景时填写；纯闲聊（idle_chat）或对局外场景可空。让 Memory 能把"这条 chat"与"哪一局游戏事件"关联 | string \| null | 否 | "sess_2026051820001" | P1 |
-| `message_sequence` | 会话内序号（**v2.1 新增**）。同一 `conversation_id` 内单调递增（0 为会话首条）。用于离线 / 弱网情况下的乱序重排，比纯靠 `occurred_at` 排序更可靠 | integer | 否 | 5 | P1 |
+| `game_session_id` | 关联的游戏对局 ID。当 `client_scene ∈ {pre_game_chat, during_game_chat, post_game_chat, settings_chat}` 等与对局相关的场景时填写；让 Memory 能把"这条 chat"与"哪一局游戏事件"关联 | string \| null | 否 | "sess_2026051820001" | P1 |
+| `message_sequence` | 会话内序号。同一 `conversation_id` 内单调递增（0 为会话首条）。用于离线 / 弱网情况下的乱序重排 | integer | 否 | 5 | P1 |
 
 ##### 3.1.1.3 `pet_runtime_event` payload 字段表
 
