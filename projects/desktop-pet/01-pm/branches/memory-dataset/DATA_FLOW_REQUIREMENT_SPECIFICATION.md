@@ -690,6 +690,11 @@ flowchart TD
 
 ##### 3.1.3.4 浏览器 tab 与 OS Scripting Bridge
 
+- **浏览器 tab ：os层面会被沙箱阻断），若不开启共享屏幕权限，靠浏览器扩展**
+- ***OS Scripting Bridge：一些app没有mcp或者没有专门获取状态的api，但是暴露了 OSA / COM 接口让其他 app 可以查它们的状态.***
+
+> [!NOTE] OS OS Scripting Bridge与MCP的区别在于前者遵循macOS OSA / Windows COM的协议，只开放少量原数据，后者遵循MCP协议，开放的是app的白名单数据（eg.飞书）
+
 | 字段 | 含义 | 数据对象 | 触发时机（trigger_cause + delivery_mode） | 优先级 |
 | --- | --- | --- | --- | --- |
 | `active_tab_signal.category` | 当前浏览器活动 tab 的归类（video / social / dev / news / shopping / other 6 类，**不读 URL / 不读正文**） | source_record | `event_driven`（浏览器扩展上报 tab 切换） | P1 |
