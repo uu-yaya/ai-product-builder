@@ -270,7 +270,7 @@ flowchart LR
 | `record_type` | 含义 | 触发时机 | 关键 payload 字段 | 优先级 |
 | --- | --- | --- | --- | --- |
 | `chat_message` | 用户与桌宠之间的单条对话消息（含语音转文本后的干净文本） | `event_driven`（用户发送 / 桌宠输出每条消息后立即触发） | `conversation_id` / `speaker`（user/pet）/ `message_type`（text/voice_transcribed）/ `content` / `client_scene` | P0 |
-| `pet_runtime_event` | 桌宠运行时产生的非对话事件，含消息送达 / 用户忽略 / 桌宠主动表达 / 强感知会话审计等 | `event_driven`（桌宠产生主动行为 / 用户对桌宠消息做出反馈 / 强感知会话起止） | `event_type` / `client_scene` / `related_record_ids[]` / `message_template_id` / `user_interruption_level` | P0 |
+| `pet_runtime_event` | 桌宠运行时的**行为 / 状态元事件**（**不**承载对话文本内容 —— 文本走 §3.1.1.2 chat_message）。含：①对话元事件（消息送达 / 用户忽略 / 桌宠主动开口 / 抑制主动表达）；②强感知会话审计（开 / 关 / 时长）；③授权变更审计；④系统离线 / MCP 错误 / 网络恢复等 | `event_driven`（桌宠产生主动行为 / 用户对桌宠消息做出反馈 / 强感知会话起止 / 系统状态变化） | `event_type` / `client_scene` / `related_record_ids[]` / `message_template_id` / `user_interruption_level` | P0 |
 
 > **来源边界**：`chat_message.content` 一律视为"干净文本"，不带 input_modality（键盘 / STT 都不区分）。voice-interaction 分支输出的 STT 文本进入这里时也一样。
 
@@ -303,6 +303,10 @@ flowchart LR
 | `message_sequence` | 会话内序号。同一 `conversation_id` 内单调递增（0 为会话首条）。用于离线 / 弱网情况下的乱序重排 | integer | 否 | 5 | P1 |
 
 ##### 3.1.1.3 `pet_runtime_event` payload 字段表
+
+> `pet_runtime_event` 记录的是桌宠运行时的**行为 / 状态元事件**，**不**承载对话**文本内容**。对话**文本**走 §3.1.1.2 `chat_message`；本 record_type 只承载**和对话相关的元事件**（如"桌宠那条消息送达了"/"用户超时未响应"/"桌宠想说但因打扰边界抑制了"）+ **非对话的系统类事件**（强感知会话审计 / 授权变更 / 离线丢弃 / MCP 错误 等）。
+>
+> 类比：chat_message 是"对话框里的气泡内容"；pet_runtime_event 是"气泡的送达状态 / 用户读没读 / 系统状态变化" —— 类似 IM 应用里"已读 / 已撤回 / 网络断开" 这类信号事件。
 
 | 字段 | 含义 | 数据类型 | 必填 | 示例值 | 优先级 |
 | --- | --- | --- | --- | --- | --- |
@@ -381,6 +385,36 @@ flowchart LR
 | `consent_change` | 授权变更（开 / 关某类授权） | `update + consent.*` | §5.6 | P0 |
 | `offline_drop` | 离线缓存满 / 超时丢弃事件 | offline_buffer 超限 | §3.3 | P1 |
 | `mcp_event` | MCP app 主动通知客户端 | MCP 主动推入（`record_type=mcp_observation` + `trigger_cause=event_driven`） | §3.1.4 MCP 通道 | P1 |
+
+***pet_runtime_event的envelope示例***
+
+```json
+{
+    "envelope_version": "1.0",
+    "record_id": "rec_pet_runtime_001",
+    "record_type": "pet_runtime_event",
+    "game_id": "wangzhe",
+    "game_user_id_pseudonym": "u_hash_123",
+    "game_sub_account_id": null,
+    "occurred_at": "2026-05-19T22:31:00Z",
+    "sent_at": "2026-05-19T22:31:01Z",
+    "consent_snapshot_id": "consent_001",
+    "trigger_cause": "event_driven",
+    "delivery_mode": "realtime",
+    "payload_schema_version": "pet_runtime_event.v1",
+    "payload": {
+      "event_type": "vlm_strong_sensing_session_end",
+      "client_scene": "user_initiated_screen_share",
+      "related_record_ids": ["rec_pet_runtime_vlm_start_001"],
+      "user_interruption_level": "low",
+      "extra": {
+        "duration_sec": 1200,
+        "app_scope": ["lol_client"],
+        "ui_indicator_shown": true
+      }
+    }
+  }
+```
 
 #### 3.1.2 游戏数据
 
