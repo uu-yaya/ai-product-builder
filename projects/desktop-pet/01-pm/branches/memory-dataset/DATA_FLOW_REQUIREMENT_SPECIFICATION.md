@@ -212,9 +212,9 @@ flowchart LR
 | `delivery_mode` | 含义 |
 | --- | --- |
 | `realtime`（默认） | 触发即发，单发 envelope |
-| `aggregated` | 客户端在周期内聚合 N 条信号成一条二阶统计（input_digest / typing_rhythm / mouse_heatmap_top3 等） |
-| `batched_recovery` | 离线 / 网络恢复批量补传 |
-| `batched_startup` | 客户端冷启动一次性批量同步 |
+| `aggregated` | 不上报每个原始动作，而是在一个窗口内收集 N 条信号，算出一个二阶统计结果，把这个结果作为一条 envelope 上报。例如 mouse_region_heatmap_top3统计的是几轮鼠标移动的事件。 |
+| `batched_recovery` | 离线 / 网络恢复后批量把积压的数据传输，保证及时数据延迟也能到达。 |
+| `batched_startup` | 客户端冷启动一次性批量同步，把本地性缓存批量同步 |
 
 #### 2.3.3 SLA 对应表
 
