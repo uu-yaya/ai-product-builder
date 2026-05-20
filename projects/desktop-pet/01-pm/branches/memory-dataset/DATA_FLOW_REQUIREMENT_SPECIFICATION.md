@@ -331,12 +331,12 @@ flowchart LR
 | `proactive_speak` | 桌宠主动开口（兜底通用） | `proactive_speak` / `proactive_comfort` / `proactive_congratulate` / `proactive_reminder` / `proactive_share_observation` | P0 |
 | `proactive_speak_skipped` | 桌宠想说但因打扰边界 / 用户偏好抑制了主动表达 | `long_no_feedback` | P1 |
 
-**类别 B：VLM 强感知会话审计**
+**类别 B：屏幕共享（强感知）会话审计**
 
 | 值 | 含义 | 典型 client_scene | 优先级 |
 | --- | --- | --- | --- |
-| `vlm_strong_sensing_session_start` | 用户开启屏幕共享，强感知会话开始 | `user_initiated_screen_share` | P0 |
-| `vlm_strong_sensing_session_end` | 用户关闭屏幕共享，强感知会话结束（extra.duration_sec 必填） | `user_initiated_screen_share` | P0 |
+| `screen_share_session_start` | 用户主动开启屏幕共享 = 进入强感知模式 | `user_initiated_screen_share` | P0 |
+| `screen_share_session_end` | 用户关闭屏幕共享 = 退出强感知模式（extra.duration_sec 必填） | `user_initiated_screen_share` | P0 |
 
 **类别 C：授权与隐私审计**
 
@@ -365,7 +365,7 @@ flowchart LR
 | `diary_chat` | 日记页对话 | 用户进入日记页 | §5.4 | P1 |
 | `memory_review` | 个人画像页对话 | 用户进入个人画像页 | §5.5 | P1 |
 | `settings_chat` | 设置页对话（如询问关系定位、授权说明） | 用户在设置页与桌宠对话 | §5.6 | P1 |
-| `screen_share_chat` | 强感知（屏幕共享）期间的对话 | 用户已开 `consent.vlm_strong_sensing` 且在与桌宠对话 | §3.1.5.1 | P1 |
+| `screen_share_chat` | 强感知（屏幕共享）期间的对话 | 用户正在屏幕共享会话期间（vlm_visual 根开关已开 + 主动触发屏幕共享） | §3.1.5.1 | P1 |
 
 **类别 B：桌宠主动表达场景**（`chat_message` 用，speaker=pet）
 
@@ -382,7 +382,7 @@ flowchart LR
 | 值 | 含义 | 触发时机 | 关联章节 | 优先级 |
 | --- | --- | --- | --- | --- |
 | `long_no_feedback` | 用户长时无反馈触发弱感知或主动判断 | 用户超 5min 无操作 | §5.7.2 | P1 |
-| `user_initiated_screen_share` | 用户开 / 关强感知屏幕共享 | `update + consent.vlm_strong_sensing` | §5.7.1 | P1 |
+| `user_initiated_screen_share` | 用户主动触发 / 关闭屏幕共享会话（= 进入 / 退出强感知） | `pet_runtime_event: screen_share_session_start/end` | §5.7.1 | P1 |
 | `consent_change` | 授权变更（开 / 关某类授权） | `update + consent.*` | §5.6 | P0 |
 | `offline_drop` | 离线缓存满 / 超时丢弃事件 | offline_buffer 超限 | §3.3 | P1 |
 | `mcp_event` | MCP app 主动通知客户端 | MCP 主动推入（`record_type=mcp_observation` + `trigger_cause=event_driven`） | §3.1.4 MCP 通道 | P1 |
@@ -404,7 +404,7 @@ flowchart LR
     "delivery_mode": "realtime",
     "payload_schema_version": "pet_runtime_event.v1",
     "payload": {
-      "event_type": "vlm_strong_sensing_session_end",
+      "event_type": "screen_share_session_end",
       "client_scene": "user_initiated_screen_share",
       "related_record_ids": ["rec_pet_runtime_vlm_start_001"],
       "user_interruption_level": "low",
@@ -1095,16 +1095,17 @@ sequenceDiagram
 | 触发 | 用户在桌宠 UI 或设置页主动开启"桌宠看屏幕"，伴随明显可见的状态指示（ui_indicator_shown=true） |
 | **画面数据流（不入记忆）** | 屏幕帧 → 客户端本地 VLM → 直接进入当前对话上下文（current_context.local_visual_hint）。**不**写 `vlm_observation`，**不**回写画面任何语义字段到记忆系统 |
 | **其他数据（正常入记忆）** | 强感知期间用户的 `chat_message`（与桌宠的对话内容）/ `pc_signal`（行为信号）/ `user_action`（mutation）等**所有非视觉 record_type 正常上报记忆系统**，与是否开强感知无关 |
-| 关闭 | 用户主动关闭，或客户端检测到强感知会话超过 `vlm_strong_sensing_max_duration_sec`（默认 30 分钟）自动退出 |
-| 隐私指示 | 强感知期间必须显示可见 UI 指示器，OS 顶部状态栏也建议显示采集状态 |
-| 强感知**专属**审计字段 | 见下表两类事件 |
+| 关闭 | 用户主动关闭，或客户端检测到屏幕共享会话超过 `screen_share_session_max_duration_sec`（默认 30 分钟）自动退出 |
+| 隐私指示 | 屏幕共享期间必须显示可见 UI 指示器，OS 顶部状态栏也建议显示采集状态 |
+| 强感知**专属**审计字段 | 仅一类 —— 见下方"会话审计事件" |
 
-**强感知**新增**入记忆的两类事件**（除常规 chat / pc_signal / 等 record_type 外）：
+**强感知**专属**新增入记忆的一类事件**（除常规 chat / pc_signal / 等 record_type 外）：
 
 | 事件 | record_type | 说明 |
 | --- | --- | --- |
-| ① 开关变化 | `user_action` (mutation) | `update + consent.vlm_strong_sensing`，记录开 / 关时刻和 app_scope |
-| ② 会话审计 | `pet_runtime_event` | `event_type=vlm_strong_sensing_session_start` / `vlm_strong_sensing_session_end`，含 duration_sec / app_scope / ui_indicator_shown |
+| 会话审计 | `pet_runtime_event` | `event_type=screen_share_session_start` / `screen_share_session_end`，含 `duration_sec` / `app_scope` / `ui_indicator_shown` |
+
+> **没有独立"强感知授权" mutation**：强感知 ≡ 屏幕共享会话期间，不是 `privacy_grants` 中的独立子开关。授权层面只有一个根开关 `privacy_grants.vlm_visual.granted`（详见 §3.1.5.4），开则同时允许弱感知（按档位）+ 强感知（用户主动触发）+ 日记本地截图（屏幕共享期间顺势保存）三种用途；关则三种全部失效。屏幕共享会话的开 / 关只作为运行时**会话审计事件**入记，不产生 `user_action` mutation。
 
 ##### 3.1.5.2 弱感知（长期数据源，入记忆）
 
@@ -1141,15 +1142,19 @@ sequenceDiagram
 
 | 字段 | 含义 | 数据类型 | 默认值 |
 | --- | --- | --- | --- |
-| `privacy_grants.vlm_visual.granted` | 是否授权"客户端获取屏幕画面"（强 / 弱感知 + Diary 本地截图保存 三者共用的**根开关**） | boolean | false |
-| `privacy_grants.vlm_strong_sensing.granted` | 强感知（实时陪伴）子开关 | boolean | false |
-| `privacy_grants.vlm_visual.allow_local_save_for_diary` | **新增**。是否允许 Diary 模块在高光时刻**本地保存截图**作为日记插图（原图永不上传记忆系统，仅本地保留为客户端 asset） | boolean | false |
+| `privacy_grants.vlm_visual.granted` | 是否授权"桌宠能看屏幕"（**唯一根开关**：弱感知 / 强感知 / Diary 本地截图三种用途共用） | boolean | false |
 | `privacy_grants.vlm_weak_sensing_interval_sec` | 弱感知采样档位（300 / 600 / 1800 / 0=off）；**30 / 60 仅在"高级设置页"开放**（需用户二次确认） | integer | 600 |
 | `privacy_grants.vlm_weak_sensing_app_blacklist[]` | 弱感知不采集的 app 列表（bundle_id 或 AUMID） | array&lt;string&gt; | 默认含金融 / 密码 / 视频会议类 |
 
 > **UI 约束**：普通用户在设置页可见档位为 **300s / 600s（默认）/ 1800s / off**。`30s` 和 `60s` 两档因为对电池 / 性能 / 隐私感知压力大，仅在"高级设置页"开放，并需要弹窗二次确认提示用户"高频采集可能影响电池续航和隐私感知"。
 >
-> **截图三种用途的授权层次**（v2.1）：根开关 `vlm_visual.granted` 控制"客户端能否获取屏幕画面"；其下三个子开关分别控制三种具体用途 —— `vlm_strong_sensing` 强感知实时陪伴 / 弱感知（开根开关 + `vlm_weak_sensing_interval_sec != 0` 自动启用）/ `vlm_visual.allow_local_save_for_diary` 高光时刻本地截图作日记插图。**任何一个子开关都依赖根开关**；根开关关闭则三种用途全部失效。所有用途**原图永不上传记忆系统**。
+> **单根开关模型**（v2.1 终版简化）：`vlm_visual.granted` 是唯一控制屏幕画面的授权，open 即同时允许三种用途：
+>
+> - **弱感知**：开根开关 + `vlm_weak_sensing_interval_sec != 0` 时自动按档位定时采集（vlm_observation 入记忆）
+> - **强感知**：用户主动触发"屏幕共享"会话时进入实时模式（画面不入记忆，仅服务当下对话；详见 §3.1.5.1）
+> - **Diary 本地截图**：屏幕共享会话期间，Diary 可顺势在高光时刻本地保存截图作日记插图（**原图仅本地保留**，永不上传记忆系统）
+>
+> **关根开关 → 三种用途全部失效**。所有用途**原图永不上传记忆系统**。
 
 ##### 3.1.5.5 envelope 示例
 
@@ -1183,7 +1188,7 @@ sequenceDiagram
   "record_type": "pet_runtime_event",
   "payload_schema_version": "pet_runtime_event.v1",
   "payload": {
-    "event_type": "vlm_strong_sensing_session_start",
+    "event_type": "screen_share_session_start",
     "client_scene": "user_initiated_screen_share",
     "ui_indicator_shown": true,
     "app_scope": ["com.tencent.lol"],
@@ -1312,7 +1317,7 @@ sequenceDiagram
 | `diary_reply` | B' | 日记回信对象（**上报时**走 §3.1.6 独立 record_type；**仅作为 delete target_type** 使用） | ai_inferred_writable（用户 delete 自己的回信） | §3.1.6 |
 | `profile_field.<族>.<字段>_user_set` | C | 用户显式设置的画像字段（如 `profile_field.profile_identity.preferred_call_name`） | user_only | §4.2.6 / §4.2.7 + §4.1.3.14 |
 | `profile_field.<族>.<字段>_inferred` | C | AI 推断的画像字段（如 `profile_field.playstyle_profile.playstyle_tags_inferred`） | user_primary_ai_candidate 或 ai_inferred_writable | §4.1.3.4-§4.1.3.7 + §4.1.3.14 |
-| `consent.<授权名>` | C | 隐私授权（12 项之一，如 `consent.vlm_visual` / `consent.chat_content`） | user_only | §4.2.1 |
+| `consent.<授权名>` | C | 隐私授权（10 项之一，如 `consent.vlm_visual` / `consent.chat_content`） | user_only | §4.2.1 |
 | `preference.<偏好族>.<字段>` | C | 用户偏好（如 `preference.diary_style.length` / `preference.notification.disturbance_boundaries`） | user_only | §4.2.2 / §4.2.4 / §4.2.5 |
 | `assessment.use_for_companion` | C | 角色相似度测定的"是否影响陪伴"开关 | user_only | §4.1.3.12 |
 | `request_type=resummarize_profile` | request 专用 | "重新总结我"异步流程触发 | — | §3.2.4 envelope 示例 5 |
@@ -1902,7 +1907,7 @@ def get_display_tier(field):
 | `game_profile_user_set` | `favorite_roles[]` / `favorite_modes[]` / `game_goals[]` | P0 |
 | `content_type` | `enabled[]` / `priority[]` / `user_feedback[]` | P1 |
 | `diary_style` | `frequency` / `length` / `focus` / `quote_user_original`（详见 §4.2.5） | P1 |
-| `privacy_grants` | `chat_content` / `game_event_memory` / `behavior_data` / `vlm_visual` / `vlm_strong_sensing` / `vlm_visual.allow_local_save_for_diary` / `ui_text_reading` / `system_audio_music_context` / `mcp_sources[]` / `profile_inference` / `character_similarity_assessment` / `diary_quote`（详见 §4.2.1） | P0 |
+| `privacy_grants` | `chat_content` / `game_event_memory` / `behavior_data` / `vlm_visual` / `ui_text_reading` / `system_audio_music_context` / `mcp_sources[]` / `profile_inference` / `character_similarity_assessment` / `diary_quote`（详见 §4.2.1） | P0 |
 | `companion_profile_user_set`（详见 §4.2.2） | `emotion_support_preference` / `disturbance_boundaries` / `preferred_conversation_topics[]` / `avoided_conversation_topics[]` | P0 |
 | `deletion_policy` | `delete_on_revoke` / `profile_reset_at`（详见 §4.2.3） | P0 |
 | `memory_controls` | `resummarize_requested_at` / `do_not_remember_rules[]`（详见 §4.2.4） | P0 |
@@ -1916,9 +1921,7 @@ def get_display_tier(field):
 | `privacy_grants.chat_content.granted` | 用户首方对话内容入记忆系统（含 STT 转写） | boolean | false（首启询问）| 后续 chat_message 不再加工为 atomic_facts / episode；历史按 §7.1 24h 反向清理 |
 | `privacy_grants.game_event_memory.granted` | 首方游戏事件可用于长期画像（不只实时反应）| boolean | true（默认开）| 后续 game_event 不入 derived_memory；只用于当前 session 实时反应 |
 | `privacy_grants.behavior_data.granted` | PC 行为信号（active_app / 输入派生）画像授权 | boolean | false | pc_signal 不再用于 playstyle_profile / companion_profile 推断 |
-| `privacy_grants.vlm_visual.granted` | 客户端获取屏幕画面（强 / 弱感知 + Diary 截图三种用途的根开关，详见 §3.1.5.4）| boolean | false | 强 / 弱感知 / Diary 截图全部停用 |
-| `privacy_grants.vlm_strong_sensing.granted` | 强感知（实时陪伴）子开关，依赖 vlm_visual | boolean | false | 立即停止强感知会话 |
-| `privacy_grants.vlm_visual.allow_local_save_for_diary` | Diary 高光时刻本地截图保存子开关，依赖 vlm_visual | boolean | false | 不再保存本地截图作日记插图 |
+| `privacy_grants.vlm_visual.granted` | 桌宠是否能看屏幕（**唯一根开关**：弱感知 + 强感知 + Diary 本地截图三种用途共用，详见 §3.1.5.4）| boolean | false | 三种用途全部失效：弱感知停采、强感知不可触发、Diary 本地截图不可保存 |
 | `privacy_grants.ui_text_reading.granted` | 客户端读取焦点窗口的 UI 文字（OCR / accessibility API）| boolean | false | window_title_redacted / ui_semantic_tags 停止采集 |
 | `privacy_grants.system_audio_music_context.granted` | 系统音频派生的音乐 / 氛围语义（now_playing / 音频派生）| boolean | false | audio_mood_tag / audio_bpm_signal / now_playing.* 停止采集 |
 | `privacy_grants.mcp_sources[]` | 已授权 MCP app 列表（每项含 mcp_app_id / granted / granted_at / fields_whitelist[]） | array<object> | [] | 撤回该 app 后立即停止拉取；24h 内清理该 app 来源的 derived_memory |
@@ -2205,22 +2208,23 @@ sequenceDiagram
     participant U as 用户
     participant C as Client (含本地 VLM)
     participant M as Memory
-    U->>C: 主动开启"桌宠看屏幕"
-    C->>M: mutation: update + consent.vlm_strong_sensing<br/>{ granted=true, app_scope=[...] }
-    M-->>C: ack applied
-    C->>M: pet_runtime_event<br/>{ event_type: vlm_strong_sensing_session_start,<br/>  ui_indicator_shown=true, app_scope=[...] }
+    Note over U,C: 前置：vlm_visual.granted=true（根开关已开）
+    U->>C: 主动触发"屏幕共享"<br/>= 进入强感知会话
+    C->>M: pet_runtime_event<br/>{ event_type: screen_share_session_start,<br/>  ui_indicator_shown=true, app_scope=[...] }
     M-->>C: ack
-    loop 强感知会话期间
-        C->>C: 屏幕帧 → 本地 VLM 实时处理 → 直接喂当下对话<br/>（current_context.local_visual_hint；无 vlm_observation 入记忆）
+    loop 屏幕共享会话期间
+        C->>C: 屏幕帧 → 本地 VLM 实时处理 → 直接喂当下对话<br/>（current_context.local_visual_hint；**不**入 vlm_observation）
+        C->>M: chat_message / pc_signal / user_action<br/>（其他 record_type 照常上报）
+        opt Diary 命中高光时刻
+            C->>C: 顺势本地保存截图 → diary_entry.assets（仅本地，原图永不上传）
+        end
     end
-    U->>C: 主动关闭 / 超过 vlm_strong_sensing_max_duration_sec
-    C->>M: mutation: update + consent.vlm_strong_sensing<br/>{ granted=false }
-    M-->>C: ack applied
-    C->>M: pet_runtime_event<br/>{ event_type: vlm_strong_sensing_session_end,<br/>  duration_sec, app_scope=[...] }
+    U->>C: 主动关闭 / 超过 screen_share_session_max_duration_sec
+    C->>M: pet_runtime_event<br/>{ event_type: screen_share_session_end,<br/>  duration_sec, app_scope=[...] }
     M-->>C: ack
 ```
 
-> 强感知期间画面语义只服务实时对话，**不**写 `vlm_observation`（即"视觉数据不入记忆"）。**其他 record_type 照常上报**：用户与桌宠的 `chat_message`（client_scene 用 `screen_share_chat` 标识）、`pc_signal`、`user_action` 等正常入记忆。强感知**专属新增**的跨系统审计事件有两类：①`update + consent.vlm_strong_sensing` mutation；②`pet_runtime_event` 会话起止审计。
+> 屏幕共享会话期间画面语义只服务实时对话，**不**写 `vlm_observation`（即"视觉数据不入记忆"）。**其他 record_type 照常上报**：用户与桌宠的 `chat_message`（client_scene 用 `screen_share_chat` 标识）、`pc_signal`、`user_action` 等正常入记忆。强感知**专属新增**的跨系统审计事件**只有一类**：`pet_runtime_event` 会话起止审计（`screen_share_session_start` / `screen_share_session_end`）。**没有独立的 mutation 入口**，因为强感知不再是独立授权，只是 `vlm_visual` 根授权下的运行时模式。
 
 #### 5.7.2 弱感知（长期数据源，入记忆）
 
@@ -2304,7 +2308,7 @@ sequenceDiagram
 | 用户显式操作（mutation） | 是 | 保存 / 删除 / 确认 / 纠错 / 授权变更 / 重新总结 |
 | PC 低敏环境信号（§3.1.3） | 授权后是 | 标准化事实，不写完整时间线；窗口标题必须脱敏 |
 | MCP app 白名单字段（经客户端中转） | 授权后是 | 只允许元数据 / 任务标题 / app 自生成摘要 / 来源类型 |
-| **VLM 强感知语义结果** | **否** | mentor 反馈翻转：仅服务实时陪伴对话，**不**写 `vlm_observation`；跨系统只留 `update + consent.vlm_strong_sensing` mutation 与 `pet_runtime_event` 会话审计事件 |
+| **VLM 强感知语义结果** | **否** | mentor 反馈翻转：仅服务实时陪伴对话，**不**写 `vlm_observation`；跨系统只留 `pet_runtime_event` 屏幕共享会话起止审计（`screen_share_session_start/end`） |
 | **VLM 弱感知完整语义结果** | **授权后是** | mentor 反馈翻转：作为长期数据源；按用户配置档位（30/60/300/600/1800s）定时采集；含 `activity_category` / `semantic_tags[]` / `user_visible_summary` / `confidence`；原图永不进 |
 | profile / profile_meta / assessment | 是 | Memory 加工结果返回客户端；用户可删除 / 纠错 / 反馈 |
 | highlight_event | 是 | Memory 后台加工，**完全后台对象**：用户无 mutation 入口，仅通过 diary_detail 间接访问；用户对高光的反馈通过对包含该高光的日记 feedback 间接传递 |
@@ -2359,7 +2363,7 @@ sequenceDiagram
 | 3 | **双向字段全部拆名** | 全文不存在"方向同时是 Client→Memory 且 Memory→Client"的字段 |
 | 4 | **envelope 统一但不大包** | 每类数据有独立 record_type，按业务时机分别上报，没有"一个大 JSON 装所有" |
 | 5 | **游戏最小闭环成立** | 无 SDK 实时事件的游戏，靠 `game_launch` + 60s `idip_snapshot` 心跳 + `game_close` 能形成 episode 与近期聚合 |
-| 6 | **VLM 边界翻转落实** | 强感知**不**写 `vlm_observation`，仅留 `update + consent.vlm_strong_sensing` mutation 与 `pet_runtime_event` 会话审计；弱感知用**完整字段集** + 用户可调采样档位（30/60/300/600/1800s）；原图永不进 |
+| 6 | **VLM 边界翻转落实** | 强感知**不**写 `vlm_observation`，仅留 `pet_runtime_event` 屏幕共享会话审计（`screen_share_session_start/end`）；弱感知用**完整字段集** + 用户可调采样档位（30/60/300/600/1800s）；原图永不进 |
 | 7 | **MCP 路径单一** | MCP app → 客户端 → 记忆系统；记忆系统不直连任何 MCP server |
 | 8 | **current_context 边界清晰** | 客户端本地合成，不回写完整对象；本文档不出现 current_context 字段表 |
 | 9 | **Push 不推大对象** | 每条 push 只有 summary + resource_refs[]；客户端按需 pull |
@@ -2406,7 +2410,7 @@ sequenceDiagram
 >     - **不补的待确认项**：①数据保留期限（不属本文档，由记忆系统团队内部决定）；②MCP MVP 14 app 具体优先级（保持 §3.1.4 已写的 5 领域顺序）；③character_resonance_assessment 与 user-portrait PRD 字段对齐（PRD 多出字段由画像服务派生，不入记忆系统）；④多 OS 账户共用桌宠（桌宠按 OS 账户独立安装配置，envelope 不加 os_user_id_hash）。
 > 20. **Diary 模块对接补丁（基于 Diary PRD 二次审视）**：
 >     - **`feedback_reason` enum 加 `boring`**：日记特有的"内容无聊"反馈选项，§3.2.2 + §4.1.3.13 同步。
->     - **`vlm_visual.allow_local_save_for_diary` 子开关**：合并 Diary `privacy_grants.diary_screenshot` 到 vlm_visual 根开关下，作为子开关控制"高光时刻本地截图保存为日记插图"（原图永不上传，仅本地保留）。§3.1.5.4 新增。
+>     - **~~`vlm_visual.allow_local_save_for_diary` 子开关~~（v2.1 终版已删除）**：曾合并 Diary `privacy_grants.diary_screenshot` 到 vlm_visual 根开关下做子开关。v2.1 终版进一步简化为"单根开关模型"——Diary 高光截图改为"屏幕共享会话期间顺势本地保存"，**不需要独立子开关**；只要根开关 `vlm_visual.granted=true` 即可。详见变更说明 #25。
 >     - **`mailbox_summary` / `diary_list` / `diary_detail` 三个 query_type 新增**：客户端 pull 时记忆系统实时聚合 `unread_count` / `latest_unread_diary_id` / `has_new_diary_bubble`，**不持久化** mailbox_status。§4.1.2 新增。
 >     - **`diary_reply` 新增 source_record**：作为独立 record_type，含 `reply_id` / `diary_id` / `reply_text` / `reply_intent`（positive/negative/correction/preference/casual/delete_request） / `created_at` 字段。记忆系统据 `reply_intent` 派生 feedback / 触发 derived_memory 更新。§3.1.6 新增。
 >     - **`diary_entry` target_type 归类调整（v2.1 终版）**：原先列在 A 类（用户主动 save 创建），但 Diary PRD 实际流程是"每生理日 Diary 模块**自动生成 + 自动持久化**"，没有用户主动保存动作。已**移到 B 类**（Memory 自动加工的顶层资源，与 episode / atomic_fact 同类）；`save + diary_entry` mutation 路径**移除**；用户对日记的 mutation 入口仅剩 `update`（编辑标题/收藏/mailbox_status）/ `delete` / `feedback`。payload schema 仍由 Diary PRD §七.2 提供。
@@ -2417,6 +2421,7 @@ sequenceDiagram
 > 22. **§3.2.3 target_type 重构为三表**：原 §3.2.3 单表存在 8 个问题（diary_reply 混淆 / "谁创建"列维度混乱 / 标题过简 / 缺 mutability_policy 列 / 示例 vs 完整清单模糊 / 排序混乱 / 与 §3.2.1 关系不清 / assessment 命名不一致）。重构为三个小节：①§3.2.3.1 命名约定与三类划分（**A 类用户主动 save / B 类 Memory 加工 / C 类子命名空间字段**）；②§3.2.3.2 target_type 示例表（按 A/B/C 分组，含 mutability_policy + 详见章节列）；③§3.2.3.3 action × target_type 矩阵（5 action × 12 target 类型完整可达性）。同时声明 highlight_event 不在 target_type 表内（v2.1 完全后台化）。
 > 26. **chat_message 字段调整**：①删除 `reply_to_message_id`（桌宠对话是 1v1 + 时序线性，"引用回复历史某条"产品场景几乎不存在；日记回复已由 §3.1.6 `diary_reply.diary_id` 承载，无需在 chat 上再设字段）；②新增 `game_session_id`（关联当前游戏对局，让 Memory 能把"对局中聊的"与"具体哪一局"关联，跨对局复盘场景受益）；③新增 `message_sequence`（会话内单调递增序号，离线 / 弱网下防乱序，比纯 occurred_at 排序更可靠）。两个新字段都 P1 可选。
 > 25. **§4.1.3 / §4.2 分层修正：profile_identity / pet_relationship 移到 §4.2**：原 §4.1.3.4 / §4.1.3.5 是 `user_only` 类占位章节（用户独占设置，AI 不参与推断），与 §4.1.3 章节定位"桌宠能从记忆系统读到的内容（derived_memory）"不符。v2.1 终版修订：①删除 §4.1.3.4 / §4.1.3.5 占位章节；②§4.1.3.6-§4.1.3.16 章节号全部 -2 顺移到 §4.1.3.4-§4.1.3.14；③§4.2 新增 §4.2.6 `profile_identity_user_set` + §4.2.7 `pet_relationship_user_set` 详细字段表；④全文 §4.1.3.X 引用同步 -2；⑤清理"资源族"工程化措辞为"字段族"。修订后 §4.1.3 纯 derived_memory + §4.2 纯 user_control_state，分层清晰。
+> 27. **VLM 授权坍缩为单根开关 + 强感知 ≡ 屏幕共享会话**（v2.1 终版二次简化）：原来的三段式授权（根开关 `vlm_visual.granted` + 子开关 `vlm_strong_sensing.granted` + 子开关 `vlm_visual.allow_local_save_for_diary`）层次过多、与产品心智不符。终版坍缩为**单根开关模型**：①只保留 `privacy_grants.vlm_visual.granted` 作为唯一授权（同时控制弱感知 / 强感知 / Diary 本地截图三种用途）；②**删除** `vlm_strong_sensing.granted` 与 `vlm_visual.allow_local_save_for_diary` 两个子开关；③**强感知 ≡ 屏幕共享会话**，不再是独立授权而是用户在根开关已开前提下的运行时模式；④**屏幕共享会话期间 Diary 顺势截图**，无需独立子开关；⑤**`consent.vlm_strong_sensing` target_type 删除**，屏幕共享开关变化不产生 `user_action` mutation，只产生 `pet_runtime_event` 会话审计；⑥event_type 重命名 `vlm_strong_sensing_session_start/end` → `screen_share_session_start/end`（与 client_scene `user_initiated_screen_share` / `screen_share_chat` 命名对齐）；⑦超时字段 `vlm_strong_sensing_max_duration_sec` → `screen_share_session_max_duration_sec`。具体修订：§3.1.1.4 类别 B 改名 / §3.1.1.5 client_scene 关联文案 / §3.1.5.1 删除 ① mutation 行 / §3.1.5.4 表删两行 + 重写"截图三种用途的授权层次" / §3.1.5.5 envelope 改名 / §4.2.1 privacy_grants 详细表删两行 / §4.2 总览 privacy_grants 枚举行精简 / §5.7.1 sequence diagram 删除 consent mutation 步骤 + 加 Diary 本地截图 opt 块 / §6 §7 §9 旧措辞同步收紧 / §3.2.3 不再保留 `consent.vlm_strong_sensing` 行（已在 §3.1.5.1 注解里说明）。
 >
 > **v2 → v1 既有变化（保留）**：
 > 1. 骨架从"传输契约 + 数据类别 + 场景"三层并列改为"按数据流向（上报 / 返回 / mutation）单线索"。
